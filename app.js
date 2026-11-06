@@ -266,10 +266,24 @@ async function handleSubmit(ev){
      if(!Number.isInteger(total)||total<0)throw Error('Peças realizadas devem ser um inteiro não negativo.');
      payload={data:v('novoData'),funcionario:v('novoFuncionario'),produto:v('novoProduto'),processo:v('novoProcesso'),inicio:v('novoInicio'),fim:v('novoFim'),realizado:total};
      page='lancamentos';filters={data:'',funcionario:'',produto:'',setor:'',grupo:''};
-   }else if(formType==='employee'){
+   }else if(formType==='employee'||formType==='employee_update'){
      if(!v('nome')||!v('matricula')||!v('setor'))throw Error('Informe nome, matrícula e setor.');
-     payload={nome:v('nome'),matricula:v('matricula'),setor:v('setor'),maquinas:fd.getAll('maquinas'),funcoes:fd.getAll('funcoes')};
+     if(v('grupo') && byId('grupos',v('grupo'))?.setor!==v('setor'))throw Error('Grupo diferente do setor informado.');
+     payload={id:v('id'),nome:v('nome'),matricula:v('matricula'),setor:v('setor'),grupo:v('grupo'),
+        maquinas:fd.getAll('maquinas'),funcoes:fd.getAll('funcoes')};
      page='funcionarios';
+   }else if(formType==='sector'){
+     if(!v('nome'))throw Error('Informe o nome do setor.');
+     payload={nome:v('nome'),descricao:v('descricao')};page='estrutura';
+   }else if(formType==='group'){
+     if(!v('nome')||!v('setor'))throw Error('Selecione um setor e informe o nome do grupo.');
+     payload={nome:v('nome'),codigo:v('codigo'),descricao:v('descricao'),setor:v('setor')};page='estrutura';
+   }else if(formType==='machine'){
+     if(!v('nome'))throw Error('Informe o nome da máquina.');
+     payload={nome:v('nome'),codigo:v('codigo'),tipo:v('tipo'),setor:v('setor'),descricao:v('descricao')};page='estrutura';
+   }else if(formType==='function'){
+     if(!v('nome'))throw Error('Informe o nome da função.');
+     payload={nome:v('nome'),descricao:v('descricao')};page='estrutura';
    }else if(formType==='product'){
      if(!v('nome')||!v('codigo'))throw Error('Informe o código e o nome do produto.');
      payload={codigo:v('codigo'),nome:v('nome'),descricao:v('descricao')};
@@ -307,6 +321,11 @@ function action(name,id){
  switch(name){
  case 'novo-apontamento':newEntry();break;
  case 'novo-funcionario':newEmployee();break;
+ case 'editar-funcionario':newEmployee(id);break;
+ case 'novo-setor':newSector();break;
+ case 'novo-grupo':newGroup(id);break;
+ case 'nova-maquina':newMachine();break;
+ case 'nova-funcao':newFunction();break;
  case 'novo-produto':newProduct();break;
  case 'novo-processo':newProcess();break;
  case 'vincular-processo':linkProcess(id);break;
