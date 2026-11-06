@@ -97,7 +97,7 @@ ${kpi('Funcionários',fNum(people),'♙',`${data.setores.length} setores cadastr
 <div class="compact-chart">${daily.map(r=>`<div class="compact-bar-group"><div class="compact-bar" style="height:${Math.max(6,r.value/maxBar*115)}px" title="${esc(fDate(r.day))}: ${fNum(r.value)} peças"></div><div class="compact-bar-label">${esc(r.day.slice(8))}/${esc(r.day.slice(5,7))}</div></div>`).join('')}</div>
 <div class="mini-split"><div class="mini-card"><div class="mini-num">${all.filter(l=>l.metaSnapshot&&l.realizado/l.metaSnapshot>1).length}</div><div class="mini-lbl">Apontamentos acima de 100%</div></div><div class="mini-card"><div class="mini-num">${all.filter(l=>minutesBetween(l.inicio,l.fim)<60).length}</div><div class="mini-lbl">Períodos parciais registrados</div></div></div></section>
 </div>
-<section class="card"><div class="section-head"><div><h3 class="section-title">Últimos apontamentos</h3><p class="section-sub">Resumo das operações registradas</p></div><button class="text-btn" data-page="lancamentos">Ver todos →</button></div>${tableApontamentos(rows)}</section>`}
+<section class="card"><div class="section-head"><div><h3 class="section-title">Últimos apontamentos</h3><p class="section-sub">Resumo das operações registradas</p></div><button class="text-btn" data-page="lancamentos">Ver todos →</button></div>${tableApontamentos(rows)}</section>${estruturaResumo(all)}`}
 function kpi(label,value,ico,foot,up){return `<article class="card kpi"><div class="kpi-top"><span>${label}</span><span class="kpi-icon">${ico}</span></div><div class="kpi-value">${value}</div><div class="kpi-foot">${up?'<strong>●</strong> ':''}${foot}</div></article>`}
 function tableApontamentos(rows){return `<div class="table-wrap"><table class="table"><thead><tr><th>Data</th><th>Funcionário</th><th>Produto / Processo</th><th>Período</th><th>Meta</th><th>Realizado</th><th>Eficiência</th></tr></thead><tbody>${rows.length?rows.map(l=>{const person=byId('funcionarios',l.funcionario),product=byId('produtos',l.produto),proc=byId('processos',l.processo),eff=l.metaSnapshot?l.realizado*100/l.metaSnapshot:null;return `<tr><td>${esc(fDate(l.data))}</td><td class="strong">${esc(person?.nome||l.funcionario)}</td><td><b>${esc(product?.nome||l.produto)}</b><small style="display:block;color:#94a1ad;margin-top:4px">${esc(proc?.nome||l.processo)}</small></td><td>${esc(l.inicio)}–${esc(l.fim)}</td><td>${fNum(l.metaSnapshot)}</td><td class="strong">${fNum(l.realizado)}</td><td>${effPill(eff)}</td></tr>`}).join(''):`<tr><td colspan="7" class="empty-row">Nenhum lançamento no filtro selecionado.</td></tr>`}</tbody></table></div>`}
 function selectOpts(collection,sel='',all=false,label='Todos'){const ar=data[collection]||[];return `${all?`<option value="">${label}</option>`:''}${ar.map(o=>`<option value="${esc(o.id)}" ${String(o.id)===String(sel)?'selected':''}>${esc(o.nome)}</option>`).join('')}`}
@@ -118,6 +118,48 @@ function funcionarios(){
    '<div><div class="eyebrow" style="color:#8998a8;letter-spacing:.7px;margin-bottom:8px">FUNÇÕES QUE DOMINA</div><div class="taglist">'+((f.funcoes||[]).length?f.funcoes.map(id=>'<span class="tag">'+esc(byId('funcoes',id)?.nome||id)+'</span>').join(''):'<span class="tag">Nenhuma função vinculada</span>')+'</div></div>'+
    '<div class="employee-bottom"><span class="pill green"><span class="badge-dot"></span>Ativo</span><div class="card-actions"><button class="text-btn" data-action="editar-funcionario" data-id="'+esc(f.id)+'">Editar cadastro</button><button class="text-btn" data-action="ver-funcionario" data-id="'+esc(f.id)+'">Ver desempenho →</button></div></div></article>'
  ).join('')+'</div>';
+}
+
+
+function estrutura(){
+ const sectors=(data.setores||[]);
+ const groups=(data.grupos||[]);
+ const machines=(data.maquinas||[]);
+ const toolbar=btnNew('novo-setor','Novo setor')+btnNew('novo-grupo','Novo grupo')+btnNew('nova-maquina','Nova máquina');
+ return title('Estrutura da fábrica','Organize setores, grupos de produção, máquinas e equipes para o BI.',toolbar)+
+ '<div class="notice"><strong>Hierarquia:</strong> cada funcionário tem um setor principal e pode integrar um grupo desse setor. As máquinas podem ser vinculadas a vários funcionários. Os lançamentos preservam o setor e grupo do momento da produção, mesmo após transferências.</div>'+
+ '<div class="structure-kpis"><div class="card mini-stat"><b>'+sectors.length+'</b><span>Setores</span></div><div class="card mini-stat"><b>'+groups.length+'</b><span>Grupos</span></div><div class="card mini-stat"><b>'+machines.length+'</b><span>Máquinas</span></div></div>'+
+ '<div class="page-head mini-head"><div><h2 class="section-title">Setores e grupos</h2><p class="page-subtitle">Exemplos: Inicialização, Montagem e Finalização. Dentro deles, Grupo 1, Grupo 2 etc.</p></div></div>'+
+ '<div class="data-grid">'+(sectors.length?sectors.map(sec=>{
+   const own=groups.filter(g=>g.setor===sec.id);
+   const team=data.funcionarios.filter(f=>f.setor===sec.id);
+   return '<article class="card structure-card"><div class="eyebrow">SETOR PRODUTIVO</div><h3>'+esc(sec.nome)+'</h3>'+
+    '<p class="muted-small">'+team.length+' funcionários · '+own.length+' grupos</p>'+
+    '<div class="group-stack">'+(own.length?own.map(g=>'<div class="group-line"><div><b>'+esc(g.nome)+'</b><small>'+esc(g.codigo||'Grupo de produção')+'</small></div><span class="pill blue">'+data.funcionarios.filter(f=>f.grupo===g.id).length+' pessoas</span></div>').join(''):'<div class="muted-small">Nenhum grupo cadastrado neste setor.</div>')+'</div>'+
+    '<button class="btn" data-action="novo-grupo" data-id="'+esc(sec.id)+'" style="width:100%;margin-top:15px">＋ Criar grupo neste setor</button></article>';
+ }).join(''):'<article class="card placeholder">Nenhum setor cadastrado. Comece em “Novo setor”.</article>')+'</div>'+
+ '<section class="card structure-table"><div class="section-head"><div><h3 class="section-title">Máquinas cadastradas</h3><p class="section-sub">Equipamentos disponíveis para atribuir aos funcionários.</p></div>'+btnNew('nova-maquina','Cadastrar máquina')+'</div>'+
+ '<div class="table-wrap"><table class="table"><thead><tr><th>Código</th><th>Máquina</th><th>Tipo</th><th>Setor de referência</th><th>Operadores habilitados</th></tr></thead><tbody>'+
+ (machines.length?machines.map(m=>'<tr><td>'+esc(m.codigo||'—')+'</td><td class="strong">'+esc(m.nome)+'</td><td>'+esc(m.tipo||'—')+'</td><td>'+esc(byId('setores',m.setor)?.nome||'Sem setor específico')+'</td><td>'+data.funcionarios.filter(f=>(f.maquinas||[]).includes(m.id)).length+'</td></tr>').join(''):'<tr><td colspan="5" class="empty-row">Nenhuma máquina cadastrada.</td></tr>')+
+ '</tbody></table></div></section>'+
+ '<section class="card structure-table"><div class="section-head"><div><h3 class="section-title">Funções e competências</h3><p class="section-sub">Habilidades disponíveis para seleção no cadastro dos funcionários.</p></div>'+btnNew('nova-funcao','Nova função')+'</div>'+
+ '<div class="taglist">'+(data.funcoes||[]).map(f=>'<span class="tag">'+esc(f.nome)+'</span>').join('')+'</div></section>';
+}
+function estruturaResumo(rows){
+ const groups=new Map();
+ for(const l of rows){
+   const k=String(l.setor||'')+'|'+String(l.grupo||'');
+   const old=groups.get(k)||{setor:l.setorNomeHistorico||byId('setores',l.setor)?.nome||'Sem setor',
+                            grupo:l.grupoNomeHistorico||byId('grupos',l.grupo)?.nome||'Sem grupo',
+                            count:0,realizado:0,meta:0};
+   old.count++;old.realizado+=Number(l.realizado)||0;old.meta+=Number(l.metaSnapshot)||0;
+   groups.set(k,old);
+ }
+ const grouped=[...groups.values()].sort((a,b)=>b.realizado-a.realizado);
+ return '<section class="card"><div class="section-head"><div><h3 class="section-title">Produção por setor e grupo</h3><p class="section-sub">Apuração baseada na classificação histórica de cada lançamento.</p></div><button class="text-btn" data-page="lancamentos">Filtrar apontamentos →</button></div>'+
+ '<div class="table-wrap"><table class="table"><thead><tr><th>Setor</th><th>Grupo</th><th>Apontamentos</th><th>Realizado</th><th>Meta</th><th>Eficiência</th></tr></thead><tbody>'+
+ (grouped.length?grouped.map(r=>'<tr><td class="strong">'+esc(r.setor)+'</td><td>'+esc(r.grupo)+'</td><td>'+r.count+'</td><td>'+fNum(r.realizado)+'</td><td>'+fNum(r.meta)+'</td><td>'+effPill(r.meta?100*r.realizado/r.meta:null)+'</td></tr>').join(''):'<tr><td colspan="6" class="empty-row">Ainda não há apontamentos.</td></tr>')+
+ '</tbody></table></div></section>';
 }
 
 function produtos(){let items=data.produtos;return `${title('Produtos e operações','Roteiros produtivos com tempo padrão de cada operação, em segundos por peça.',`${btnNew('novo-processo','Nova operação')}${btnNew('novo-produto','Novo produto')}`)}
