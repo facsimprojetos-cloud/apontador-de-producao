@@ -60,7 +60,7 @@ async function boot(){
 }
 async function handleLogin(ev){
  ev.preventDefault();
- const form=ev.currentTarget,button=form.querySelector('button[type="submit"]');
+ const form=ev.target,button=form.querySelector('button[type="submit"]');
  if(button){button.disabled=true;button.textContent='Validando acesso...'}
  try{
   const email=String(new FormData(form).get('email')||'').trim();
@@ -142,7 +142,7 @@ function reviseTime(id){const t=data.tempos.find(x=>x.id===id),emp=t?.funcionari
 async function handleSubmit(ev){
  ev.preventDefault();
  if(!authenticated){renderLogin();return}
- const form=ev.currentTarget,formType=form.dataset.type,fd=new FormData(form);
+ const form=ev.target,formType=form.dataset.type,fd=new FormData(form);
  const v=k=>String(fd.get(k)||'').trim();
  const button=form.querySelector('[type="submit"]');
  if(button){button.disabled=true;button.textContent='Gravando no Supabase...'}
