@@ -187,7 +187,64 @@ function toast(msg){const t=$('#toast');t.textContent=msg;t.classList.add('show'
 function updateOptions(){const prod=$('#novoProduto')?.value,p=$('#novoProcesso');if(!p)return;let items=data.roteiro.filter(r=>r.produto===prod).map(r=>byId('processos',r.processo)).filter(Boolean);p.innerHTML=items.map(o=>`<option value="${esc(o.id)}">${esc(o.nome)}</option>`).join('');updatePreview()}
 function updatePreview(){const e=$('#novoFuncionario'),p=$('#novoProduto'),pr=$('#novoProcesso');if(!e||!p||!pr)return;const v=getTime(e.value,p.value,pr.value),start=$('#novoInicio')?.value,end=$('#novoFim')?.value,done=Number($('#novoRealizado')?.value||0);let min=minutesBetween(start,end);const valid=v&&min>0&&min<=720;const meta=valid?Math.round(min*60/v.segundos):0;const eff=meta?done/meta*100:null;const preview=$('#entryPreview');if(!preview)return;preview.innerHTML=`<div><strong>Tempo aplicado</strong><b>${v?fNum(v.segundos,1)+' s':'—'}</b><small>${v?`Fonte ${v.fonte}`:'Sem roteiro'}</small></div><div><strong>Meta ajustada</strong><b>${valid?fNum(meta):'—'}</b><small>${valid?min+' minutos':'Verifique o período'}</small></div><div><strong>Eficiência</strong><b>${valid?pct(eff):'—'}</b><small>${v?.nivel?'Nível '+v.nivel:'Tempo padrão'}</small></div>`}
 function newEntry(){const body=`<div class="form-grid">${inputField('novoData','Data do apontamento','date',todayLocal())}${selectField('novoFuncionario','Funcionário',data.funcionarios,data.funcionarios[0]?.id)}${selectField('novoProduto','Produto',data.produtos,data.produtos[0]?.id)}${selectField('novoProcesso','Operação',[],null)}${inputField('novoInicio','Hora de início','time','08:00')}${inputField('novoFim','Hora de fim','time','09:00')}${inputField('novoRealizado','Peças realizadas','number',60,'min="0" step="1"')}<div class="field"><label>Origem da meta</label><div style="padding:11px 0;font-size:12px;color:#168468;font-weight:700">Automática — tempo individual</div></div></div><div class="modal-callout" id="entryPreview"></div>`;showModal('Novo apontamento','O sistema calcula a meta automaticamente com base no tempo e no período.',body,'Registrar apontamento','entry');updateOptions()}
-function newEmployee(){const body=`<div class="form-grid">${inputField('nome','Nome do funcionário')}${inputField('matricula','Matrícula')}${selectField('setor','Setor principal',data.setores,data.setores[0]?.id)}<div class="field"><label>Status</label><div style="padding:10px 0;color:#168468;font-weight:700">Ativo</div></div><div class="field full"><label>Máquinas habilitadas</label><div class="checkbox-grid">${data.maquinas.map(m=>`<label class="checkbox-line"><input type="checkbox" name="maquinas" value="${esc(m.id)}"> ${esc(m.nome)}</label>`).join('')}</div></div><div class="field full"><label>Funções que sabe realizar</label><div class="checkbox-grid">${data.funcoes.map(f=>`<label class="checkbox-line"><input type="checkbox" name="funcoes" value="${esc(f.id)}"> ${esc(f.nome)}</label>`).join('')}</div></div></div>`;showModal('Cadastrar funcionário','Defina o setor e todas as máquinas e funções habilitadas.',body,'Cadastrar funcionário','employee')}
+
+function employeeGroupOptions(setor,sel=''){
+ return '<option value="">Sem grupo específico</option>'+
+ (data.grupos||[]).filter(g=>g.ativo!==false&&g.setor===setor).map(g=>
+  '<option value="'+esc(g.id)+'" '+(String(g.id)===String(sel)?'selected':'')+'>'+esc(g.nome)+'</option>').join('');
+}
+function updateEmployeeGroups(){
+ const select=$('#employeeGrupo'),sector=$('#setor');
+ if(!select||!sector)return;
+ const prev=select.value;
+ select.innerHTML=employeeGroupOptions(sector.value,prev);
+}
+function optionalInput(name,label,value='',placeholder=''){
+ return '<div class="field"><label for="'+esc(name)+'">'+esc(label)+'</label><input class="input" type="text" name="'+esc(name)+'" id="'+esc(name)+'" value="'+esc(value)+'" placeholder="'+esc(placeholder)+'"></div>';
+}
+function newEmployee(id){
+ if(!data.setores.length){page='estrutura';render();toast('Cadastre um setor antes de incluir funcionários.');return;}
+ const f=id?byId('funcionarios',id):null;
+ if(id&&!f){toast('Funcionário não encontrado.');return;}
+ const setor=f?.setor||data.setores[0]?.id;
+ const body='<div class="form-grid">'+
+ inputField('nome','Nome do funcionário','text',f?.nome||'')+
+ inputField('matricula','Matrícula','text',f?.matricula||'')+
+ selectField('setor','Setor principal',data.setores,setor)+
+ '<div class="field"><label for="employeeGrupo">Grupo de produção (opcional)</label><select id="employeeGrupo" name="grupo" class="select">'+employeeGroupOptions(setor,f?.grupo||'')+'</select></div>'+
+ '<div class="field full"><div class="modal-tip">Funcionários podem mudar de setor ou grupo sem alterar os apontamentos históricos.</div></div>'+
+ '<div class="field full"><label>Máquinas habilitadas</label><div class="checkbox-grid">'+
+ (data.maquinas.length?data.maquinas.map(m=>'<label class="checkbox-line"><input type="checkbox" name="maquinas" value="'+esc(m.id)+'" '+((f?.maquinas||[]).includes(m.id)?'checked':'')+'> '+esc(m.nome)+'</label>').join(''):'<p class="muted-small">Nenhuma máquina cadastrada. Cadastre na aba Estrutura da fábrica.</p>')+
+ '</div></div><div class="field full"><label>Funções que sabe realizar</label><div class="checkbox-grid">'+
+ (data.funcoes.length?data.funcoes.map(fn=>'<label class="checkbox-line"><input type="checkbox" name="funcoes" value="'+esc(fn.id)+'" '+((f?.funcoes||[]).includes(fn.id)?'checked':'')+'> '+esc(fn.nome)+'</label>').join(''):'<p class="muted-small">Nenhuma função cadastrada.</p>')+
+ '</div></div></div>'+
+ (f?'<input type="hidden" name="id" value="'+esc(f.id)+'">':'');
+ showModal(f?'Editar funcionário':'Cadastrar funcionário','Escolha o setor, grupo e todas as máquinas e funções habilitadas.',body,f?'Salvar alterações':'Cadastrar funcionário',f?'employee_update':'employee');
+}
+function newSector(){
+ const body='<div class="form-grid">'+inputField('nome','Nome do setor')+optionalInput('descricao','Descrição (opcional)','', 'Ex.: Montagem, Inicialização, Finalização')+'</div>';
+ showModal('Cadastrar setor','Os setores organizam a produção e os grupos no BI.',body,'Salvar setor','sector');
+}
+function newGroup(sectorId){
+ if(!data.setores.length){newSector();return}
+ const body='<div class="form-grid">'+selectField('setor','Setor do grupo',data.setores,sectorId||data.setores[0]?.id)+
+ inputField('nome','Nome do grupo')+optionalInput('codigo','Código (opcional)','', 'Ex.: MONT-01')+
+ optionalInput('descricao','Descrição (opcional)')+'</div>';
+ showModal('Cadastrar grupo de produção','Ex.: Setor Montagem → Grupo Montagem 1.',body,'Salvar grupo','group');
+}
+function newMachine(){
+ const body='<div class="form-grid">'+inputField('nome','Nome da máquina')+
+ optionalInput('codigo','Código da máquina (opcional)','', 'Ex.: RET-01')+
+ optionalInput('tipo','Tipo da máquina (opcional)','', 'Ex.: Reta, Overloque, Galoneira')+
+ selectField('setor','Setor de referência (opcional)',data.setores,'',false)+
+ optionalInput('descricao','Observações (opcional)')+'</div>';
+ showModal('Cadastrar máquina','Depois você poderá selecionar esta máquina nos cadastros de funcionários.',body,'Salvar máquina','machine');
+}
+function newFunction(){
+ const body='<div class="form-grid">'+inputField('nome','Nome da função')+optionalInput('descricao','Descrição (opcional)')+'</div>';
+ showModal('Cadastrar função','A função ficará disponível como competência no cadastro de funcionários.',body,'Salvar função','function');
+}
+
 function newProduct(){showModal('Novo produto','Cadastre o produto e depois vincule as operações do roteiro.',`<div class="form-grid">${inputField('codigo','Código do produto')}${inputField('nome','Nome do produto')}<div class="field full"><label for="descricao">Descrição</label><textarea class="input" name="descricao" id="descricao" rows="3" style="min-height:80px"></textarea></div></div>`,'Salvar produto','product')}
 function newProcess(){showModal('Nova operação','O cadastro de operação é reutilizável em vários produtos.',`<div class="form-grid">${inputField('codigo','Código da operação')}${inputField('nome','Nome da operação')}${selectField('funcao','Competência relacionada',data.funcoes,data.funcoes[0]?.id,false)}</div>`,'Salvar operação','process')}
 function linkProcess(id){const p=byId('produtos',id);showModal('Vincular operação',`Produto: ${esc(p?.nome||id)}`,`<div class="form-grid"><input type="hidden" name="produto" value="${esc(id)}">${selectField('processo','Operação',data.processos,data.processos[0]?.id)}${inputField('tempo','Tempo padrão (segundos/peça)','number',60,'min="0.001" step="0.001"')}</div>`,'Vincular operação','linkprocess')}
@@ -263,7 +320,7 @@ function action(name,id){
  }
 }
 document.addEventListener('click',ev=>{let nav=ev.target.closest('[data-page]'),act=ev.target.closest('[data-action]');if(nav){if(!authenticated){renderLogin();return;}page=nav.dataset.page;search='';render();$('#sidebar').classList.remove('open');return}if(act)action(act.dataset.action,act.dataset.id)});
-document.addEventListener('change',ev=>{const t=ev.target;if(t.id==='filterData')filters.data=t.value,render();if(t.id==='filterFuncionario')filters.funcionario=t.value,render();if(t.id==='filterProduto')filters.produto=t.value,render();if(t.id==='filterSetor'){filters.setor=t.value;filters.grupo='';render();}if(t.id==='filterGrupo')filters.grupo=t.value,render();if(t.id==='novoProduto')updateOptions();if(['novoFuncionario','novoProcesso','novoInicio','novoFim','novoRealizado'].includes(t.id))updatePreview()});
+document.addEventListener('change',ev=>{const t=ev.target;if(t.id==='filterData')filters.data=t.value,render();if(t.id==='filterFuncionario')filters.funcionario=t.value,render();if(t.id==='filterProduto')filters.produto=t.value,render();if(t.id==='filterSetor'){filters.setor=t.value;filters.grupo='';render();}if(t.id==='filterGrupo')filters.grupo=t.value,render();if(t.id==='novoProduto')updateOptions();if(t.id==='setor'&&$('#employeeGrupo'))updateEmployeeGroups();if(['novoFuncionario','novoProcesso','novoInicio','novoFim','novoRealizado'].includes(t.id))updatePreview()});
 document.addEventListener('input',ev=>{if(ev.target.id==='employeeSearch'){search=ev.target.value;const pos=ev.target.selectionStart;render();const el=$('#employeeSearch');el.focus();el.setSelectionRange(pos,pos)}if(['novoRealizado','novoInicio','novoFim'].includes(ev.target.id))updatePreview()});
 document.addEventListener('submit',ev=>{if(ev.target.id==='modalForm')handleSubmit(ev);else if(ev.target.id==='loginForm')handleLogin(ev)});
 $('#overlay').addEventListener('click',closeModal);
