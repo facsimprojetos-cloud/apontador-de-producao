@@ -1,0 +1,48 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+  <meta name="theme-color" content="#10233b" />
+  <meta name="description" content="GUT | Apontador de Produção — ambiente demonstrativo" />
+  <title>GUT | Apontador de Produção</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <div class="app-shell">
+    <aside class="sidebar" id="sidebar" aria-label="Menu principal">
+      <div class="brand">
+        <div class="brand-mark"><span>G</span></div>
+        <div><div class="brand-name">GUT <span>Produção</span></div><div class="brand-sub">GESTÃO INDUSTRIAL</div></div>
+        <button id="closeMenu" class="icon-button close-menu" aria-label="Fechar menu">×</button>
+      </div>
+      <div class="sidebar-label">PLATAFORMA</div>
+      <nav class="nav" id="nav">
+        <button class="nav-link active" data-page="dashboard"><span class="nav-ico">▦</span><span>Visão geral</span></button>
+        <button class="nav-link" data-page="lancamentos"><span class="nav-ico">▤</span><span>Apontamentos</span></button>
+        <button class="nav-link" data-page="funcionarios"><span class="nav-ico">♙</span><span>Funcionários</span></button>
+        <button class="nav-link" data-page="produtos"><span class="nav-ico">▧</span><span>Produtos e operações</span></button>
+        <button class="nav-link" data-page="niveis"><span class="nav-ico">↗</span><span>Níveis e tempos</span></button>
+      </nav>
+      <div class="sidebar-spacer"></div>
+      <div class="sidebar-label">AMBIENTE</div>
+      <nav class="nav nav-bottom"><button class="nav-link" data-page="config"><span class="nav-ico">⚙</span><span>Configurações</span></button></nav>
+      <div class="sidebar-status"><span class="live-dot"></span><div><b>Modo demonstração</b><small>Sem alterações no Supabase</small></div></div>
+      <div class="sidebar-footer">GUT • Tecnologia para o chão de fábrica</div>
+    </aside>
+    <div class="main">
+      <header class="topbar">
+        <div class="topbar-left"><button id="openMenu" class="icon-button mobile-menu" aria-label="Abrir menu">☰</button><div class="breadcrumb">GUT / <strong id="breadcrumb">Visão geral</strong></div></div>
+        <div class="topbar-right"><span class="env-chip"><span class="live-dot"></span> DEMONSTRAÇÃO</span><div class="topbar-divider"></div><div class="avatar" title="Ambiente de demonstração">G</div></div>
+      </header>
+      <main id="content" class="content" aria-live="polite"></main>
+      <footer class="footer">Apontador de Produção • Protótipo funcional <span id="footerDate"></span> • Dados locais de demonstração</footer>
+    </div>
+  </div>
+  <div id="overlay" class="overlay hidden" aria-hidden="true"></div>
+  <div id="modal" class="modal-wrap hidden" role="presentation"></div>
+  <div id="toast" class="toast" role="status" aria-live="polite"></div>
+  <script src="data.js" defer></script>
+  <script src="app.js" defer></script>
+</body>
+</html>
