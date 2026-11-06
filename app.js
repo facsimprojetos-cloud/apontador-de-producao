@@ -84,7 +84,7 @@ function dashboard(){const all=data.lancamentos,tot=sums(all),people=data.funcio
 const rows=[...all].sort((a,b)=>(b.data+b.inicio).localeCompare(a.data+a.inicio)).slice(0,7);
 const daily=days.map(day=>({day,value:sums(all.filter(x=>x.data===day)).realizado}));const maxBar=Math.max(1,...daily.map(x=>x.value));
 return `${title('Visão geral','Acompanhe a produtividade e o desempenho da sua confecção.',btnNew('novo-apontamento','Novo apontamento'))}
-<section class="hero"><div class="hero-content"><div class="hero-overline">▰ CONTROLE DA PRODUÇÃO</div><h2>Mais visibilidade para produzir melhor, hora a hora.</h2><p>Indicadores, metas individualizadas e evolução dos operadores em um único lugar. Dados sincronizados com Supabase; os cadastros fictícios continuam identificados com [SIM].</p></div><div class="hero-actions"><button class="btn" data-page="lancamentos">Ver apontamentos →</button></div></section>
+<section class="hero"><div class="hero-content"><div class="hero-overline">▰ CONTROLE DA PRODUÇÃO</div><h2>Mais visibilidade para produzir melhor, hora a hora.</h2><p>Indicadores, metas individualizadas e evolução dos operadores em um único lugar. Dados sincronizados com Supabase, incluindo cadastros, metas e apontamentos em tempo real.</p></div><div class="hero-actions"><button class="btn" data-page="lancamentos">Ver apontamentos →</button></div></section>
 <div class="grid-kpis">
 ${kpi('Eficiência geral',pct(tot.eff),'↗','Média ponderada dos registros',tot.eff>=100)}
 ${kpi('Peças realizadas',fNum(tot.realizado),'▣',`Meta: ${fNum(tot.meta)} peças`,true)}
