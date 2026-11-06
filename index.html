@@ -4,7 +4,7 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
   <meta name="theme-color" content="#10233b" />
-  <meta name="description" content="GUT | Apontador de Produção — ambiente demonstrativo" />
+  <meta name="description" content="GUT | Apontador de Produção — interface de produção com dados no Supabase" />
   <title>GUT | Apontador de Produção</title>
   <link rel="stylesheet" href="styles.css" />
 </head>
@@ -33,16 +33,17 @@
     <div class="main">
       <header class="topbar">
         <div class="topbar-left"><button id="openMenu" class="icon-button mobile-menu" aria-label="Abrir menu">☰</button><div class="breadcrumb">GUT / <strong id="breadcrumb">Visão geral</strong></div></div>
-        <div class="topbar-right"><span class="env-chip"><span class="live-dot"></span> DEMONSTRAÇÃO</span><div class="topbar-divider"></div><div class="avatar" title="Ambiente de demonstração">G</div></div>
+        <div class="topbar-right"><span class="env-chip"><span class="live-dot"></span> SUPABASE</span><div class="topbar-divider"></div><button type="button" class="btn btn-ghost" data-action="sair" title="Encerrar sessão">Sair</button><div class="avatar" title="Ambiente de demonstração">G</div></div>
       </header>
       <main id="content" class="content" aria-live="polite"></main>
-      <footer class="footer">Apontador de Produção • Protótipo funcional <span id="footerDate"></span> • Dados locais de demonstração</footer>
+      <footer class="footer">Apontador de Produção • Protótipo funcional <span id="footerDate"></span> • Supabase • Dados sincronizados</footer>
     </div>
   </div>
   <div id="overlay" class="overlay hidden" aria-hidden="true"></div>
   <div id="modal" class="modal-wrap hidden" role="presentation"></div>
   <div id="toast" class="toast" role="status" aria-live="polite"></div>
-  <script src="data.js" defer></script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.117.1" defer></script>
+  <script src="supabase-bridge.js" defer></script>
   <script src="app.js" defer></script>
 </body>
 </html>
