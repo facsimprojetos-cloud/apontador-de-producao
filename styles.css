@@ -16,3 +16,31 @@
 .login-error{padding:12px;border-radius:10px;background:#fff2f1;color:#9e2a2a;margin:12px 0}
 .login-help{font-size:12px;line-height:1.65;color:#6a7787;margin-top:20px}
 @media(max-width:650px){.login-layout{padding:6px;min-height:65vh}.login-card{padding:22px}.topbar-right .btn{padding:6px 10px;font-size:11px}}
+
+/* Estrutura de fábrica: setores, grupos, máquinas */
+.structure-kpis{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px;margin:18px 0 23px}
+.structure-kpis .mini-stat{padding:18px 22px;display:flex;flex-direction:column;gap:4px}
+.structure-kpis .mini-stat b{font-size:25px;color:#10233b}
+.structure-kpis .mini-stat span{font-size:12px;color:#718197}
+.structure-card{padding:22px}
+.structure-card h3{margin:7px 0 8px;font-size:19px;line-height:1.25}
+.muted-small{font-size:12px;color:#718197;line-height:1.5}
+.group-stack{display:flex;flex-direction:column;gap:7px;margin-top:15px}
+.group-line{padding:11px 12px;border:1px solid #e3eaf1;border-radius:10px;display:flex;justify-content:space-between;align-items:center;gap:8px}
+.group-line b,.group-line small{display:block}
+.group-line b{font-size:12px;color:#15283d}
+.group-line small{font-size:11px;color:#718197;margin-top:3px}
+.structure-table{margin-top:21px}
+.mini-head{margin:18px 0 10px}
+.card-actions{display:flex;gap:12px;flex-wrap:wrap;justify-content:flex-end}
+.modal-tip{border-radius:10px;padding:11px 14px;background:#eff7fc;color:#335b71;font-size:12px;line-height:1.5}
+@media(max-width:700px){
+ .structure-kpis{gap:7px}
+ .structure-kpis .mini-stat{padding:13px 11px}
+ .structure-kpis .mini-stat b{font-size:21px}
+ .structure-kpis .mini-stat span{font-size:11px}
+ .card-actions{width:100%;justify-content:space-between}
+ .group-line{align-items:flex-start}
+ .structure-table .section-head{flex-wrap:wrap;gap:12px}
+ .filters{flex-wrap:wrap}
+}
