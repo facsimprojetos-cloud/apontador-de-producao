@@ -1,8 +1,7 @@
 /* GUT Apontador — interface conectada ao Supabase Auth e funções RPC protegidas por RLS. */
 (() => {
 'use strict';
-const STORAGE = 'gut_apontador_demo_v1';
-const NAMES = {dashboard:'Visão geral',lancamentos:'Apontamentos',funcionarios:'Funcionários',produtos:'Produtos e operações',niveis:'Níveis e tempos',config:'Configurações'};
+const NAMES = {dashboard:'Visão geral',lancamentos:'Apontamentos',funcionarios:'Funcionários',estrutura:'Estrutura da fábrica',produtos:'Produtos e operações',niveis:'Níveis e tempos',config:'Configurações'};
 const $ = s => document.querySelector(s);
 const byId = (collection,id) => (data[collection]||[]).find(x=>String(x.id)===String(id));
 const esc = value => String(value??'').replace(/[&<>"']/g, s=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[s]));
@@ -16,17 +15,17 @@ const timeItem=(funcionario,produto,processo)=>data.tempos.find(t=>t.funcionario
 const routeItem=(produto,processo)=>data.roteiro.find(r=>r.produto===produto&&r.processo===processo);
 function getTime(funcionario,produto,processo){const t=timeItem(funcionario,produto,processo),r=routeItem(produto,processo);if(!r)return null;return {segundos:Number(t?.segundos??r.tempo),nivel:t?.nivel??null,fonte:t?'individual':'padrão',vinculo:t?.id??null}}
 function augment(l){const t=getTime(l.funcionario,l.produto,l.processo);if(l.tempoSnapshot==null) l.tempoSnapshot=t?.segundos??null;if(l.nivelSnapshot===undefined||l.nivelSnapshot===null)l.nivelSnapshot=t?.nivel??null;if(l.metaSnapshot==null)l.metaSnapshot=l.tempoSnapshot?Math.round(minutesBetween(l.inicio,l.fim)*60/l.tempoSnapshot):0;return l}
-let data={setores:[],maquinas:[],funcoes:[],funcionarios:[],produtos:[],processos:[],roteiro:[],niveis:[],tempos:[],lancamentos:[]};
+let data={setores:[],grupos:[],maquinas:[],funcoes:[],funcionarios:[],produtos:[],processos:[],roteiro:[],niveis:[],tempos:[],lancamentos:[]};
 let authenticated=false;
 let authorizedEmail='';
 function persist() {} // Persistência é feita exclusivamente no Supabase; sem dados locais.
-const $main=$('#content');let page='dashboard', search='', filters={data:'',funcionario:'',produto:''},selectedProduct='';
+const $main=$('#content');let page='dashboard', search='', filters={data:'',funcionario:'',produto:'',setor:'',grupo:''},selectedProduct='';
 function sums(rows){const realizado=rows.reduce((a,r)=>a+(Number(r.realizado)||0),0),meta=rows.reduce((a,r)=>a+(Number(r.metaSnapshot)||0),0);return {realizado,meta,eff:meta?realizado*100/meta:null,total:rows.length}}
 function pct(value){return value==null?'—':fNum(value,2)+'%'}
 function effPill(value){return `<span class="pill ${value==null?'grey':value>=100?'green':value>=85?'amber':'grey'}">${pct(value)}</span>`}
 function title(text,sub,right=''){return `<div class="page-head"><div><div class="eyebrow">GUT • CHÃO DE FÁBRICA</div><h1 class="page-title">${esc(text)}</h1><p class="page-subtitle">${esc(sub)}</p></div>${right?`<div class="toolbar">${right}</div>`:''}</div>`}
 const btnNew=(what,label)=>`<button class="btn btn-primary" data-action="${what}">＋ ${label}</button>`;
-function pageMarkup(){switch(page){case 'dashboard':return dashboard();case 'lancamentos':return lancamentos();case 'funcionarios':return funcionarios();case 'produtos':return produtos();case 'niveis':return niveis();case 'config':return config();default:return dashboard()}}
+function pageMarkup(){switch(page){case 'dashboard':return dashboard();case 'lancamentos':return lancamentos();case 'funcionarios':return funcionarios();case 'estrutura':return estrutura();case 'produtos':return produtos();case 'niveis':return niveis();case 'config':return config();default:return dashboard()}}
 
 function renderLogin(message=''){
  authenticated=false;
@@ -74,7 +73,7 @@ async function handleLogin(ev){
 async function logout(){
  try{if(window.GUT_API)await window.GUT_API.logout()}catch(_){}
  authenticated=false;authorizedEmail='';
- data={setores:[],maquinas:[],funcoes:[],funcionarios:[],produtos:[],processos:[],roteiro:[],niveis:[],tempos:[],lancamentos:[]};
+ data={setores:[],grupos:[],maquinas:[],funcoes:[],funcionarios:[],produtos:[],processos:[],roteiro:[],niveis:[],tempos:[],lancamentos:[]};
  renderLogin();
  toast('Sessão encerrada.');
 }
@@ -106,9 +105,21 @@ function lancamentos(){let rows=[...data.lancamentos];if(filters.data)rows=rows.
 return `${title('Apontamentos de produção','Registros por período, funcionário, produto e operação.',`<button class="btn" data-action="exportar-csv">⇩ Exportar CSV</button>${btnNew('novo-apontamento','Novo apontamento')}`)}
 <div class="card controls-panel"><div class="filters"><input class="input" aria-label="Filtrar data" type="date" id="filterData" value="${esc(filters.data)}"><select class="select" id="filterFuncionario" aria-label="Filtrar funcionário">${selectOpts('funcionarios',filters.funcionario,true,'Todos os funcionários')}</select><select class="select" id="filterProduto" aria-label="Filtrar produto">${selectOpts('produtos',filters.produto,true,'Todos os produtos')}</select><button class="btn btn-ghost" data-action="limpar-filtros">Limpar</button></div><div class="stats-row"><span><b>${total.total}</b> registros</span><span><b>${fNum(total.realizado)}</b> peças</span><span><b>${pct(total.eff)}</b> eficiência</span></div></div>
 <section class="card">${tableApontamentos(rows)}<div class="pagination">${rows.length} registro(s) exibido(s) • valores calculados pela meta histórica de cada lançamento</div></section>`}
-function funcionarios(){let items=data.funcionarios.filter(f=>!search||`${f.nome} ${byId('setores',f.setor)?.nome||''} ${f.id}`.toLowerCase().includes(search.toLowerCase()));return `${title('Funcionários','Equipe, setores, máquinas habilitadas e funções que cada operador domina.',btnNew('novo-funcionario','Cadastrar funcionário'))}
-<div class="card controls-panel"><input id="employeeSearch" class="input search" placeholder="⌕ Buscar funcionário..." aria-label="Buscar funcionário" value="${esc(search)}" /><div class="stats-row"><span><b>${data.funcionarios.length}</b> funcionários</span><span><b>${data.setores.length}</b> setores</span></div></div>
-<div class="data-grid">${items.map(f=>`<article class="card employee-card"><div class="employee-top"><div class="employee-avatar">${esc(initials(f.nome))}</div><div style="flex:1"><div class="employee-name">${esc(f.nome)}</div><div class="employee-code">Matrícula ${esc(f.matricula||f.id)}</div></div>${effPill(sums(data.lancamentos.filter(l=>l.funcionario===f.id)).eff)}</div><div class="employee-info"><span>Setor principal</span><strong>${esc(byId('setores',f.setor)?.nome||'Não definido')}</strong></div><div><div class="eyebrow" style="color:#8998a8;letter-spacing:.7px;margin-bottom:8px">MÁQUINAS</div><div class="taglist">${f.maquinas.length?f.maquinas.map(id=>`<span class="tag">${esc(byId('maquinas',id)?.nome||id)}</span>`).join(''):'<span class="tag">Não cadastradas</span>'}</div></div><div><div class="eyebrow" style="color:#8998a8;letter-spacing:.7px;margin-bottom:8px">COMPETÊNCIAS</div><div class="taglist">${f.funcoes.length?f.funcoes.map(id=>`<span class="tag">${esc(byId('funcoes',id)?.nome||id)}</span>`).join(''):'<span class="tag">Não cadastradas</span>'}</div></div><div class="employee-bottom"><span class="pill green"><span class="badge-dot"></span>Ativo</span><button class="text-btn" data-action="ver-funcionario" data-id="${esc(f.id)}">Ver desempenho →</button></div></article>`).join('')||'<div class="card placeholder"><h3>Não encontramos funcionários</h3><p>Experimente outro termo.</p></div>'}</div>`}
+
+function funcionarios(){
+ const items=data.funcionarios.filter(f=>!search||[f.nome,f.matricula,byId('setores',f.setor)?.nome,byId('grupos',f.grupo)?.nome].join(' ').toLowerCase().includes(search.toLowerCase()));
+ return title('Funcionários','Cadastre funcionários por setor e grupo, com suas máquinas e funções.',btnNew('novo-funcionario','Cadastrar funcionário'))+
+ '<div class="card controls-panel"><input id="employeeSearch" class="input search" placeholder="⌕ Buscar nome, matrícula, setor ou grupo..." aria-label="Buscar funcionário" value="'+esc(search)+'" /><div class="stats-row"><span><b>'+data.funcionarios.length+'</b> funcionários</span><span><b>'+data.setores.length+'</b> setores</span><span><b>'+(data.grupos||[]).length+'</b> grupos</span></div></div>'+
+ '<div class="data-grid">'+items.map(f=>
+   '<article class="card employee-card"><div class="employee-top"><div class="employee-avatar">'+esc(initials(f.nome))+'</div><div style="flex:1"><div class="employee-name">'+esc(f.nome)+'</div><div class="employee-code">Matrícula '+esc(f.matricula||f.id)+'</div></div>'+effPill(sums(data.lancamentos.filter(l=>l.funcionario===f.id)).eff)+'</div>'+
+   '<div class="employee-info"><span>Setor principal</span><strong>'+esc(byId('setores',f.setor)?.nome||'Não definido')+'</strong></div>'+
+   '<div class="employee-info"><span>Grupo de produção</span><strong>'+esc(byId('grupos',f.grupo)?.nome||'Sem grupo definido')+'</strong></div>'+
+   '<div><div class="eyebrow" style="color:#8998a8;letter-spacing:.7px;margin-bottom:8px">MÁQUINAS HABILITADAS</div><div class="taglist">'+((f.maquinas||[]).length?f.maquinas.map(id=>'<span class="tag">'+esc(byId('maquinas',id)?.nome||id)+'</span>').join(''):'<span class="tag">Nenhuma máquina vinculada</span>')+'</div></div>'+
+   '<div><div class="eyebrow" style="color:#8998a8;letter-spacing:.7px;margin-bottom:8px">FUNÇÕES QUE DOMINA</div><div class="taglist">'+((f.funcoes||[]).length?f.funcoes.map(id=>'<span class="tag">'+esc(byId('funcoes',id)?.nome||id)+'</span>').join(''):'<span class="tag">Nenhuma função vinculada</span>')+'</div></div>'+
+   '<div class="employee-bottom"><span class="pill green"><span class="badge-dot"></span>Ativo</span><div class="card-actions"><button class="text-btn" data-action="editar-funcionario" data-id="'+esc(f.id)+'">Editar cadastro</button><button class="text-btn" data-action="ver-funcionario" data-id="'+esc(f.id)+'">Ver desempenho →</button></div></div></article>'
+ ).join('')+'</div>';
+}
+
 function produtos(){let items=data.produtos;return `${title('Produtos e operações','Roteiros produtivos com tempo padrão de cada operação, em segundos por peça.',`${btnNew('novo-processo','Nova operação')}${btnNew('novo-produto','Novo produto')}`)}
 <div class="info-banner">As metas individuais são baseadas no tempo de cada operador. Quando não existe um tempo individual cadastrado, o sistema utiliza o tempo padrão do roteiro.</div>
 <div class="data-grid">${items.map(p=>{const rot=data.roteiro.filter(x=>x.produto===p.id);return `<article class="card product-card"><div class="taglist" style="margin-bottom:13px"><span class="pill blue">${esc(p.codigo||p.id)}</span><span class="pill grey">${rot.length} operações</span></div><h3>${esc(p.nome)}</h3><p>${esc(p.descricao||'Produto cadastrado')}</p>${rot.map(r=>{const pr=byId('processos',r.processo);return `<div class="process-row"><div><strong>${esc(pr?.nome||r.processo)}</strong><small>${esc(pr?.id||'')} • ${fNum(3600/r.tempo)} peças/h</small></div><div class="process-time">${fNum(r.tempo)} s<small>/peça</small></div></div>`}).join('')||'<div class="placeholder">Nenhuma operação vinculada.</div>'}<button class="btn" style="margin-top:16px;width:100%" data-action="vincular-processo" data-id="${esc(p.id)}">＋ Vincular operação</button></article>`}).join('')}</div>`}
