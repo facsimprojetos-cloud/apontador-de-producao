@@ -1,22 +1,43 @@
 # GUT Apontador de Produção
 
-Protótipo demonstrativo de controle de produção para confecção, com dashboard, apontamentos por hora/período parcial, funcionários, produtos, processos e níveis/tempos individuais.
+Frontend publicado via Netlify e conectado ao **Supabase** (projeto `PROJETOS`, schema `APONTADOR DE PRODUÇÃO`).
 
-## Ambiente
+## Acesso e segurança
 
-- GitHub: facsimprojetos-cloud/apontador-de-producao
-- Netlify (projeto separado): gut-apontador-producao
-- Publicação: branch `main`; diretório publicado `.`; sem comando de build.
-- Backend de destino (ainda não conectado): Supabase projeto `PROJETOS`, schema `APONTADOR DE PRODUÇÃO`.
+- Supabase Auth — login por e-mail e senha, sem contas anônimas.
+- Funções `public.apontador_carregar()` e `public.apontador_salvar()` no Postgres, com `SECURITY INVOKER` e **RLS**.
+- O schema operacional não precisa ser exposto diretamente na Data API; os RPCs estão no schema `public`.
+- `public.apontador_acessos` determina os usuários autorizados e seus perfis (admin, editor, leitor).
+- No frontend existe **apenas a chave publicável** do Supabase (projetada para uso no navegador). Nunca incluir `service_role`, secret keys ou senhas no repositório.
+- O perfil `leitor` pode ler mas não alterar. `admin` e `editor` têm acesso aos formulários de escrita.
+- A senha de acesso não é criada no GitHub: deve ser cadastrada pelo administrador no Supabase Auth.
 
-## Importante
+## Primeiro login (uma vez)
 
-Esta versão usa somente dados fictícios no navegador (`localStorage`). As operações **não são gravadas no Supabase** nem compartilhadas entre dispositivos. Não utilize dados reais ou sensíveis. Não há autenticação neste protótipo.
+Acesse o painel Supabase do projeto PROJETOS, escolha **Authentication → Users → Add user**, informe seu e-mail aprovado em `public.apontador_acessos`, defina uma senha forte e marque a opção de confirmação de e-mail quando disponível. Não publique ou envie essa senha no chat. Depois entre em https://gut-apontador-producao.netlify.app.
 
-Para conectar o Supabase real, configurar autenticação, políticas RLS, permissões e acesso seguro ao schema. Nunca incluir chaves secretas/service_role no HTML ou JavaScript público.
+Se o seu e-mail não estiver na lista de acesso, o login será recusado para uso das tabelas mesmo quando o usuário existir no Supabase Auth. Outras contas precisam ser autorizadas explicitamente pelo administrador, via `apontador_acessos`.
 
-## Fluxo de publicação
+## Funcionalidades disponíveis
 
-No projeto Netlify existente `gut-apontador-producao`, use **Link repository / Set up continuous deployment → GitHub → facsimprojetos-cloud/apontador-de-producao → main**. Publish directory `.`; build command vazio. Depois disso, novos commits em `main` atualizam automaticamente o site.
+- Dashboard, apontamentos, eficiência, funcionários/setor/máquinas/funções.
+- Produtos, processos e roteiro com tempo padrão em segundos.
+- Revisões individuais de tempo e nível com histórico das vigências; apontamentos anteriores preservam tempo/meta do momento.
+- Filtros e exportação CSV.
+- Dados carregados e gravados pelo Supabase; sem `localStorage` para armazenamento dos cadastros (o Supabase Auth guarda a sessão no navegador).
 
-.gitignore já exclui `.netlify/` e arquivos de ambiente.
+Os dados iniciais presentes no banco são **fictícios** e identificados com `[SIM]` ou `SIM-`. Não utilizar produção real enquanto não for validado.
+
+## Publicação automática
+
+Repositório: https://github.com/facsimprojetos-cloud/apontador-de-producao
+Site: https://gut-apontador-producao.netlify.app
+
+Branch de produção `main`. `netlify.toml` usa diretório publicado `.` e não executa build.
+
+## Observações
+
+- A biblioteca oficial do Supabase é carregada de CDN com versão fixa (2.117.1).
+- Para projetos de grande volume, a função atual que devolve todos os dados em JSON precisará ser substituída por consultas paginadas.
+- Revisões de tempo são manuais. Não há política salarial automática.
+- Edições de registros existentes, exclusões, configuração de novos níveis e gestão de acessos pela interface ainda não foram implementadas.
