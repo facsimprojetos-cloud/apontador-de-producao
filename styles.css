@@ -174,3 +174,7 @@ body.tv-page .content{width:100%;max-width:none;margin:0;padding:0;display:flex;
  .tv-panel-header{padding:10px}
  .tv-workspace{padding:12px 9px}
 }
+
+/* Identidade GUT na navegação */
+.sidebar .brand{padding:3px 11px 28px;justify-content:space-between;min-height:83px}
+.gut-sidebar-logo{width:193px;height:auto;max-height:69px;object-fit:contain;object-position:left center;display:block}
