@@ -11,6 +11,15 @@ const initials = s=>String(s||'').split(/\s+/).filter(Boolean).slice(0,2).map(t=
 const first = s=>String(s||'').split(' ')[0];
 const minutesBetween=(a,b)=>{const [ah,am]=(a||'00:00').split(':').map(Number),[bh,bm]=(b||'00:00').split(':').map(Number);let n=bh*60+bm-ah*60-am; if(n<=0)n+=1440;return n};
 const todayLocal=()=>{const d=new Date(),offset=d.getTimezoneOffset();return new Date(d.getTime()-offset*60000).toISOString().slice(0,10)};
+const daysAgoLocal=(days)=>{const d=new Date();d.setDate(d.getDate()-days);return new Date(d.getTime()-d.getTimezoneOffset()*60000).toISOString().slice(0,10)};
+const emptyFilters=()=>({inicio:'',fim:'',funcionario:'',produto:'',processo:'',setor:'',grupo:''});
+function filteredRows(opts){
+ return (data.lancamentos||[]).filter(l=>
+  (!opts.inicio||String(l.data)>=opts.inicio)&&(!opts.fim||String(l.data)<=opts.fim)&&
+  (!opts.funcionario||l.funcionario===opts.funcionario)&&(!opts.produto||l.produto===opts.produto)&&
+  (!opts.processo||l.processo===opts.processo)&&(!opts.setor||l.setor===opts.setor)&&(!opts.grupo||l.grupo===opts.grupo));
+}
+const isFinished=(l)=>data.roteiro.some(r=>r.produto===l.produto&&r.processo===l.processo&&r.final===true);
 const timeItem=(funcionario,produto,processo)=>data.tempos.find(t=>t.funcionario===funcionario&&t.produto===produto&&t.processo===processo);
 const routeItem=(produto,processo)=>data.roteiro.find(r=>r.produto===produto&&r.processo===processo);
 function getTime(funcionario,produto,processo){const t=timeItem(funcionario,produto,processo),r=routeItem(produto,processo);if(!r)return null;return {segundos:Number(t?.segundos??r.tempo),nivel:t?.nivel??null,fonte:t?'individual':'padrão',vinculo:t?.id??null}}
@@ -19,7 +28,7 @@ let data={setores:[],grupos:[],maquinas:[],funcoes:[],funcionarios:[],produtos:[
 let authenticated=false;
 let authorizedEmail='';
 function persist() {} // Persistência é feita exclusivamente no Supabase; sem dados locais.
-const $main=$('#content');let page='dashboard', search='', filters={data:'',funcionario:'',produto:'',setor:'',grupo:''},selectedProduct='';
+const $main=$('#content');let page='dashboard', search='', filters=emptyFilters(),selectedProduct='';
 function sums(rows){const realizado=rows.reduce((a,r)=>a+(Number(r.realizado)||0),0),meta=rows.reduce((a,r)=>a+(Number(r.metaSnapshot)||0),0);return {realizado,meta,eff:meta?realizado*100/meta:null,total:rows.length}}
 function pct(value){return value==null?'—':fNum(value,2)+'%'}
 function effPill(value){return `<span class="pill ${value==null?'grey':value>=100?'green':value>=85?'amber':'grey'}">${pct(value)}</span>`}
@@ -162,9 +171,26 @@ function estruturaResumo(rows){
  '</tbody></table></div></section>';
 }
 
-function produtos(){let items=data.produtos;return `${title('Produtos e operações','Roteiros produtivos com tempo padrão de cada operação, em segundos por peça.',`${btnNew('novo-processo','Nova operação')}${btnNew('novo-produto','Novo produto')}`)}
-<div class="info-banner">As metas individuais são baseadas no tempo de cada operador. Quando não existe um tempo individual cadastrado, o sistema utiliza o tempo padrão do roteiro.</div>
-<div class="data-grid">${items.map(p=>{const rot=data.roteiro.filter(x=>x.produto===p.id);return `<article class="card product-card"><div class="taglist" style="margin-bottom:13px"><span class="pill blue">${esc(p.codigo||p.id)}</span><span class="pill grey">${rot.length} operações</span></div><h3>${esc(p.nome)}</h3><p>${esc(p.descricao||'Produto cadastrado')}</p>${rot.map(r=>{const pr=byId('processos',r.processo);return `<div class="process-row"><div><strong>${esc(pr?.nome||r.processo)}</strong><small>${esc(pr?.id||'')} • ${fNum(3600/r.tempo)} peças/h</small></div><div class="process-time">${fNum(r.tempo)} s<small>/peça</small></div></div>`}).join('')||'<div class="placeholder">Nenhuma operação vinculada.</div>'}<button class="btn" style="margin-top:16px;width:100%" data-action="vincular-processo" data-id="${esc(p.id)}">＋ Vincular operação</button></article>`}).join('')}</div>`}
+
+function produtos(){
+ const items=data.produtos;
+ return title('Produtos e operações','Defina o roteiro e qual operação representa a peça pronta.',btnNew('novo-processo','Nova operação')+btnNew('novo-produto','Novo produto'))+
+ '<div class="info-banner">Os tempos padrão continuam calculando as metas. A última operação serve para contar as peças prontas no painel da TV.</div>'+
+ '<div class="data-grid">'+items.map(p=>{
+  const rot=data.roteiro.filter(x=>x.produto===p.id).sort((a,b)=>(a.etapa||0)-(b.etapa||0));
+  const final=rot.find(r=>r.final===true);
+  const nomeFinal=final?byId('processos',final.processo)?.nome||'Operação cadastrada':null;
+  return '<article class="card product-card"><div class="taglist" style="margin-bottom:13px"><span class="pill blue">'+esc(p.codigo||p.id)+'</span><span class="pill grey">'+rot.length+' operações</span></div>'+
+   '<h3>'+esc(p.nome)+'</h3><p>'+esc(p.descricao||'Produto cadastrado')+'</p>'+
+   '<div class="product-final-status '+(final?'is-set':'')+'"><span>✓ PEÇAS PRONTAS</span><strong>'+(final?esc(nomeFinal):'Operação final não definida')+'</strong></div>'+
+   rot.map(r=>{
+    const pr=byId('processos',r.processo);
+    return '<div class="process-row"><div><strong>'+esc(pr?.nome||r.processo)+(r.final===true?' <span class="pill green">ETAPA FINAL</span>':'')+'</strong><small>Etapa '+esc(r.etapa||'—')+' · '+fNum(3600/r.tempo)+' peças/h</small></div><div class="process-time">'+fNum(r.tempo)+' s<small>/peça</small></div></div>';
+   }).join('')+
+   '<div class="product-actions"><button class="btn" data-action="vincular-processo" data-id="'+esc(p.id)+'">＋ Vincular operação</button><button class="btn btn-primary" data-action="marcar-final" data-id="'+esc(p.id)+'">✓ Definir operação final</button></div></article>';
+ }).join('')+'</div>';
+}
+
 function niveis(){const percent=data.lancamentos.filter(l=>l.tempoSnapshot!=null).length;return `${title('Níveis e tempos individuais','Metas personalizadas por funcionário, produto e operação, com histórico preservado.',btnNew('revisar-tempo','Revisar tempo individual'))}
 <div class="level-cards">${data.niveis.map(n=>`<div class="card level-card"><div class="level-number">${esc(n.id)}</div><h3>Nível ${esc(n.id)} — ${esc(n.nome)}</h3><p>${esc(n.descricao)}</p></div>`).join('')}</div>
 <div class="notice"><strong>Metodologia:</strong> ao revisar o tempo, os apontamentos anteriores continuam usando a meta histórica. Nesta versão, a revisão é manual e salva no Supabase; nenhuma alteração salarial é executada.</div>
@@ -245,6 +271,17 @@ function newFunction(){
  showModal('Cadastrar função','A função ficará disponível como competência no cadastro de funcionários.',body,'Salvar função','function');
 }
 
+
+function setFinalOperation(productId){
+ const prod=byId('produtos',productId);
+ if(!prod){toast('Produto não encontrado.');return;}
+ const rot=data.roteiro.filter(r=>r.produto===productId).sort((a,b)=>(a.etapa||0)-(b.etapa||0));
+ if(!rot.length){toast('Cadastre primeiro uma operação para este produto.');return;}
+ const options='<option value="">Nenhuma operação final</option>'+rot.map(r=>'<option value="'+esc(r.id)+'" '+(r.final===true?'selected':'')+'>Etapa '+esc(r.etapa||'—')+' — '+esc(byId('processos',r.processo)?.nome||r.processo)+'</option>').join('');
+ const body='<div class="form-grid"><input type="hidden" name="produto" value="'+esc(productId)+'"><div class="field full"><label for="finalRoteiro">Última operação do produto</label><select id="finalRoteiro" class="select" name="roteiro" required>'+options+'</select></div><div class="field full"><p class="modal-tip">Peças prontas = soma das peças realizadas nos apontamentos desta operação. A seleção passa a valer também para os relatórios históricos deste produto.</p></div></div>';
+ showModal('Definir operação final',esc(prod.nome)+' · Escolha qual operação conclui a peça.',body,'Salvar operação final','final_operation');
+}
+
 function newProduct(){showModal('Novo produto','Cadastre o produto e depois vincule as operações do roteiro.',`<div class="form-grid">${inputField('codigo','Código do produto')}${inputField('nome','Nome do produto')}<div class="field full"><label for="descricao">Descrição</label><textarea class="input" name="descricao" id="descricao" rows="3" style="min-height:80px"></textarea></div></div>`,'Salvar produto','product')}
 function newProcess(){showModal('Nova operação','O cadastro de operação é reutilizável em vários produtos.',`<div class="form-grid">${inputField('codigo','Código da operação')}${inputField('nome','Nome da operação')}${selectField('funcao','Competência relacionada',data.funcoes,data.funcoes[0]?.id,false)}</div>`,'Salvar operação','process')}
 function linkProcess(id){const p=byId('produtos',id);showModal('Vincular operação',`Produto: ${esc(p?.nome||id)}`,`<div class="form-grid"><input type="hidden" name="produto" value="${esc(id)}">${selectField('processo','Operação',data.processos,data.processos[0]?.id)}${inputField('tempo','Tempo padrão (segundos/peça)','number',60,'min="0.001" step="0.001"')}</div>`,'Vincular operação','linkprocess')}
@@ -265,7 +302,7 @@ async function handleSubmit(ev){
      if(min<=0||min>720)throw Error('O período deve ser maior que zero e não superar 12 horas.');
      if(!Number.isInteger(total)||total<0)throw Error('Peças realizadas devem ser um inteiro não negativo.');
      payload={data:v('novoData'),funcionario:v('novoFuncionario'),produto:v('novoProduto'),processo:v('novoProcesso'),inicio:v('novoInicio'),fim:v('novoFim'),realizado:total};
-     page='lancamentos';filters={data:'',funcionario:'',produto:'',setor:'',grupo:''};
+     page='lancamentos';filters=emptyFilters();
    }else if(formType==='employee'||formType==='employee_update'){
      if(!v('nome')||!v('matricula')||!v('setor'))throw Error('Informe nome, matrícula e setor.');
      if(v('grupo') && byId('grupos',v('grupo'))?.setor!==v('setor'))throw Error('Grupo diferente do setor informado.');
@@ -284,6 +321,11 @@ async function handleSubmit(ev){
    }else if(formType==='function'){
      if(!v('nome'))throw Error('Informe o nome da função.');
      payload={nome:v('nome'),descricao:v('descricao')};page='estrutura';
+   }else if(formType==='final_operation'){
+     if(!v('produto')||!v('roteiro'))throw Error('Escolha uma operação final.');
+     if(!data.roteiro.some(r=>r.id===v('roteiro')&&r.produto===v('produto')))throw Error('A operação selecionada não pertence ao produto.');
+     payload={produto:v('produto'),roteiro:v('roteiro')};
+     page='produtos';
    }else if(formType==='product'){
      if(!v('nome')||!v('codigo'))throw Error('Informe o código e o nome do produto.');
      payload={codigo:v('codigo'),nome:v('nome'),descricao:v('descricao')};
@@ -327,11 +369,12 @@ function action(name,id){
  case 'nova-maquina':newMachine();break;
  case 'nova-funcao':newFunction();break;
  case 'novo-produto':newProduct();break;
+ case 'marcar-final':setFinalOperation(id);break;
  case 'novo-processo':newProcess();break;
  case 'vincular-processo':linkProcess(id);break;
  case 'revisar-tempo':reviseTime(id);break;
- case 'ver-funcionario':filters={data:'',funcionario:id,produto:''};page='lancamentos';render();break;
- case 'limpar-filtros':filters={data:'',funcionario:'',produto:'',setor:'',grupo:''};render();break;
+ case 'ver-funcionario':filters={...emptyFilters(),funcionario:id};page='lancamentos';render();break;
+ case 'limpar-filtros':filters=emptyFilters();render();break;
  case 'exportar-csv':exportCsv();break;
  case 'sincronizar':loadData().then(()=>toast('Dados atualizados do Supabase.')).catch(e=>toast(e.message));break;
  case 'fechar-modal':closeModal();break;
