@@ -40,7 +40,7 @@ function kpiHtml(rows){
 }
 function cls(eff){return eff===null?'tv-neutral':eff>=100?'tv-good':eff>=85?'tv-mid':'tv-bad'}
 function rowsHtml(rows){
- if(!rows.length)return '<tr class="tv-empty"><td colspan="9">Nenhum apontamento nesse período. Altere os filtros para visualizar os dados.</td></tr>';
+ if(!rows.length)return '<tr class="tv-empty"><td colspan="10">Nenhum apontamento nesse período. Altere os filtros para visualizar os dados.</td></tr>';
  return rows.map(l=>{
   const e=l.metaSnapshot?100*Number(l.realizado||0)/Number(l.metaSnapshot):null;
   const fin=isFinished(l);
