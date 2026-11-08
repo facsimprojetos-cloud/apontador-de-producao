@@ -1,7 +1,7 @@
 /* GUT Apontador — interface conectada ao Supabase Auth e funções RPC protegidas por RLS. */
 (() => {
 'use strict';
-const NAMES = {dashboard:'Visão geral',lancamentos:'Apontamentos',funcionarios:'Funcionários',estrutura:'Estrutura da fábrica',produtos:'Produtos e operações',niveis:'Níveis e tempos',config:'Configurações'};
+const NAMES = {tv:'Painel para TV',dashboard:'Visão geral',lancamentos:'Apontamentos',funcionarios:'Funcionários',estrutura:'Estrutura da fábrica',produtos:'Produtos e operações',niveis:'Níveis e tempos',config:'Configurações'};
 const $ = s => document.querySelector(s);
 const byId = (collection,id) => (data[collection]||[]).find(x=>String(x.id)===String(id));
 const esc = value => String(value??'').replace(/[&<>"']/g, s=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[s]));
@@ -34,9 +34,10 @@ function pct(value){return value==null?'—':fNum(value,2)+'%'}
 function effPill(value){return `<span class="pill ${value==null?'grey':value>=100?'green':value>=85?'amber':'grey'}">${pct(value)}</span>`}
 function title(text,sub,right=''){return `<div class="page-head"><div><div class="eyebrow">GUT • CHÃO DE FÁBRICA</div><h1 class="page-title">${esc(text)}</h1><p class="page-subtitle">${esc(sub)}</p></div>${right?`<div class="toolbar">${right}</div>`:''}</div>`}
 const btnNew=(what,label)=>`<button class="btn btn-primary" data-action="${what}">＋ ${label}</button>`;
-function pageMarkup(){switch(page){case 'dashboard':return dashboard();case 'lancamentos':return lancamentos();case 'funcionarios':return funcionarios();case 'estrutura':return estrutura();case 'produtos':return produtos();case 'niveis':return niveis();case 'config':return config();default:return dashboard()}}
+function pageMarkup(){switch(page){case 'tv':return window.GUT_TV?window.GUT_TV.template(data):'<p>Painel de TV indisponível. Recarregue a página.</p>';case 'dashboard':return dashboard();case 'lancamentos':return lancamentos();case 'funcionarios':return funcionarios();case 'estrutura':return estrutura();case 'produtos':return produtos();case 'niveis':return niveis();case 'config':return config();default:return dashboard()}}
 
 function renderLogin(message=''){
+ window.GUT_TV?.stop();document.body.classList.remove('tv-page');
  authenticated=false;
  $('#breadcrumb').textContent='Acesso';
  $main.innerHTML = '<div class="login-layout"><section class="card login-card">' +
@@ -87,7 +88,22 @@ async function logout(){
  toast('Sessão encerrada.');
 }
 
-function render(){ if(!authenticated){renderLogin();return;} $main.innerHTML=pageMarkup(); $('#breadcrumb').textContent=NAMES[page];document.querySelectorAll('[data-page]').forEach(btn=>btn.classList.toggle('active',btn.dataset.page===page));$('#footerDate').textContent='• '+new Date().getFullYear() }
+function render(){
+ if(!authenticated){renderLogin();return;}
+ window.GUT_TV?.stop();
+ document.body.classList.toggle('tv-page',page==='tv');
+ $main.innerHTML=pageMarkup();
+ $('#breadcrumb').textContent=NAMES[page]||'Visão geral';
+ document.querySelectorAll('[data-page]').forEach(btn=>btn.classList.toggle('active',btn.dataset.page===page));
+ $('#footerDate').textContent='• '+new Date().getFullYear();
+ if(page==='tv'&&window.GUT_TV){
+   window.GUT_TV.start({
+     reload:()=>window.GUT_API.load(),
+     onUpdate:incoming=>{data=incoming;},
+     onBack:()=>{page='dashboard';render();}
+   });
+ }
+}
 function dashboard(){const all=filteredRows(filters),tot=sums(all),people=data.funcionarios.length,days=[...new Set(all.map(x=>x.data))].sort(),summary=data.funcionarios.map(e=>({...e,...sums(all.filter(l=>l.funcionario===e.id))})).filter(e=>e.total).sort((a,b)=>b.eff-a.eff);
 const rows=[...all].sort((a,b)=>(b.data+b.inicio).localeCompare(a.data+a.inicio)).slice(0,7);
 const daily=days.map(day=>({day,value:sums(all.filter(x=>x.data===day)).realizado}));const maxBar=Math.max(1,...daily.map(x=>x.value));
