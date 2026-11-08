@@ -308,7 +308,7 @@ function setFinalOperation(productId){
  const rot=data.roteiro.filter(r=>r.produto===productId).sort((a,b)=>(a.etapa||0)-(b.etapa||0));
  if(!rot.length){toast('Cadastre primeiro uma operação para este produto.');return;}
  const options='<option value="">Nenhuma operação final</option>'+rot.map(r=>'<option value="'+esc(r.id)+'" '+(r.final===true?'selected':'')+'>Etapa '+esc(r.etapa||'—')+' — '+esc(byId('processos',r.processo)?.nome||r.processo)+'</option>').join('');
- const body='<div class="form-grid"><input type="hidden" name="produto" value="'+esc(productId)+'"><div class="field full"><label for="finalRoteiro">Última operação do produto</label><select id="finalRoteiro" class="select" name="roteiro" required>'+options+'</select></div><div class="field full"><p class="modal-tip">Peças prontas = soma das peças realizadas nos apontamentos desta operação. A seleção passa a valer também para os relatórios históricos deste produto.</p></div></div>';
+ const body='<div class="form-grid"><input type="hidden" name="produto" value="'+esc(productId)+'"><div class="field full"><label for="finalRoteiro">Última operação do produto</label><select id="finalRoteiro" class="select" name="roteiro">'+options+'</select></div><div class="field full"><p class="modal-tip">Peças prontas = soma das peças realizadas nos apontamentos desta operação. A seleção passa a valer também para os relatórios históricos deste produto.</p></div></div>';
  showModal('Definir operação final',esc(prod.nome)+' · Escolha qual operação conclui a peça.',body,'Salvar operação final','final_operation');
 }
 
@@ -352,8 +352,8 @@ async function handleSubmit(ev){
      if(!v('nome'))throw Error('Informe o nome da função.');
      payload={nome:v('nome'),descricao:v('descricao')};page='estrutura';
    }else if(formType==='final_operation'){
-     if(!v('produto')||!v('roteiro'))throw Error('Escolha uma operação final.');
-     if(!data.roteiro.some(r=>r.id===v('roteiro')&&r.produto===v('produto')))throw Error('A operação selecionada não pertence ao produto.');
+     if(!v('produto'))throw Error('Escolha um produto.');
+     if(v('roteiro')&&!data.roteiro.some(r=>r.id===v('roteiro')&&r.produto===v('produto')))throw Error('A operação selecionada não pertence ao produto.');
      payload={produto:v('produto'),roteiro:v('roteiro')};
      page='produtos';
    }else if(formType==='product'){
