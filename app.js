@@ -28,7 +28,7 @@ let data={setores:[],grupos:[],maquinas:[],funcoes:[],funcionarios:[],produtos:[
 let authenticated=false;
 let authorizedEmail='';
 function persist() {} // Persistência é feita exclusivamente no Supabase; sem dados locais.
-const $main=$('#content');let page='dashboard', search='', filters=emptyFilters(),selectedProduct='';
+const $main=$('#content');let page=(window.location?.hash==='#tv'?'tv':'dashboard'), search='', filters=emptyFilters(),selectedProduct='';
 function sums(rows){const realizado=rows.reduce((a,r)=>a+(Number(r.realizado)||0),0),meta=rows.reduce((a,r)=>a+(Number(r.metaSnapshot)||0),0);return {realizado,meta,eff:meta?realizado*100/meta:null,total:rows.length}}
 function pct(value){return value==null?'—':fNum(value,2)+'%'}
 function effPill(value){return `<span class="pill ${value==null?'grey':value>=100?'green':value>=85?'amber':'grey'}">${pct(value)}</span>`}
@@ -100,7 +100,7 @@ function render(){
    window.GUT_TV.start({
      reload:()=>window.GUT_API.load(),
      onUpdate:incoming=>{data=incoming;},
-     onBack:()=>{page='dashboard';render();}
+     onBack:()=>{if(window.location?.hash==='#tv')window.location.hash='';page='dashboard';render();}
    });
  }
 }
@@ -411,10 +411,11 @@ function action(name,id){
  default:break;
  }
 }
-document.addEventListener('click',ev=>{let nav=ev.target.closest('[data-page]'),act=ev.target.closest('[data-action]');if(nav){if(!authenticated){renderLogin();return;}page=nav.dataset.page;search='';render();$('#sidebar').classList.remove('open');return}if(act)action(act.dataset.action,act.dataset.id)});
+document.addEventListener('click',ev=>{let nav=ev.target.closest('[data-page]'),act=ev.target.closest('[data-action]');if(nav){if(!authenticated){renderLogin();return;}page=nav.dataset.page;if(window.location){if(page==='tv')window.location.hash='tv';else if(window.location.hash==='#tv')window.location.hash='';}search='';render();$('#sidebar').classList.remove('open');return}if(act)action(act.dataset.action,act.dataset.id)});
 document.addEventListener('change',ev=>{const t=ev.target;if(t.id==='filterInicio'||t.id==='dashInicio'){filters.inicio=t.value;render();}if(t.id==='filterFim'||t.id==='dashFim'){filters.fim=t.value;render();}if(t.id==='filterFuncionario')filters.funcionario=t.value,render();if(t.id==='filterProduto')filters.produto=t.value,render();if(t.id==='filterProcesso')filters.processo=t.value,render();if(t.id==='filterSetor'){filters.setor=t.value;filters.grupo='';render();}if(t.id==='filterGrupo')filters.grupo=t.value,render();if(t.id==='novoProduto')updateOptions();if(t.id==='setor'&&$('#employeeGrupo'))updateEmployeeGroups();if(['novoFuncionario','novoProcesso','novoInicio','novoFim','novoRealizado'].includes(t.id))updatePreview()});
 document.addEventListener('input',ev=>{if(ev.target.id==='employeeSearch'){search=ev.target.value;const pos=ev.target.selectionStart;render();const el=$('#employeeSearch');el.focus();el.setSelectionRange(pos,pos)}if(['novoRealizado','novoInicio','novoFim'].includes(ev.target.id))updatePreview()});
 document.addEventListener('submit',ev=>{if(ev.target.id==='modalForm')handleSubmit(ev);else if(ev.target.id==='loginForm')handleLogin(ev)});
+window.addEventListener?.('hashchange',()=>{const target=window.location?.hash==='#tv'?'tv':'dashboard';if(target==='tv'&&page!=='tv'){page='tv';render();}else if(target==='dashboard'&&page==='tv'){page='dashboard';render();}});
 $('#overlay').addEventListener('click',closeModal);
 $('#openMenu').addEventListener('click',()=>$('#sidebar').classList.add('open'));
 $('#closeMenu').addEventListener('click',()=>$('#sidebar').classList.remove('open'));
