@@ -438,7 +438,7 @@ function config(){return title('Configurações','Integração com Supabase, seg
 
 /* ===================== BONIFICAÇÃO ===================== */
 let bonusMes=todayLocal().slice(0,7),bonusData=null,bonusLoading=false,bonusErr='',bonusErrMes='',rulesDraft=null,rulesDirty=false;
-let exemplo={salario:2000,ef:90,efCol:90,funcionario:''};
+let exemplo={salario:2000,ef:90,efCol:90,faltas:0,funcionario:''};
 const brl=n=>n==null||n===''?'—':Number(n).toLocaleString('pt-BR',{style:'currency',currency:'BRL'});
 const pctTxt=n=>n==null?'—':Number(n).toLocaleString('pt-BR',{maximumFractionDigits:2})+'%';
 const mesLabel=m=>{const [y,mm]=String(m||'').split('-');const n=['janeiro','fevereiro','março','abril','maio','junho','julho','agosto','setembro','outubro','novembro','dezembro'][Number(mm)-1];return n?n+' de '+y:m};
@@ -545,9 +545,12 @@ function comoFunciona(){
  (d.config.coletivaAtiva&&rc?`<li>Meta coletiva: soma-se de ${pctTxt(rc.first.pct)} a ${pctTxt(rc.last.pct)} conforme a eficiência ${BASES[d.config.coletivaBase]}.</li>`:'');
 }
 function exemploCalc(){
- const d=draft(),sal=Number(exemplo.salario||0);
+ const d=draft(),sal=Number(exemplo.salario||0),nf=Math.max(0,Math.floor(Number(exemplo.faltas||0)));
  const pct=bonusPctFor(exemplo.ef,sortedBy('faixas')),pctC=d.config.coletivaAtiva?bonusPctFor(exemplo.efCol,sortedBy('faixasColetiva')):0;
- return {pct,pctC,bonus:sal*pct/100,bonusC:sal*pctC/100,sal};
+ const perda=lossFor(nf,d.faltas.slice().sort((a,b)=>a.min-b.min));
+ const brutoI=sal*pct/100,brutoC=sal*pctC/100;
+ const bonus=brutoI*(1-perda/100),bonusC=brutoC*(1-(d.config.coletivaDescontaFaltas?perda:0)/100);
+ return {pct,pctC,sal,nf,perda,brutoI,brutoC,bonus,bonusC,desconto:(brutoI-bonus)+(brutoC-bonusC)};
 }
 function exemploHtml(){
  const d=draft(),c=exemploCalc();
@@ -562,9 +565,13 @@ function exemploHtml(){
  <div class="bn-ex-row"><span>Eficiência coletiva</span><i></i><input class="bn-ex-input" type="text" inputmode="decimal" id="exEfCol" value="${esc(String(exemplo.efCol).replace('.',','))}"><em>%</em></div>
  <div class="bn-ex-row"><span>Bonificação coletiva</span><i></i><b id="exPctC">${pctTxt(c.pctC)}</b></div>
  <div class="bn-ex-row"><span>Valor coletivo</span><i></i><b id="exBonusC">${brl(c.bonusC)}</b></div>`:''}
+ <div class="bn-ex-sep bn-ex-sep-red">FALTAS</div>
+ <div class="bn-ex-row"><span>Faltas no mês</span><i></i><input class="bn-ex-input" type="text" inputmode="numeric" id="exFaltas" value="${esc(exemplo.faltas)}"></div>
+ <div class="bn-ex-row"><span>Desconto</span><i></i><b id="exDesc" class="${c.desconto>0?'bn-neg':''}">${exFaltasTxt(c)}</b></div>
  <div class="bn-ex-total"><span>TOTAL A RECEBER</span><div><b id="exTotal">${brl(c.sal+c.bonus+c.bonusC)}</b><small id="exConta">${exConta(c)}</small></div></div>`;
 }
-const exConta=c=>'('+brl(c.sal)+' + '+brl(c.bonus)+(draft().config.coletivaAtiva?' + '+brl(c.bonusC):'')+')';
+const exConta=c=>'('+brl(c.sal)+' + '+brl(c.bonus)+(draft().config.coletivaAtiva?' + '+brl(c.bonusC):'')+(c.desconto>0?' · já com −'+brl(c.desconto)+' de faltas':'')+')';
+const exFaltasTxt=c=>c.nf?('Perde '+pctTxt(c.perda)+' do prêmio'+(draft().config.coletivaAtiva&&!draft().config.coletivaDescontaFaltas?' individual':'')+' → −'+brl(c.desconto)):'Sem desconto';
 function bannerTxt(){
  const fx=sortedFaixas(),last=fx[fx.length-1],d=draft(),fc=sortedBy('faixasColetiva'),lc=fc[fc.length-1];
  return (last?`${last.min}% OU MAIS DE EFICIÊNCIA = ${pctTxt(last.pct)} DE BONIFICAÇÃO SOBRE O SALÁRIO BASE`:'')+(d.config.coletivaAtiva&&lc?` · META COLETIVA ATÉ +${pctTxt(lc.pct)}`:'');
@@ -574,6 +581,7 @@ function refreshRulesDerived(){
  const set=(id,v)=>{const el=document.getElementById(id);if(el)el.innerHTML=v};
  set('exPct',pctTxt(c.pct));set('exBonus',brl(c.bonus));set('exPctC',pctTxt(c.pctC));set('exBonusC',brl(c.bonusC));
  set('exTotal',brl(c.sal+c.bonus+c.bonusC));set('exConta',exConta(c));
+ set('exDesc',exFaltasTxt(c));const de=document.getElementById('exDesc');if(de)de.classList.toggle('bn-neg',c.desconto>0);
  set('bnHow',comoFunciona());set('bnBanner',bannerTxt());
  const bar=document.getElementById('bnSaveBar');if(bar)bar.classList.toggle('dirty',rulesDirty);
 }
@@ -625,6 +633,7 @@ function rulesInput(t){
  else if(t.id==='exSalario')exemplo.salario=num(t.value)||0;
  else if(t.id==='exEf')exemplo.ef=num(t.value)||0;
  else if(t.id==='exEfCol')exemplo.efCol=num(t.value)||0;
+ else if(t.id==='exFaltas')exemplo.faltas=Math.max(0,Math.floor(num(t.value)||0));
  else return false;
  refreshRulesDerived();return true;
 }
@@ -903,7 +912,7 @@ document.addEventListener('change',ev=>{const t=ev.target;
  if(t.id==='nivFuncionario'){nivFunc=t.value;render();}
  if(t.id==='rotProduto'){rotProd=t.value;render();}
  if(page==='bonificacao'&&rulesConfig(t))return;
- if(t.id==='exFuncionario'){exemplo.funcionario=t.value;const l=(bonusData?.linhas||[]).find(x=>x.funcionario===t.value);if(l){exemplo.salario=l.salario??0;exemplo.ef=l.meta>0?+Number(l.eficiencia).toFixed(2):0;if(l.eficienciaColetiva!=null)exemplo.efCol=+Number(l.eficienciaColetiva).toFixed(2);}render();}
+ if(t.id==='exFuncionario'){exemplo.funcionario=t.value;const l=(bonusData?.linhas||[]).find(x=>x.funcionario===t.value);if(l){exemplo.salario=l.salario??0;exemplo.ef=l.meta>0?+Number(l.eficiencia).toFixed(2):0;if(l.eficienciaColetiva!=null)exemplo.efCol=+Number(l.eficienciaColetiva).toFixed(2);exemplo.faltas=l.faltas||0;}render();}
  if(t.id==='bonusMes'&&t.value){bonusMes=t.value;loadBonus(true);render();}
  if(t.name==='operacoes')updateOpsCounters();
  if(t.id==='setor'&&$('#employeeGrupo'))updateEmployeeGroups();

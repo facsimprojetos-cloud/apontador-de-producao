@@ -556,3 +556,6 @@ body:not(.is-admin) .admin-only{display:none!important}
 .bn-ex-total>div{padding:10px 8px}
 .bn-ex-total b{font-size:clamp(22px,2vw,30px);white-space:nowrap;line-height:1.1}
 .bn-ex-total small{display:block;margin-top:3px;font-size:11px;line-height:1.3;overflow-wrap:anywhere}
+.bn-ex-sep-red{border-top-color:var(--red);color:var(--red)}
+#exDesc{white-space:normal;text-align:right;font-size:13px}
+.bn-neg{color:var(--red)}
