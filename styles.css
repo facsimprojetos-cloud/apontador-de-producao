@@ -542,3 +542,17 @@ body:not(.is-admin) .admin-only{display:none!important}
 .bn-section-col+div .bn-label-pct{background:#c99a12}
 .bn-section-col+div .bn-pct input,.bn-section-col+div .bn-pct span{color:#9a7300}
 .bn-ex-sep{margin-top:4px;padding-top:8px;border-top:2px solid #f2c230;font-size:11px;font-weight:900;letter-spacing:.8px;color:#8a6a00}
+/* Exemplo prático: total sem cortar valores */
+.bn-cards{grid-template-columns:1.05fr .55fr 1.4fr 1.1fr}
+@media(max-width:1300px){.bn-cards{grid-template-columns:1fr 1fr}}
+@media(max-width:700px){.bn-cards{grid-template-columns:1fr}}
+.bn-ex{min-width:0}
+.bn-ex-row{min-width:0}
+.bn-ex-row>span{white-space:nowrap}
+.bn-ex-row b{white-space:nowrap}
+.bn-ex-input{flex:0 0 auto;width:min(110px,38%)}
+.bn-ex-total{grid-template-columns:1fr;border:0;border-radius:10px}
+.bn-ex-total>span{display:block;text-align:center;background:#eef2f7;padding:7px;font-size:13px;letter-spacing:.6px}
+.bn-ex-total>div{padding:10px 8px}
+.bn-ex-total b{font-size:clamp(22px,2vw,30px);white-space:nowrap;line-height:1.1}
+.bn-ex-total small{display:block;margin-top:3px;font-size:11px;line-height:1.3;overflow-wrap:anywhere}
