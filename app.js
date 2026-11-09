@@ -1,15 +1,16 @@
 /* GUT Apontador — interface conectada ao Supabase Auth e funções RPC protegidas por RLS. */
 (() => {
 'use strict';
-const NAMES = {tv:'Painel para TV',lancamentos:'Apontamentos',funcionarios:'Funcionários',estrutura:'Estrutura da fábrica',produtos:'Produtos e operações',niveis:'Níveis e tempos',config:'Configurações'};
+const NAMES = {tv:'Painel para TV',bonificacao:'Bonificação',lancamentos:'Apontamentos',funcionarios:'Funcionários',estrutura:'Estrutura da fábrica',produtos:'Produtos e operações',niveis:'Níveis e tempos',config:'Configurações'};
 /* Sub-abas exibidas no cabeçalho de cada página. */
 const SUBS = {
  lancamentos:[['novo','Apontar'],['historico','Histórico'],['horarios','Horários fixos']],
+ bonificacao:[['mes','Fechamento do mês'],['faltas','Faltas'],['salarios','Salários'],['regras','Regras']],
  produtos:[['produtos','Produtos'],['operacoes','Operações'],['tempos','Tempos por produto']],
  estrutura:[['setores','Setores e grupos'],['maquinas','Máquinas'],['funcoes','Funções']],
  niveis:[['tempos','Por funcionário'],['niveis','Níveis']]
 };
-const sub = {produtos:'produtos',lancamentos:'novo',estrutura:'setores',niveis:'tempos'};
+const sub = {bonificacao:'mes',produtos:'produtos',lancamentos:'novo',estrutura:'setores',niveis:'tempos'};
 const $ = s => document.querySelector(s);
 const byId = (collection,id) => (data[collection]||[]).find(x=>String(x.id)===String(id));
 const esc = value => String(value??'').replace(/[&<>"']/g, s=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[s]));
@@ -53,7 +54,7 @@ function title(text,subtitle,right=''){return `<div class="page-head"><div><div 
 function subtabs(){const list=SUBS[page];if(!list)return '';return `<nav class="subtabs" role="tablist" aria-label="Seções de ${esc(NAMES[page])}">${list.map(([k,l])=>`<button type="button" role="tab" class="subtab ${sub[page]===k?'active':''}" data-sub="${k}" aria-selected="${sub[page]===k}">${l}</button>`).join('')}</nav>`}
 const btnNew=(what,label)=>`<button class="btn btn-primary" data-action="${what}" data-edit>＋ ${label}</button>`;
 const td=(label,content,cls='')=>`<td data-label="${esc(label)}"${cls?` class="${cls}"`:''}>${content}</td>`;
-function pageMarkup(){switch(page){case 'tv':return window.GUT_TV?window.GUT_TV.template(data):'<p>Painel de TV indisponível. Recarregue a página.</p>';case 'lancamentos':return lancamentos();case 'funcionarios':return funcionarios();case 'estrutura':return estrutura();case 'produtos':return produtos();case 'niveis':return niveis();case 'config':return config();default:return lancamentos()}}
+function pageMarkup(){switch(page){case 'tv':return window.GUT_TV?window.GUT_TV.template(data):'<p>Painel de TV indisponível. Recarregue a página.</p>';case 'lancamentos':return lancamentos();case 'funcionarios':return funcionarios();case 'estrutura':return estrutura();case 'produtos':return produtos();case 'niveis':return niveis();case 'config':return config();case 'bonificacao':return bonificacao();default:return lancamentos()}}
 
 function renderLogin(message=''){
  window.GUT_TV?.stop();document.body.classList.remove('tv-page');
@@ -101,7 +102,7 @@ async function handleLogin(ev){
 }
 async function logout(){
  try{if(window.GUT_API)await window.GUT_API.logout()}catch(_){}
- authenticated=false;authorizedEmail='';
+ authenticated=false;authorizedEmail='';bonusData=null;rulesDraft=null;rulesDirty=false;
  data=EMPTY();
  renderLogin();
  toast('Sessão encerrada.');
@@ -112,6 +113,7 @@ function render(){
  window.GUT_TV?.stop();
  document.body.classList.toggle('tv-page',page==='tv');
  document.body.classList.toggle('read-only',!canEdit());
+ document.body.classList.toggle('is-admin',data.perfil==='admin');
  $main.innerHTML=pageMarkup();
  $('#breadcrumb').textContent=NAMES[page]||'Apontamentos';
  document.querySelectorAll('[data-page]').forEach(btn=>btn.classList.toggle('active',btn.dataset.page===page));
@@ -434,6 +436,188 @@ function config(){return title('Configurações','Integração com Supabase, seg
  '<button class="btn btn-primary" data-action="sincronizar">↻ Atualizar dados do Supabase</button></section>';
 }
 
+/* ===================== BONIFICAÇÃO ===================== */
+let bonusMes=todayLocal().slice(0,7),bonusData=null,bonusLoading=false,bonusErr='',bonusErrMes='',rulesDraft=null,rulesDirty=false;
+let exemplo={salario:2000,ef:90};
+const brl=n=>n==null||n===''?'—':Number(n).toLocaleString('pt-BR',{style:'currency',currency:'BRL'});
+const pctTxt=n=>n==null?'—':fNum(n,Number(n)%1?1:0)+'%';
+const mesLabel=m=>{const [y,mm]=String(m||'').split('-');const n=['janeiro','fevereiro','março','abril','maio','junho','julho','agosto','setembro','outubro','novembro','dezembro'][Number(mm)-1];return n?n+' de '+y:m};
+function bonusPctFor(ef,faixas){if(ef==null)return 0;const e=Math.floor(Number(ef));let p=0;for(const f of faixas)if(Number(f.min)<=e)p=Number(f.pct);return p}
+function lossFor(n,regras){let p=0;for(const r of regras)if(Number(r.min)<=n)p=Number(r.perda);return p}
+async function loadBonus(force){
+ if(bonusLoading)return;
+ if(!force&&bonusData&&bonusData.mes===bonusMes)return;
+ bonusLoading=true;bonusErr='';
+ try{bonusData=await window.GUT_API.bonus(bonusMes+'-01');if(!rulesDirty)rulesDraft=null;bonusErrMes='';}
+ catch(e){bonusErr=e.message||String(e);bonusErrMes=bonusMes;}
+ finally{bonusLoading=false;}
+ if(page==='bonificacao')render();
+}
+function bonificacao(){
+ const mesInput=`<label class="inline-date">Mês <input type="month" class="input" id="bonusMes" value="${esc(bonusMes)}"></label>`;
+ const right=sub.bonificacao==='mes'?mesInput+'<button class="btn" data-action="bonus-csv">⇩ CSV</button>':sub.bonificacao==='regras'?'':mesInput;
+ const head=title('Bonificação','Prêmio mensal por eficiência sobre o salário base, com desconto por faltas.',right)+subtabs();
+ if(data.perfil!=='admin')return head+'<div class="notice">A bonificação é visível apenas para administradores.</div>';
+ if(!bonusData||bonusData.mes!==bonusMes){
+  if(bonusErrMes===bonusMes)return head+`<div class="notice">Não foi possível carregar a bonificação: ${esc(bonusErr)} <button class="text-btn" data-action="bonus-recarregar">Tentar novamente</button></div>`;
+  loadBonus();return head+'<div class="card placeholder"><p>Calculando bonificação de '+esc(mesLabel(bonusMes))+'…</p></div>';
+ }
+ if(sub.bonificacao==='faltas')return head+bonusFaltas();
+ if(sub.bonificacao==='salarios')return head+bonusSalarios();
+ if(sub.bonificacao==='regras')return head+bonusRegras();
+ return head+bonusMesView();
+}
+function bonusMesView(){
+ const L=bonusData.linhas||[],com=L.filter(l=>l.meta>0);
+ const soma=k=>L.reduce((n,l)=>n+Number(l[k]||0),0);
+ const semSal=L.filter(l=>l.salario==null&&l.meta>0).length,brindes=L.filter(l=>l.brinde).length,crono=L.filter(l=>l.cronoanalise).length;
+ const tr=l=>{const alerts=[];
+  if(l.brinde)alerts.push('<span class="pill green">🎁 Brinde</span>');
+  if(l.cronoanalise)alerts.push('<span class="pill amber">⏱ Cronoanálise + avaliar nível</span>');
+  else if(l.mesesAcima100>0&&l.eficiencia>100)alerts.push('<span class="pill grey">'+l.mesesAcima100+'/3 meses acima de 100%</span>');
+  if(l.salario==null&&l.meta>0)alerts.push('<span class="pill red-pill">Sem salário</span>');
+  return '<tr>'+td('Funcionário',esc(l.nome),'strong card-title')+
+  td('Eficiência',l.meta>0?effPill(l.eficiencia):'<span class="muted-small">sem apontamentos</span>','num')+
+  td('Bônus',pctTxt(l.percentualBonus),'num')+td('Salário base',brl(l.salario),'num')+
+  td('Bônus bruto',brl(l.bonusBruto),'num')+td('Faltas',l.faltas?(l.faltas+' (−'+pctTxt(l.perdaPercentual)+')'):'0','num')+
+  td('Prêmio',brl(l.bonus),'strong num')+td('Total a receber',brl(l.total),'strong num')+
+  td('Alertas',alerts.join(' ')||'—','card-wide')+'</tr>'};
+ return `<div class="grid-kpis bonus-kpis">
+ <article class="card kpi"><div class="kpi-top"><span>Prêmios do mês</span><span class="kpi-icon">R$</span></div><div class="kpi-value">${brl(soma('bonus'))}</div><div class="kpi-foot">${com.length} funcionário(s) com apontamentos</div></article>
+ <article class="card kpi"><div class="kpi-top"><span>Folha (salário + prêmio)</span><span class="kpi-icon">Σ</span></div><div class="kpi-value">${brl(L.reduce((n,l)=>n+Number(l.total||0),0))}</div><div class="kpi-foot">${semSal?'<strong style="color:#b43e43">'+semSal+' sem salário cadastrado</strong>':'Todos com salário cadastrado'}</div></article>
+ <article class="card kpi"><div class="kpi-top"><span>Brindes (acima de 100%)</span><span class="kpi-icon">🎁</span></div><div class="kpi-value">${brindes}</div><div class="kpi-foot">${crono} alerta(s) de cronoanálise</div></article>
+ <article class="card kpi"><div class="kpi-top"><span>Faltas no mês</span><span class="kpi-icon">✕</span></div><div class="kpi-value">${(bonusData.faltas||[]).length}</div><div class="kpi-foot">${L.filter(l=>l.faltas).length} funcionário(s) com desconto</div></article>
+ </div>
+ <section class="card"><div class="section-head"><div><h3 class="section-title">Fechamento de ${esc(mesLabel(bonusMes))}</h3><p class="section-sub">Eficiência do mês = peças realizadas ÷ meta (tempo individual). Faixa pela eficiência arredondada para baixo.</p></div></div>
+ <div class="table-wrap"><table class="table table-cards"><thead><tr><th>Funcionário</th><th>Eficiência</th><th>Bônus</th><th>Salário base</th><th>Bônus bruto</th><th>Faltas</th><th>Prêmio</th><th>Total a receber</th><th>Alertas</th></tr></thead><tbody>${L.length?L.map(tr).join(''):'<tr><td colspan="9" class="empty-row">Nenhum funcionário.</td></tr>'}</tbody></table></div></section>`;
+}
+function bonusFaltas(){
+ const F=bonusData.faltas||[],ini=bonusMes+'-01',hoje=todayLocal(),def=hoje.slice(0,7)===bonusMes?hoje:ini;
+ const porFunc={};F.forEach(f=>porFunc[f.funcionario]=(porFunc[f.funcionario]||0)+1);
+ return `<section class="card"><form id="faltaForm" class="falta-form"><b>Registrar falta</b>
+ <select class="select" name="funcionario" required>${activeEmployees().map(f=>`<option value="${esc(f.id)}">${esc(f.nome)}</option>`).join('')}</select>
+ <label class="inline-date">Data <input class="input" type="date" name="data" value="${esc(def)}" required></label>
+ <input class="input" name="observacao" placeholder="Observação (opcional)">
+ <button class="btn btn-primary" type="submit">＋ Registrar</button></form></section>
+ <section class="card"><div class="section-head"><div><h3 class="section-title">Faltas de ${esc(mesLabel(bonusMes))}</h3><p class="section-sub">${F.length} falta(s). O desconto segue a regra cadastrada em Regras.</p></div></div>
+ <div class="table-wrap"><table class="table table-cards"><thead><tr><th>Funcionário</th><th>Data</th><th>No mês</th><th>Observação</th><th></th></tr></thead><tbody>
+ ${F.length?F.map(f=>'<tr>'+td('Funcionário',esc(byId('funcionarios',f.funcionario)?.nome||'—'),'strong card-title')+td('Data',esc(fDate(f.data)),'num')+td('No mês',porFunc[f.funcionario]+' falta(s)','num')+td('Observação',esc(f.observacao||'—'))+td('Ação',`<button class="text-btn danger-btn" data-action="falta-excluir" data-id="${esc(f.id)}">Excluir</button>`,'num')+'</tr>').join(''):'<tr><td colspan="5" class="empty-row">Nenhuma falta registrada neste mês.</td></tr>'}
+ </tbody></table></div></section>`;
+}
+function bonusSalarios(){
+ const S={};(bonusData.salarios||[]).forEach(s=>S[s.funcionario]=s);
+ return `<div class="notice">O salário salvo aqui vale a partir de <b>${esc(mesLabel(bonusMes))}</b> (mês selecionado acima). Os meses anteriores mantêm o valor que tinham.</div>
+ <section class="card"><div class="table-wrap"><table class="table table-cards"><thead><tr><th>Funcionário</th><th>Salário base vigente</th><th>Desde</th><th>Novo salário</th><th></th></tr></thead><tbody>
+ ${activeEmployees().map(f=>{const s=S[f.id];return '<tr>'+td('Funcionário',esc(f.nome),'strong card-title')+td('Salário vigente',brl(s?.salario),'num')+td('Desde',s?esc(fDate(s.desde).slice(3)):'—','num')+
+  td('Novo salário',`<input class="input sal-input" type="number" min="0" step="0.01" inputmode="decimal" id="sal-${esc(f.id)}" value="${s?esc(s.salario):''}" placeholder="0,00">`)+
+  td('Ação',`<button class="btn btn-sm btn-primary" data-action="salvar-salario" data-id="${esc(f.id)}">Salvar</button>`,'num')+'</tr>'}).join('')}
+ </tbody></table></div></section>`;
+}
+/* --- Regras: layout no estilo da tabela de bonificação progressiva --- */
+function draft(){
+ if(!rulesDraft)rulesDraft={faixas:(bonusData.faixas||[]).map(f=>({min:Number(f.min),pct:Number(f.pct)})),faltas:(bonusData.regrasFaltas||[]).map(r=>({min:Number(r.min),perda:Number(r.perda)}))};
+ return rulesDraft;
+}
+function sortedFaixas(){return draft().faixas.slice().sort((a,b)=>a.min-b.min)}
+function comoFunciona(){
+ const fx=sortedFaixas();if(!fx.length)return '<li>Nenhuma faixa cadastrada.</li>';
+ const first=fx[0],last=fx[fx.length-1];
+ const steps=fx.slice(1).map((f,i)=>+(f.pct-fx[i].pct).toFixed(3)),linear=steps.length&&steps.every(s=>s===steps[0])&&fx.slice(1).every((f,i)=>f.min-fx[i].min===1);
+ const ex=fx.find(f=>f.min===90)||fx[Math.floor(fx.length/2)];
+ return `<li>A bonificação é calculada sobre o salário base.</li>`+
+ (linear?`<li>A partir de ${first.min}% de eficiência começa em ${pctTxt(first.pct)}; a cada 1% a mais, aumenta ${fNum(steps[0],steps[0]%1?1:0)} ponto percentual.</li>`:`<li>Abaixo de ${first.min}% de eficiência não há bonificação.</li>`)+
+ `<li>Exemplo: ao atingir ${ex.min}% de eficiência, o colaborador recebe ${pctTxt(ex.pct)} de bonificação sobre o salário base.</li>`+
+ `<li>${last.min}% ou mais de eficiência = ${pctTxt(last.pct)} (teto).</li>`;
+}
+function exemploHtml(){
+ const d=draft(),pct=bonusPctFor(exemplo.ef,sortedFaixas()),bonus=Number(exemplo.salario||0)*pct/100;
+ return `<div class="bn-ex-row"><span>Salário base</span><i></i><input class="bn-ex-input" type="text" inputmode="decimal" id="exSalario" value="${esc(String(exemplo.salario).replace('.',','))}"></div>
+ <div class="bn-ex-row"><span>Eficiência alcançada</span><i></i><input class="bn-ex-input" type="text" inputmode="decimal" id="exEf" value="${esc(String(exemplo.ef).replace('.',','))}"><em>%</em></div>
+ <div class="bn-ex-row"><span>Bonificação correspondente</span><i></i><b id="exPct">${pctTxt(pct)}</b></div>
+ <div class="bn-ex-row"><span>Valor da bonificação</span><i></i><b id="exBonus">${brl(bonus)}</b></div>
+ <div class="bn-ex-total"><span>TOTAL A RECEBER</span><div><b id="exTotal">${brl(Number(exemplo.salario||0)+bonus)}</b><small id="exConta">(${brl(exemplo.salario)} + ${brl(bonus)})</small></div></div>`;
+}
+function refreshRulesDerived(){
+ const fx=sortedFaixas(),pct=bonusPctFor(exemplo.ef,fx),bonus=Number(exemplo.salario||0)*pct/100,last=fx[fx.length-1];
+ const set=(id,v)=>{const el=document.getElementById(id);if(el)el.innerHTML=v};
+ set('exPct',pctTxt(pct));set('exBonus',brl(bonus));set('exTotal',brl(Number(exemplo.salario||0)+bonus));set('exConta','('+brl(exemplo.salario)+' + '+brl(bonus)+')');
+ set('bnHow',comoFunciona());
+ set('bnBanner',last?`${last.min}% OU MAIS DE EFICIÊNCIA = ${pctTxt(last.pct)} DE BONIFICAÇÃO SOBRE O SALÁRIO BASE`:'');
+ const bar=document.getElementById('bnSaveBar');if(bar)bar.classList.toggle('dirty',rulesDirty);
+}
+function bonusRegras(){
+ const d=draft(),fx=sortedFaixas(),fl=d.faltas.slice().sort((a,b)=>a.min-b.min),last=fx[fx.length-1];
+ const ico='<svg viewBox="0 0 48 48" aria-hidden="true"><circle cx="24" cy="24" r="21" fill="none" stroke="currentColor" stroke-width="3"/><rect x="13" y="27" width="5" height="9" fill="currentColor"/><rect x="21" y="22" width="5" height="14" fill="currentColor"/><rect x="29" y="17" width="5" height="19" fill="currentColor"/><path d="M12 24 L22 15 L27 19 L36 11" fill="none" stroke="currentColor" stroke-width="3"/><path d="M31 11 h5 v5" fill="none" stroke="currentColor" stroke-width="3"/></svg>';
+ return `<div class="bn-sheet">
+ <header class="bn-hero"><div class="bn-hero-ico">${ico}</div><div><h2>TABELA DE <span>BONIFICAÇÃO PROGRESSIVA</span></h2><p>Mais desempenho, mais resultado, mais reconhecimento!</p></div></header>
+ <div class="bn-table-wrap"><div class="bn-table" style="--cols:${fx.length}">
+  <div class="bn-col bn-col-label"><div class="bn-cell bn-label bn-label-ef">EFICIÊNCIA<br>(%)</div><div class="bn-cell bn-label bn-label-pct">BONIFICAÇÃO SOBRE O SALÁRIO<br>(SALÁRIO BASE)</div></div>
+  ${fx.map((f,i)=>`<div class="bn-col"><div class="bn-cell bn-ef"><input aria-label="Eficiência da coluna ${i+1}" data-fx="${d.faixas.indexOf(f)}" data-k="min" type="text" inputmode="numeric" value="${esc(f.min)}">${i===fx.length-1?'<small>OU MAIS</small>':''}</div><div class="bn-cell bn-pct"><input aria-label="Bonificação para ${esc(f.min)}%" data-fx="${d.faixas.indexOf(f)}" data-k="pct" type="text" inputmode="decimal" value="${esc(String(f.pct).replace('.',','))}"><span>%</span></div></div>`).join('')}
+ </div></div>
+ <div class="bn-tools"><span>Gerar tabela:</span> começa em <input id="genIni" type="number" value="${esc(fx[0]?.min??81)}" min="0">% com <input id="genPct0" type="text" inputmode="decimal" value="${esc(String(fx[0]?.pct??0.5).replace('.',','))}">%, somando <input id="genStep" type="text" inputmode="decimal" value="0,5"> ponto a cada 1%, até <input id="genFim" type="number" value="${esc(last?.min??100)}">% <button type="button" class="bn-mini" data-action="fx-gerar">Gerar</button>
+  <span class="bn-tools-sep"></span><button type="button" class="bn-mini" data-action="fx-add">＋ Coluna</button><button type="button" class="bn-mini" data-action="fx-del">− Última coluna</button></div>
+ <div class="bn-cards">
+  <section class="bn-card"><h3 class="bn-card-h navy"><span>☑</span> COMO FUNCIONA?</h3><ul class="bn-how" id="bnHow">${comoFunciona()}</ul></section>
+  <section class="bn-card bn-motto"><div class="bn-target">◎</div><p>DESEMPENHO<br>QUE GERA VALOR.<br><b>RESULTADO QUE<br>TRANSFORMA.</b><br>E RECONHECIMENTO<br><b>QUE MOTIVA!</b></p></section>
+  <section class="bn-card"><h3 class="bn-card-h red"><span>▦</span> EXEMPLO PRÁTICO</h3><div class="bn-ex">${exemploHtml()}</div></section>
+  <section class="bn-card"><h3 class="bn-card-h red"><span>▦</span> DESCONTO POR FALTAS</h3>
+   <div class="bn-faltas">${fl.map(r=>`<div class="bn-fl-row"><div><input aria-label="Quantidade de faltas" data-fl="${d.faltas.indexOf(r)}" data-k="min" type="text" inputmode="numeric" value="${esc(r.min)}"> ${r===fl[fl.length-1]?'falta(s) ou mais':(r.min===1?'falta':'faltas')}</div><div>Perde <input aria-label="Percentual perdido" data-fl="${d.faltas.indexOf(r)}" data-k="perda" type="text" inputmode="decimal" value="${esc(String(r.perda).replace('.',','))}">% do prêmio${Number(r.perda)>=100?' <small>(sem bonificação)</small>':''}</div></div>`).join('')||'<p class="muted-small" style="padding:12px">Sem desconto por faltas.</p>'}</div>
+   <div class="bn-fl-tools"><button type="button" class="bn-mini" data-action="fl-add">＋ Linha</button><button type="button" class="bn-mini" data-action="fl-del">− Última</button></div></section>
+ </div>
+ <div class="bn-banner"><span class="bn-star">★</span><b id="bnBanner">${last?`${last.min}% OU MAIS DE EFICIÊNCIA = ${pctTxt(last.pct)} DE BONIFICAÇÃO SOBRE O SALÁRIO BASE`:''}</b></div>
+ <section class="bn-rules"><h3><span>🏆</span> REGRAS DE EVOLUÇÃO E RECONHECIMENTO</h3><ol>
+  <li>Ao atingir 3 meses consecutivos acima de 100% de eficiência, o colaborador passará por uma nova cronoanálise. <em>O sistema sinaliza no Fechamento do mês.</em></li>
+  <li>Após a cronoanálise, o padrão de eficiência será readequado, retornando à faixa de 80% a 100%, conforme o novo tempo padrão definido. <em>Revise em Níveis e tempos.</em></li>
+  <li>Toda vez que ultrapassar 100% de eficiência, o colaborador receberá um brinde especial da empresa, em comemoração ao resultado acima de 100%. <em>Marcado como 🎁 no fechamento.</em></li>
+  <li>Após a nova cronoanálise, o colaborador será avaliado para progressão de nível. A empresa terá 5 níveis profissionais, definidos conforme as competências de cada colaborador.</li>
+ </ol></section>
+ <div class="bn-save${rulesDirty?' dirty':''}" id="bnSaveBar"><span>Alterações não salvas nas regras</span><button type="button" class="btn" data-action="regras-descartar">Descartar</button><button type="button" class="btn btn-primary" data-action="regras-salvar">Salvar regras</button></div>
+ </div>`;
+}
+const num=v=>{const t=String(v??'').trim().replace(/\./g,'').replace(',','.');return t===''?NaN:Number(String(v).includes(',')?t:String(v).trim())};
+function rulesInput(t){
+ const d=draft();
+ if(t.dataset.fx!==undefined){const f=d.faixas[Number(t.dataset.fx)];if(f){f[t.dataset.k]=num(t.value);rulesDirty=true;}}
+ else if(t.dataset.fl!==undefined){const r=d.faltas[Number(t.dataset.fl)];if(r){r[t.dataset.k]=num(t.value);rulesDirty=true;}}
+ else if(t.id==='exSalario')exemplo.salario=num(t.value)||0;
+ else if(t.id==='exEf')exemplo.ef=num(t.value)||0;
+ else return false;
+ refreshRulesDerived();return true;
+}
+function rulesAction(name){
+ const d=draft(),fx=sortedFaixas();
+ if(name==='fx-add'){const l=fx[fx.length-1];d.faixas.push({min:l?l.min+1:81,pct:l?+(l.pct+0.5).toFixed(2):0.5});}
+ else if(name==='fx-del'){if(fx.length)d.faixas.splice(d.faixas.indexOf(fx[fx.length-1]),1);}
+ else if(name==='fx-gerar'){const ini=Math.round(Number($('#genIni').value)),fim=Math.round(Number($('#genFim').value)),p0=num($('#genPct0').value),st=num($('#genStep').value);
+  if(!(fim>=ini)||fim-ini>200||!(p0>=0)||!(st>=0)){toast('Confira os valores para gerar a tabela.');return;}
+  d.faixas=[];for(let e=ini;e<=fim;e++)d.faixas.push({min:e,pct:+(p0+(e-ini)*st).toFixed(2)});}
+ else if(name==='fl-add'){const fl=d.faltas.slice().sort((a,b)=>a.min-b.min),l=fl[fl.length-1];d.faltas.push({min:l?l.min+1:1,perda:l?Math.min(100,l.perda+25):10});}
+ else if(name==='fl-del'){const fl=d.faltas.slice().sort((a,b)=>a.min-b.min);if(fl.length)d.faltas.splice(d.faltas.indexOf(fl[fl.length-1]),1);}
+ rulesDirty=true;render();
+}
+async function saveRules(){
+ const d=draft(),fx=sortedFaixas(),fl=d.faltas.slice().sort((a,b)=>a.min-b.min);
+ try{
+  if(fx.some(f=>!Number.isInteger(f.min)||f.min<0||!(f.pct>=0)))throw Error('Cada coluna precisa de eficiência inteira e bonificação válida.');
+  if(new Set(fx.map(f=>f.min)).size!==fx.length)throw Error('Há eficiências repetidas na tabela.');
+  if(fl.some(r=>!Number.isInteger(r.min)||r.min<1||!(r.perda>=0&&r.perda<=100)))throw Error('Faltas: quantidade a partir de 1 e perda entre 0% e 100%.');
+  if(new Set(fl.map(r=>r.min)).size!==fl.length)throw Error('Há quantidades de faltas repetidas.');
+  await window.GUT_API.bonusSave('regras',{faixas:fx,faltas:fl});
+  rulesDirty=false;rulesDraft=null;await loadBonus(true);toast('Regras de bonificação salvas.');
+ }catch(err){toast('Não foi possível salvar: '+(err.message||String(err)))}
+}
+async function bonusSaveAndReload(tipo,dados,msg){
+ try{await window.GUT_API.bonusSave(tipo,dados);await loadBonus(true);toast(msg)}catch(err){toast('Não foi possível salvar: '+(err.message||String(err)))}
+}
+function bonusCsv(){
+ const L=bonusData?.linhas||[];
+ const rows=[['Mês','Funcionário','Matrícula','Realizado','Meta','Eficiência (%)','Faixa (%)','Bônus (%)','Salário base','Bônus bruto','Faltas','Perda (%)','Desconto','Prêmio','Total a receber','Brinde','Cronoanálise'],
+  ...L.map(l=>[bonusMes,l.nome,l.matricula||'',l.realizado,l.meta,l.eficiencia??'',l.eficienciaFaixa??'',l.percentualBonus,l.salario??'',l.bonusBruto,l.faltas,l.perdaPercentual,l.desconto,l.bonus,l.total??'',l.brinde?'Sim':'Não',l.cronoanalise?'Sim':'Não'])];
+ const s='﻿'+rows.map(r=>r.map(x=>'"'+(typeof x==='number'?String(x).replace('.',','):String(x??'')).replace(/"/g,'""')+'"').join(';')).join('\r\n');
+ const blob=new Blob([s],{type:'text/csv;charset=utf-8;'}),url=URL.createObjectURL(blob),a=document.createElement('a');
+ a.href=url;a.download='gut-bonificacao-'+bonusMes+'.csv';document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),1000);toast('CSV da bonificação exportado.');
+}
+
 /* ===================== MODAIS DE CADASTRO ===================== */
 function selectField(name,label,arr,sel,required=true){return `<div class="field"><label for="${name}">${label}</label><select class="select" id="${name}" name="${name}" ${required?'required':''}>${!required?'<option value="">Selecione...</option>':''}${arr.map(x=>`<option value="${esc(x.id)}" ${String(sel)===String(x.id)?'selected':''}>${esc(x.nome)}</option>`).join('')}</select></div>`}
 const inputField=(name,label,type='text',val='',extra='')=>`<div class="field"><label for="${name}">${label}</label><input class="input" type="${type}" name="${name}" id="${name}" value="${esc(val)}" ${extra} required></div>`;
@@ -616,6 +800,13 @@ function action(name,el){
  case 'exportar-csv':exportCsv();break;
  case 'sincronizar':loadData().then(()=>toast('Dados atualizados do Supabase.')).catch(e=>toast(e.message));break;
  case 'fechar-modal':closeModal();break;
+ case 'bonus-csv':bonusCsv();break;
+ case 'bonus-recarregar':bonusErrMes='';loadBonus(true);render();break;
+ case 'fx-add':case 'fx-del':case 'fx-gerar':case 'fl-add':case 'fl-del':rulesAction(name);break;
+ case 'regras-salvar':saveRules();break;
+ case 'regras-descartar':rulesDraft=null;rulesDirty=false;render();break;
+ case 'salvar-salario':{const v=$('#sal-'+id)?.value;if(v===''||!(Number(v)>=0)){toast('Informe um salário válido.');break;}bonusSaveAndReload('salario',{funcionario:id,salario:Number(v),desde:bonusMes+'-01'},'Salário salvo a partir de '+mesLabel(bonusMes)+'.');break;}
+ case 'falta-excluir':if(el.dataset.confirm!=='1'){el.dataset.confirm='1';el.textContent='Confirmar exclusão';setTimeout(()=>{if(el.isConnected){el.dataset.confirm='';el.textContent='Excluir'}},4000);break;}bonusSaveAndReload('falta_excluir',{id},'Falta excluída.');break;
  default:break;
  }
 }
@@ -653,15 +844,17 @@ document.addEventListener('change',ev=>{const t=ev.target;
  if(t.id==='entryInicio'||t.id==='entryFim'){entry[t.id==='entryInicio'?'inicio':'fim']=t.value;refreshEntry();}
  if(t.id==='nivFuncionario'){nivFunc=t.value;render();}
  if(t.id==='rotProduto'){rotProd=t.value;render();}
+ if(t.id==='bonusMes'&&t.value){bonusMes=t.value;loadBonus(true);render();}
  if(t.name==='operacoes')updateOpsCounters();
  if(t.id==='setor'&&$('#employeeGrupo'))updateEmployeeGroups();
 });
 document.addEventListener('input',ev=>{
  if(ev.target.id==='employeeSearch'){search=ev.target.value;const pos=ev.target.selectionStart;render();const el=$('#employeeSearch');el.focus();el.setSelectionRange(pos,pos)}
  if(ev.target.id==='entryRealizado'){entry.realizado=ev.target.value;paintPreview();}
+ if(page==='bonificacao'&&sub.bonificacao==='regras'&&rulesInput(ev.target))return;
  if(ev.target.id==='opsSearch'){const q=ev.target.value.trim().toLowerCase();document.querySelectorAll('#modalForm .op-group').forEach(g=>{let any=false;g.querySelectorAll('.op-item').forEach(it=>{const ok=!q||it.dataset.text.includes(q);it.classList.toggle('hidden',!ok);any=any||ok});g.classList.toggle('hidden',!any);if(q)g.open=any;})}
 });
-document.addEventListener('submit',ev=>{const id=ev.target.getAttribute('id'); /* getAttribute: um campo chamado "id" sobrescreve form.id */if(id==='modalForm')handleSubmit(ev);else if(id==='loginForm')handleLogin(ev);else if(id==='entryForm')submitEntry(ev);else if(id==='slotForm')submitSlot(ev);else if(id==='linkForm')submitLink(ev)});
+document.addEventListener('submit',ev=>{const id=ev.target.getAttribute('id'); /* getAttribute: um campo chamado "id" sobrescreve form.id */if(id==='modalForm')handleSubmit(ev);else if(id==='loginForm')handleLogin(ev);else if(id==='entryForm')submitEntry(ev);else if(id==='slotForm')submitSlot(ev);else if(id==='linkForm')submitLink(ev);else if(id==='faltaForm'){ev.preventDefault();const fd=new FormData(ev.target);bonusSaveAndReload('falta',{funcionario:fd.get('funcionario'),data:fd.get('data'),observacao:fd.get('observacao')},'Falta registrada.');}});
 window.addEventListener?.('hashchange',()=>{const target=window.location?.hash==='#tv'?'tv':'lancamentos';if(target==='tv'&&page!=='tv'){page='tv';render();}else if(target==='lancamentos'&&page==='tv'){page='lancamentos';render();}});
 $('#overlay').addEventListener('click',closeModal);
 $('#openMenu').addEventListener('click',()=>$('#sidebar').classList.add('open'));
