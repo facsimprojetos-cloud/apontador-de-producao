@@ -1,6 +1,6 @@
 # GUT Apontador de Produção
 
-Frontend publicado via Netlify e conectado ao **Supabase** (projeto `PROJETOS`, schema `APONTADOR DE PRODUÇÃO`).
+Frontend publicado via **GitHub Pages** e conectado ao **Supabase** (projeto `PROJETOS`, schema `APONTADOR DE PRODUÇÃO`).
 
 ## Acesso e segurança
 
@@ -14,7 +14,7 @@ Frontend publicado via Netlify e conectado ao **Supabase** (projeto `PROJETOS`, 
 
 ## Primeiro login (uma vez)
 
-Acesse o painel Supabase do projeto PROJETOS, escolha **Authentication → Users → Add user**, informe seu e-mail aprovado em `public.apontador_acessos`, defina uma senha forte e marque a opção de confirmação de e-mail quando disponível. Não publique ou envie essa senha no chat. Depois entre em https://gut-apontador-producao.netlify.app.
+Acesse o painel Supabase do projeto PROJETOS, escolha **Authentication → Users → Add user**, informe seu e-mail aprovado em `public.apontador_acessos`, defina uma senha forte e marque a opção de confirmação de e-mail quando disponível. Não publique ou envie essa senha no chat. Depois entre em https://facsimprojetos-cloud.github.io/apontador-de-producao/.
 
 Se o seu e-mail não estiver na lista de acesso, o login será recusado para uso das tabelas mesmo quando o usuário existir no Supabase Auth. Outras contas precisam ser autorizadas explicitamente pelo administrador, via `apontador_acessos`.
 
@@ -31,9 +31,11 @@ Os dados iniciais presentes no banco são **fictícios** e identificados com `[S
 ## Publicação automática
 
 Repositório: https://github.com/facsimprojetos-cloud/apontador-de-producao
-Site: https://gut-apontador-producao.netlify.app
+Ambiente de testes (GitHub Pages): https://facsimprojetos-cloud.github.io/apontador-de-producao/
+Painel de TV: https://facsimprojetos-cloud.github.io/apontador-de-producao/#tv
 
-Branch de produção `main`. `netlify.toml` usa diretório publicado `.` e não executa build.
+Branch `main`, publicada automaticamente pelo GitHub Pages a partir da raiz, sem build.
+O Netlify não é mais usado para novas publicações (`netlify.toml` mantido apenas por compatibilidade).
 
 ## Observações
 
