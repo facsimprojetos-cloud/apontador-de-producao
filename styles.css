@@ -366,3 +366,14 @@ body.read-only [data-edit]{display:none!important}
  .link-form .inline-date{flex:1 1 140px}.link-form .inline-date input{width:100%}
  .link-form .btn{flex:1 1 100%}
 }
+
+/* Produtos recolhidos no cadastro do funcionário (abre no +) */
+.emp-ops .op-group{padding:0;overflow:hidden}
+.emp-ops .op-group>summary.op-group-head{margin:0;padding:12px 14px;min-height:50px;cursor:pointer;list-style:none;display:flex;align-items:center;gap:10px}
+.emp-ops .op-group>summary::-webkit-details-marker{display:none}
+.op-toggle{width:26px;height:26px;flex:0 0 26px;border-radius:7px;background:#e7f5ee;color:#128669;display:grid;place-items:center;font-weight:900;font-size:18px;line-height:1}
+.op-toggle:before{content:"+"}
+.op-group[open] .op-toggle:before{content:"−"}
+.op-group[open]>summary{border-bottom:1px solid #eef2f5}
+.op-body{padding:10px 12px 12px}
+.op-body-tools{display:flex;justify-content:flex-end;margin-bottom:8px}

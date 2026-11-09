@@ -163,6 +163,17 @@ const activeEmployees=()=>data.funcionarios.filter(f=>f.ativo!==false);
 const dayEntries=()=>(data.lancamentos||[]).filter(l=>l.funcionario===entry.funcionario&&String(l.data)===entry.data).sort((a,b)=>toMin(a.inicio)-toMin(b.inicio));
 const slotDone=s=>dayEntries().some(l=>overlaps(l.inicio,l.fim,s.inicio,s.fim));
 function nextFreeSlot(){const list=activeSlots();return list.find(s=>!slotDone(s))||null}
+/* Horário sugerido: hoje, a última faixa já encerrada (ex.: após 9h → 08–09).
+   Se ela já foi apontada para o funcionário, sugere a faixa encerrada mais recente ainda pendente. */
+function defaultSlot(){
+ const list=activeSlots();if(!list.length)return null;
+ if(entry.data!==todayLocal())return entry.data<todayLocal()?(nextFreeSlot()||list[0]):list[0];
+ const now=new Date(),nowMin=now.getHours()*60+now.getMinutes();
+ const ended=list.filter(s=>toMin(s.fim)>toMin(s.inicio)&&toMin(s.fim)<=nowMin);
+ if(!ended.length)return list[0];
+ const pend=ended.filter(s=>!slotDone(s));
+ return pend.length?pend[pend.length-1]:ended[ended.length-1];
+}
 function ensureEntryDefaults(){
  if(!activeEmployees().some(f=>f.id===entry.funcionario))entry.funcionario=activeEmployees()[0]?.id||'';
  if(!byId('produtos',entry.produto))entry.produto=data.produtos[0]?.id||'';
@@ -170,7 +181,7 @@ function ensureEntryDefaults(){
  const mine=new Set(byId('funcionarios',entry.funcionario)?.operacoes||[]);
  if(!rot.some(r=>r.id===entry.roteiro))entry.roteiro=(rot.find(r=>mine.has(r.id))||rot[0])?.id||'';
  if(!entry.custom){
-  if(!activeSlots().some(s=>s.id===entry.slot))entry.slot=nextFreeSlot()?.id||activeSlots()[0]?.id||'';
+  if(!activeSlots().some(s=>s.id===entry.slot))entry.slot=defaultSlot()?.id||'';
   const s=byId('horarios',entry.slot);
   if(s){entry.inicio=s.inicio;entry.fim=s.fim}else{entry.custom=true}
  }
@@ -452,7 +463,7 @@ function newEmployee(id){
  const body='<div class="emp-layout"><div class="emp-basic">'+
  inputField('nome','Nome do funcionário','text',f?.nome||'','autocomplete="off"')+
  optionalInput('matricula','Matrícula (opcional)',f?.matricula||'')+
- '<details class="opt-box"'+((f?.setor||(f?.maquinas||[]).length||(f?.funcoes||[]).length)?' open':'')+'><summary>Estrutura da fábrica <small>(opcional)</small></summary>'+
+ '<details class="opt-box"><summary>Estrutura da fábrica <small>(opcional'+(f?.setor?' · '+esc(byId('setores',f.setor)?.nome||''):'')+')</small></summary>'+
  '<div class="field"><label for="setor">Setor</label><select class="select" id="setor" name="setor"><option value="">Sem setor</option>'+data.setores.map(x=>'<option value="'+esc(x.id)+'" '+(x.id===setor?'selected':'')+'>'+esc(x.nome)+'</option>').join('')+'</select></div>'+
  '<div class="field"><label for="employeeGrupo">Grupo</label><select id="employeeGrupo" name="grupo" class="select">'+employeeGroupOptions(setor,f?.grupo||'')+'</select></div>'+
  '<div class="field"><label>Máquinas</label><div class="checkbox-grid">'+(data.maquinas.length?data.maquinas.map(m=>'<label class="checkbox-line"><input type="checkbox" name="maquinas" value="'+esc(m.id)+'" '+((f?.maquinas||[]).includes(m.id)?'checked':'')+'> '+esc(m.nome)+'</label>').join(''):'<p class="muted-small">Nenhuma máquina cadastrada.</p>')+'</div></div>'+
@@ -460,8 +471,8 @@ function newEmployee(id){
  '</details></div>'+
  '<div class="emp-ops"><div class="emp-ops-head"><div><b>Operações que executa</b><small id="opsCount">'+has.size+' selecionada(s)</small></div><input class="input" id="opsSearch" placeholder="⌕ Filtrar produto ou operação" autocomplete="off"></div>'+
  (prods.length?'<div class="op-check">'+prods.map(p=>{const rot=routeOf(p.id),sel=rot.filter(r=>has.has(r.id)).length;
-  return '<div class="op-group" data-prod="'+esc(p.id)+'"><div class="op-group-head"><b>'+esc(p.nome)+'</b><span class="pill '+(sel?'green':'grey')+'" data-count>'+sel+' de '+rot.length+'</span><button type="button" class="text-btn" data-opall="'+esc(p.id)+'">'+(sel===rot.length?'Desmarcar todas':'Marcar todas')+'</button></div><div class="op-items">'+
-  rot.map(r=>'<label class="op-item" data-text="'+esc((p.nome+' '+(byId('processos',r.processo)?.nome||'')).toLowerCase())+'"><input type="checkbox" name="operacoes" value="'+esc(r.id)+'" '+(has.has(r.id)?'checked':'')+'><span>'+esc(r.etapa||'—')+'. '+esc(byId('processos',r.processo)?.nome||r.processo)+'</span><small>'+fNum(r.tempo,1)+' s</small></label>').join('')+'</div></div>';}).join('')+'</div>'
+  return '<details class="op-group" data-prod="'+esc(p.id)+'"><summary class="op-group-head"><span class="op-toggle" aria-hidden="true"></span><b>'+esc(p.nome)+'</b><span class="pill '+(sel?'green':'grey')+'" data-count>'+sel+' de '+rot.length+'</span></summary><div class="op-body"><div class="op-body-tools"><button type="button" class="text-btn" data-opall="'+esc(p.id)+'">'+(sel===rot.length?'Desmarcar todas':'Marcar todas')+'</button></div><div class="op-items">'+
+  rot.map(r=>'<label class="op-item" data-text="'+esc((p.nome+' '+(byId('processos',r.processo)?.nome||'')).toLowerCase())+'"><input type="checkbox" name="operacoes" value="'+esc(r.id)+'" '+(has.has(r.id)?'checked':'')+'><span>'+esc(r.etapa||'—')+'. '+esc(byId('processos',r.processo)?.nome||r.processo)+'</span><small>'+fNum(r.tempo,1)+' s</small></label>').join('')+'</div></div></details>';}).join('')+'</div>'
   :'<p class="notice">Nenhum produto com operações. Cadastre em Produtos e operações → Tempos por produto.</p>')+
  '</div></div>'+(f?'<input type="hidden" name="id" value="'+esc(f.id)+'">':'');
  showModal(f?'Editar funcionário':'Cadastrar funcionário','Marque as operações que ele executa. Em Níveis e tempos cada uma começa com o tempo padrão do produto.',body,f?'Salvar alterações':'Cadastrar funcionário',f?'employee_update':'employee','modal-wide');
@@ -648,7 +659,7 @@ document.addEventListener('change',ev=>{const t=ev.target;
 document.addEventListener('input',ev=>{
  if(ev.target.id==='employeeSearch'){search=ev.target.value;const pos=ev.target.selectionStart;render();const el=$('#employeeSearch');el.focus();el.setSelectionRange(pos,pos)}
  if(ev.target.id==='entryRealizado'){entry.realizado=ev.target.value;paintPreview();}
- if(ev.target.id==='opsSearch'){const q=ev.target.value.trim().toLowerCase();document.querySelectorAll('#modalForm .op-group').forEach(g=>{let any=false;g.querySelectorAll('.op-item').forEach(it=>{const ok=!q||it.dataset.text.includes(q);it.classList.toggle('hidden',!ok);any=any||ok});g.classList.toggle('hidden',!any)})}
+ if(ev.target.id==='opsSearch'){const q=ev.target.value.trim().toLowerCase();document.querySelectorAll('#modalForm .op-group').forEach(g=>{let any=false;g.querySelectorAll('.op-item').forEach(it=>{const ok=!q||it.dataset.text.includes(q);it.classList.toggle('hidden',!ok);any=any||ok});g.classList.toggle('hidden',!any);if(q)g.open=any;})}
 });
 document.addEventListener('submit',ev=>{const id=ev.target.getAttribute('id'); /* getAttribute: um campo chamado "id" sobrescreve form.id */if(id==='modalForm')handleSubmit(ev);else if(id==='loginForm')handleLogin(ev);else if(id==='entryForm')submitEntry(ev);else if(id==='slotForm')submitSlot(ev);else if(id==='linkForm')submitLink(ev)});
 window.addEventListener?.('hashchange',()=>{const target=window.location?.hash==='#tv'?'tv':'lancamentos';if(target==='tv'&&page!=='tv'){page='tv';render();}else if(target==='lancamentos'&&page==='tv'){page='lancamentos';render();}});
