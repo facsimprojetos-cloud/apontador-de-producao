@@ -290,3 +290,32 @@ body.read-only [data-edit]{display:none!important}
  .slot-form .inline-date{flex:1 1 120px}.slot-form .input{width:100%}
  .slot-form .btn{flex:1 1 100%}
 }
+
+/* Operações por funcionário (cadastro e Níveis e tempos) */
+.op-check{display:grid;gap:8px;margin-top:6px}
+.op-group{border:1px solid #e3eaf1;border-radius:10px;padding:10px 12px}
+.op-group summary{cursor:pointer;display:flex;justify-content:space-between;align-items:center;gap:10px;list-style:none;font-size:12px}
+.op-group summary::-webkit-details-marker{display:none}
+.op-group[open] summary{margin-bottom:10px}
+.op-people{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:15px}
+.op-person{padding:16px 18px}
+.op-head{display:flex;align-items:center;gap:12px;padding-bottom:12px;border-bottom:1px solid #eef2f5}
+.op-who{flex:1;min-width:0}
+.op-who b{display:block;font-size:14px}
+.op-who small{display:block;color:#8697a5;font-size:11px;margin-top:3px}
+.op-row{display:grid;grid-template-columns:minmax(0,1fr) auto auto auto;gap:12px;align-items:center;padding:11px 0;border-bottom:1px solid #f1f4f7}
+.op-row:last-child{border-bottom:0}
+.op-name{min-width:0}
+.op-name b{display:block;font-size:12px;color:#20364f}
+.op-name small,.op-time small{display:block;font-size:10px;color:#8a99a8;margin-top:2px}
+.op-time{text-align:right}
+.op-time b{font-size:13px;font-variant-numeric:tabular-nums}
+.op-empty{padding:14px 0 4px}
+@media(max-width:1100px){.op-people{grid-template-columns:1fr}}
+@media(max-width:700px){
+ .op-person{padding:14px}
+ .op-row{grid-template-columns:minmax(0,1fr) auto;gap:6px 10px}
+ .op-row .pill{justify-self:start}
+ .op-row .btn{justify-self:end}
+ .op-head .text-btn{font-size:11px}
+}

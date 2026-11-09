@@ -20,7 +20,7 @@ Se o seu e-mail não estiver na lista de acesso, o login será recusado para uso
 
 ## Funcionalidades disponíveis
 
-- Dashboard, apontamentos, eficiência, funcionários/setor/máquinas/funções.
+- Apontamentos (tela inicial), eficiência, funcionários/setor/máquinas/funções.
 - Produtos, processos e roteiro com tempo padrão em segundos.
 - Revisões individuais de tempo e nível com histórico das vigências; apontamentos anteriores preservam tempo/meta do momento.
 - Filtros e exportação CSV.
@@ -46,6 +46,7 @@ Regras importantes:
 - Cada apontamento grava `etapa_final_snapshot`: peças prontas não mudam quando a operação final do produto é trocada
   (a menos que a opção "aplicar aos apontamentos já registrados" seja marcada).
 - O tempo individual aplicado é o vigente na data/hora do apontamento (`tempo_vigente`), inclusive para lançamentos retroativos.
+- `funcionario_operacoes` liga cada funcionário às operações do roteiro que executa; a tela Níveis e tempos revisa tempo e nível por operação.
 - `horarios_padrao` define os atalhos de hora em hora da aba Apontar; `apontador_previa` calcula a meta no Supabase.
 
 ## Observações

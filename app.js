@@ -1,15 +1,14 @@
 /* GUT Apontador — interface conectada ao Supabase Auth e funções RPC protegidas por RLS. */
 (() => {
 'use strict';
-const NAMES = {tv:'Painel para TV',dashboard:'Visão geral',lancamentos:'Apontamentos',funcionarios:'Funcionários',estrutura:'Estrutura da fábrica',produtos:'Produtos e operações',niveis:'Níveis e tempos',config:'Configurações'};
+const NAMES = {tv:'Painel para TV',lancamentos:'Apontamentos',funcionarios:'Funcionários',estrutura:'Estrutura da fábrica',produtos:'Produtos e operações',niveis:'Níveis e tempos',config:'Configurações'};
 /* Sub-abas exibidas no cabeçalho de cada página. */
 const SUBS = {
- dashboard:[['resumo','Resumo'],['operadores','Operadores'],['setores','Setores e grupos']],
  lancamentos:[['novo','Apontar'],['historico','Histórico'],['horarios','Horários fixos']],
  estrutura:[['setores','Setores e grupos'],['maquinas','Máquinas'],['funcoes','Funções']],
- niveis:[['tempos','Tempos individuais'],['niveis','Níveis']]
+ niveis:[['tempos','Por funcionário'],['niveis','Níveis']]
 };
-const sub = {dashboard:'resumo',lancamentos:'novo',estrutura:'setores',niveis:'tempos'};
+const sub = {lancamentos:'novo',estrutura:'setores',niveis:'tempos'};
 const $ = s => document.querySelector(s);
 const byId = (collection,id) => (data[collection]||[]).find(x=>String(x.id)===String(id));
 const esc = value => String(value??'').replace(/[&<>"']/g, s=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[s]));
@@ -33,14 +32,18 @@ function filteredRows(opts){
 const isFinished=(l)=>l.finalSnapshot===true;
 const timeItem=(funcionario,produto,processo)=>data.tempos.find(t=>t.funcionario===funcionario&&t.produto===produto&&t.processo===processo);
 const routeItem=(produto,processo)=>data.roteiro.find(r=>r.produto===produto&&r.processo===processo);
+const empOps=f=>(f?.operacoes||[]).map(id=>data.roteiro.find(r=>r.id===id)).filter(Boolean);
+const timeFor=(fid,rid)=>data.tempos.find(t=>t.funcionario===fid&&t.roteiro===rid);
+const opLabel=r=>`${byId('produtos',r.produto)?.nome||'Produto'} · ${byId('processos',r.processo)?.nome||'Operação'}`;
+const nivelNome=id=>byId('niveis',id)?.nome||('Nível '+id);
 const routeOf=produto=>data.roteiro.filter(r=>r.produto===produto).sort((a,b)=>(a.etapa||0)-(b.etapa||0));
 function getTime(funcionario,produto,processo){const t=timeItem(funcionario,produto,processo),r=routeItem(produto,processo);if(!r)return null;return {segundos:Number(t?.segundos??r.tempo),nivel:t?.nivel??null,fonte:t?'individual':'padrão',vinculo:t?.id??null}}
 const EMPTY=()=>({setores:[],grupos:[],maquinas:[],funcoes:[],funcionarios:[],produtos:[],processos:[],roteiro:[],niveis:[],tempos:[],horarios:[],lancamentos:[]});
 let data=EMPTY();
 let authenticated=false;
 let authorizedEmail='';
-const $main=$('#content');let page=(window.location?.hash==='#tv'?'tv':'dashboard'), search='', filters=emptyFilters();
-let filtersOpen=false;
+const $main=$('#content');let page=(window.location?.hash==='#tv'?'tv':'lancamentos'), search='', filters=emptyFilters();
+let filtersOpen=false,nivFunc='';
 const canEdit=()=>data.perfil!=='leitor';
 function sums(rows){const realizado=rows.reduce((a,r)=>a+(Number(r.realizado)||0),0),meta=rows.reduce((a,r)=>a+(Number(r.metaSnapshot)||0),0);return {realizado,meta,eff:meta?realizado*100/meta:null,total:rows.length}}
 function pct(value){return value==null?'—':fNum(value,2)+'%'}
@@ -49,7 +52,7 @@ function title(text,subtitle,right=''){return `<div class="page-head"><div><div 
 function subtabs(){const list=SUBS[page];if(!list)return '';return `<nav class="subtabs" role="tablist" aria-label="Seções de ${esc(NAMES[page])}">${list.map(([k,l])=>`<button type="button" role="tab" class="subtab ${sub[page]===k?'active':''}" data-sub="${k}" aria-selected="${sub[page]===k}">${l}</button>`).join('')}</nav>`}
 const btnNew=(what,label)=>`<button class="btn btn-primary" data-action="${what}" data-edit>＋ ${label}</button>`;
 const td=(label,content,cls='')=>`<td data-label="${esc(label)}"${cls?` class="${cls}"`:''}>${content}</td>`;
-function pageMarkup(){switch(page){case 'tv':return window.GUT_TV?window.GUT_TV.template(data):'<p>Painel de TV indisponível. Recarregue a página.</p>';case 'dashboard':return dashboard();case 'lancamentos':return lancamentos();case 'funcionarios':return funcionarios();case 'estrutura':return estrutura();case 'produtos':return produtos();case 'niveis':return niveis();case 'config':return config();default:return dashboard()}}
+function pageMarkup(){switch(page){case 'tv':return window.GUT_TV?window.GUT_TV.template(data):'<p>Painel de TV indisponível. Recarregue a página.</p>';case 'lancamentos':return lancamentos();case 'funcionarios':return funcionarios();case 'estrutura':return estrutura();case 'produtos':return produtos();case 'niveis':return niveis();case 'config':return config();default:return lancamentos()}}
 
 function renderLogin(message=''){
  window.GUT_TV?.stop();document.body.classList.remove('tv-page');
@@ -109,7 +112,7 @@ function render(){
  document.body.classList.toggle('tv-page',page==='tv');
  document.body.classList.toggle('read-only',!canEdit());
  $main.innerHTML=pageMarkup();
- $('#breadcrumb').textContent=NAMES[page]||'Visão geral';
+ $('#breadcrumb').textContent=NAMES[page]||'Apontamentos';
  document.querySelectorAll('[data-page]').forEach(btn=>btn.classList.toggle('active',btn.dataset.page===page));
  $('#footerDate').textContent='• '+new Date().getFullYear();
  if(page==='lancamentos'&&sub.lancamentos==='novo')afterEntryRender();
@@ -117,38 +120,12 @@ function render(){
    window.GUT_TV.start({
      reload:()=>window.GUT_API.load(),
      onUpdate:incoming=>{data={...EMPTY(),...incoming};},
-     onBack:()=>{if(window.location?.hash==='#tv')window.location.hash='';page='dashboard';render();}
+     onBack:()=>{if(window.location?.hash==='#tv')window.location.hash='';page='lancamentos';render();}
    });
  }
 }
 function goTo(p,s){page=p;if(s)sub[p]=s;if(window.location){if(p==='tv')window.location.hash='tv';else if(window.location.hash==='#tv')window.location.hash='';}render();window.scrollTo?.(0,0)}
 
-/* ===================== VISÃO GERAL ===================== */
-function dashboard(){
- const all=filteredRows(filters),tot=sums(all),days=[...new Set(all.map(x=>x.data))].sort();
- const head=title('Visão geral','Acompanhe a produtividade e o desempenho da sua confecção.',`<label class="inline-date">De <input aria-label="Data inicial do painel" type="date" class="input" id="dashInicio" value="${esc(filters.inicio)}"></label><label class="inline-date">Até <input aria-label="Data final do painel" type="date" class="input" id="dashFim" value="${esc(filters.fim)}"></label>${btnNew('novo-apontamento','Apontar')}`)+subtabs();
- if(sub.dashboard==='operadores'){
-  const summary=data.funcionarios.map(e=>({...e,...sums(all.filter(l=>l.funcionario===e.id))})).filter(e=>e.total).sort((a,b)=>b.eff-a.eff);
-  const daily=days.map(day=>({day,value:sums(all.filter(x=>x.data===day)).realizado}));const maxBar=Math.max(1,...daily.map(x=>x.value));
-  return head+`<div class="grid-main">
-<section class="card"><div class="section-head"><div><h3 class="section-title">Eficiência por operador</h3><p class="section-sub">Produção total ÷ meta total por funcionário</p></div><span class="pill green">Meta 100%</span></div>
-<div class="chart-list">${summary.length?summary.map(e=>`<div class="bar-row"><span class="bar-label" title="${esc(e.nome)}">${esc(first(e.nome))}</span><div class="bar-track"><div class="bar ${e.eff<100?'orange':''}" style="width:${Math.min(100,Math.max(0,e.eff/130*100))}%"></div></div><span class="bar-value">${pct(e.eff)}</span></div>`).join(''):'<p class="muted-small">Sem apontamentos no período.</p>'}</div><div class="section-caption"><span class="legend"><span class="legend-line"></span> Referência: 100% de eficiência</span></div></section>
-<section class="card"><div class="section-head"><div><h3 class="section-title">Produção por dia</h3><p class="section-sub">Peças realizadas por data de produção</p></div></div>
-<div class="compact-chart">${daily.map(r=>`<div class="compact-bar-group"><div class="compact-bar" style="height:${Math.max(6,r.value/maxBar*115)}px" title="${esc(fDate(r.day))}: ${fNum(r.value)} peças"></div><div class="compact-bar-label">${esc(r.day.slice(8))}/${esc(r.day.slice(5,7))}</div></div>`).join('')}</div>
-<div class="mini-split"><div class="mini-card"><div class="mini-num">${all.filter(l=>l.metaSnapshot&&l.realizado/l.metaSnapshot>1).length}</div><div class="mini-lbl">Apontamentos acima de 100%</div></div><div class="mini-card"><div class="mini-num">${all.filter(l=>minutesBetween(l.inicio,l.fim)<60).length}</div><div class="mini-lbl">Períodos parciais registrados</div></div></div></section></div>`;
- }
- if(sub.dashboard==='setores')return head+estruturaResumo(all);
- const prontas=all.filter(isFinished).reduce((n,l)=>n+Number(l.realizado||0),0);
- const rows=[...all].sort((a,b)=>(b.data+b.inicio).localeCompare(a.data+a.inicio)).slice(0,7);
- return head+`<div class="grid-kpis">
-${kpi('Eficiência geral',pct(tot.eff),'↗','Média ponderada dos registros',tot.eff>=100)}
-${kpi('Peças realizadas',fNum(tot.realizado),'▣',`Meta: ${fNum(tot.meta)} peças`,true)}
-${kpi('Peças prontas',fNum(prontas),'✓','Apontadas na operação final',true)}
-${kpi('Apontamentos',fNum(tot.total),'▤',`${days.length} dias de produção`,true)}
-</div>
-<section class="card"><div class="section-head"><div><h3 class="section-title">Últimos apontamentos</h3><p class="section-sub">Resumo das operações registradas</p></div><button class="text-btn" data-action="ver-historico">Ver todos →</button></div>${tableApontamentos(rows)}</section>`;
-}
-function kpi(label,value,ico,foot,up){return `<article class="card kpi"><div class="kpi-top"><span>${label}</span><span class="kpi-icon">${ico}</span></div><div class="kpi-value">${value}</div><div class="kpi-foot">${up?'<strong>●</strong> ':''}${foot}</div></article>`}
 function tableApontamentos(rows){return `<div class="table-wrap"><table class="table table-cards"><thead><tr><th>Data</th><th>Funcionário</th><th>Setor / Grupo</th><th>Produto / Processo</th><th>Período</th><th>Meta</th><th>Realizado</th><th>Eficiência</th></tr></thead><tbody>${rows.length?rows.map(l=>{const person=byId('funcionarios',l.funcionario),product=byId('produtos',l.produto),proc=byId('processos',l.processo),eff=l.metaSnapshot?l.realizado*100/l.metaSnapshot:null;return `<tr>${td('Data',esc(fDate(l.data)))}${td('Funcionário',esc(person?.nome||l.funcionario),'strong card-title')}${td('Setor / Grupo',`<strong>${esc(l.setorNomeHistorico||byId('setores',l.setor)?.nome||'—')}</strong><small class="cell-sub">${esc(l.grupoNomeHistorico||byId('grupos',l.grupo)?.nome||'Sem grupo')}</small>`)}${td('Produto / Processo',`<b>${esc(product?.nome||l.produto)}</b><small class="cell-sub">${esc(proc?.nome||l.processo)}${isFinished(l)?' · <span class="final-flag">FINAL</span>':''}</small>`,'card-wide')}${td('Período',`${esc(l.inicio)}–${esc(l.fim)}`,'num')}${td('Meta',fNum(l.metaSnapshot),'num')}${td('Realizado',fNum(l.realizado),'strong num')}${td('Eficiência',effPill(eff),'num')}</tr>`}).join(''):`<tr><td colspan="8" class="empty-row">Nenhum lançamento no filtro selecionado.</td></tr>`}</tbody></table></div>`}
 function selectOpts(collection,sel='',all=false,label='Todos'){const ar=data[collection]||[];return `${all?`<option value="">${label}</option>`:''}${ar.map(o=>`<option value="${esc(o.id)}" ${String(o.id)===String(sel)?'selected':''}>${esc(o.nome)}</option>`).join('')}`}
 
@@ -189,14 +166,22 @@ function ensureEntryDefaults(){
  if(!activeEmployees().some(f=>f.id===entry.funcionario))entry.funcionario=activeEmployees()[0]?.id||'';
  if(!byId('produtos',entry.produto))entry.produto=data.produtos[0]?.id||'';
  const rot=routeOf(entry.produto);
- if(!rot.some(r=>r.id===entry.roteiro))entry.roteiro=rot[0]?.id||'';
+ const mine=new Set(byId('funcionarios',entry.funcionario)?.operacoes||[]);
+ if(!rot.some(r=>r.id===entry.roteiro))entry.roteiro=(rot.find(r=>mine.has(r.id))||rot[0])?.id||'';
  if(!entry.custom){
   if(!activeSlots().some(s=>s.id===entry.slot))entry.slot=nextFreeSlot()?.id||activeSlots()[0]?.id||'';
   const s=byId('horarios',entry.slot);
   if(s){entry.inicio=s.inicio;entry.fim=s.fim}else{entry.custom=true}
  }
 }
-function routeOptions(){return routeOf(entry.produto).map(r=>`<option value="${esc(r.id)}" ${r.id===entry.roteiro?'selected':''}>${esc(r.etapa||'—')}. ${esc(byId('processos',r.processo)?.nome||r.processo)}${r.final?' (final)':''}</option>`).join('')||'<option value="">Produto sem operações no roteiro</option>'}
+function routeOptions(){
+ const rot=routeOf(entry.produto);if(!rot.length)return '<option value="">Produto sem operações no roteiro</option>';
+ const mine=new Set(byId('funcionarios',entry.funcionario)?.operacoes||[]);
+ const opt=r=>`<option value="${esc(r.id)}" ${r.id===entry.roteiro?'selected':''}>${esc(r.etapa||'—')}. ${esc(byId('processos',r.processo)?.nome||r.processo)}${r.final?' (final)':''}</option>`;
+ const a=rot.filter(r=>mine.has(r.id)),b=rot.filter(r=>!mine.has(r.id));
+ if(!a.length)return rot.map(opt).join('');
+ return `<optgroup label="Operações do funcionário">${a.map(opt).join('')}</optgroup>`+(b.length?`<optgroup label="Outras operações">${b.map(opt).join('')}</optgroup>`:'');
+}
 function slotChips(){
  const slots=activeSlots();
  return slots.map(s=>{const done=slotDone(s),on=!entry.custom&&entry.slot===s.id;return `<button type="button" class="slot-chip${on?' active':''}${done?' done':''}" data-slot="${esc(s.id)}" aria-pressed="${on}" title="${done?'Já existe apontamento neste horário':'Horário livre'}">${hourLabel(s.inicio,s.fim)}${done?' <span aria-hidden="true">✓</span>':''}</button>`}).join('')+
@@ -324,6 +309,7 @@ function funcionarios(){
    '<div class="employee-info"><span>Grupo de produção</span><strong>'+esc(byId('grupos',f.grupo)?.nome||'Sem grupo definido')+'</strong></div>'+
    '<div><div class="eyebrow" style="color:#8998a8;letter-spacing:.7px;margin-bottom:8px">MÁQUINAS HABILITADAS</div><div class="taglist">'+((f.maquinas||[]).length?f.maquinas.map(id=>'<span class="tag">'+esc(byId('maquinas',id)?.nome||id)+'</span>').join(''):'<span class="tag">Nenhuma máquina vinculada</span>')+'</div></div>'+
    '<div><div class="eyebrow" style="color:#8998a8;letter-spacing:.7px;margin-bottom:8px">FUNÇÕES QUE DOMINA</div><div class="taglist">'+((f.funcoes||[]).length?f.funcoes.map(id=>'<span class="tag">'+esc(byId('funcoes',id)?.nome||id)+'</span>').join(''):'<span class="tag">Nenhuma função vinculada</span>')+'</div></div>'+
+   '<div><div class="eyebrow" style="color:#8998a8;letter-spacing:.7px;margin-bottom:8px">OPERAÇÕES QUE EXECUTA</div><div class="taglist">'+(empOps(f).length?empOps(f).map(r=>'<span class="tag">'+esc(opLabel(r))+'</span>').join(''):'<span class="tag">Nenhuma operação marcada</span>')+'</div></div>'+
    '<div class="employee-bottom"><span class="pill green"><span class="badge-dot"></span>Ativo</span><div class="card-actions"><button class="text-btn" data-edit data-action="editar-funcionario" data-id="'+esc(f.id)+'">Editar cadastro</button><button class="text-btn" data-action="ver-funcionario" data-id="'+esc(f.id)+'">Ver desempenho →</button></div></div></article>'
  ).join('')+'</div>';
 }
@@ -349,23 +335,6 @@ function estrutura(){
     '<button class="btn" data-edit data-action="novo-grupo" data-id="'+esc(sec.id)+'" style="width:100%;margin-top:15px">＋ Criar grupo neste setor</button></article>';
  }).join(''):'<article class="card placeholder">Nenhum setor cadastrado. Comece em “Novo setor”.</article>')+'</div>';
 }
-function estruturaResumo(rows){
- const groups=new Map();
- for(const l of rows){
-   const k=String(l.setor||'')+'|'+String(l.grupo||'');
-   const old=groups.get(k)||{setor:l.setorNomeHistorico||byId('setores',l.setor)?.nome||'Sem setor',
-                            grupo:l.grupoNomeHistorico||byId('grupos',l.grupo)?.nome||'Sem grupo',
-                            count:0,realizado:0,meta:0};
-   old.count++;old.realizado+=Number(l.realizado)||0;old.meta+=Number(l.metaSnapshot)||0;
-   groups.set(k,old);
- }
- const grouped=[...groups.values()].sort((a,b)=>b.realizado-a.realizado);
- return '<section class="card"><div class="section-head"><div><h3 class="section-title">Produção por setor e grupo</h3><p class="section-sub">Apuração baseada na classificação histórica de cada lançamento.</p></div></div>'+
- '<div class="table-wrap"><table class="table table-cards"><thead><tr><th>Setor</th><th>Grupo</th><th>Apontamentos</th><th>Realizado</th><th>Meta</th><th>Eficiência</th></tr></thead><tbody>'+
- (grouped.length?grouped.map(r=>'<tr>'+td('Setor',esc(r.setor),'strong card-title')+td('Grupo',esc(r.grupo))+td('Apontamentos',String(r.count))+td('Realizado',fNum(r.realizado))+td('Meta',fNum(r.meta))+td('Eficiência',effPill(r.meta?100*r.realizado/r.meta:null))+'</tr>').join(''):'<tr><td colspan="6" class="empty-row">Ainda não há apontamentos.</td></tr>')+
- '</tbody></table></div></section>';
-}
-
 /* ===================== PRODUTOS ===================== */
 function produtos(){
  const items=data.produtos;
@@ -388,11 +357,34 @@ function produtos(){
 
 /* ===================== NÍVEIS ===================== */
 function niveis(){
- const head=title('Níveis e tempos individuais','Metas personalizadas por funcionário, produto e operação, com histórico preservado.',btnNew('revisar-tempo','Revisar tempo'))+subtabs();
- if(sub.niveis==='niveis')return head+`<div class="level-cards">${data.niveis.map(n=>`<div class="card level-card"><div class="level-number">${esc(n.id)}</div><h3>Nível ${esc(n.id)} — ${esc(n.nome)}</h3><p>${esc(n.descricao)}</p></div>`).join('')}</div>
-<div class="notice"><strong>Metodologia:</strong> ao revisar o tempo, os apontamentos anteriores continuam usando a meta histórica. Apontamentos com data retroativa usam o tempo que valia naquela data e hora.</div>`;
- const withTime=data.lancamentos.filter(l=>l.tempoSnapshot!=null).length;
- return head+`<section class="card"><div class="section-head"><div><h3 class="section-title">Tempos individualizados vigentes</h3><p class="section-sub">${data.tempos.length} configurações de tempo em segundos por peça</p></div></div><div class="table-wrap"><table class="table table-cards"><thead><tr><th>Funcionário</th><th>Produto</th><th>Operação</th><th>Nível</th><th>Tempo/peça</th><th>Meta/hora</th><th>Ação</th></tr></thead><tbody>${data.tempos.map(t=>`<tr>${td('Funcionário',esc(byId('funcionarios',t.funcionario)?.nome||'—'),'strong card-title')}${td('Produto',esc(byId('produtos',t.produto)?.nome||'—'))}${td('Operação',esc(byId('processos',t.processo)?.nome||'—'))}${td('Nível',`<span class="pill blue">Nível ${esc(t.nivel)}</span>`)}${td('Tempo/peça',fNum(t.segundos,1)+' s','strong')}${td('Meta/hora',fNum(3600/t.segundos,1))}${td('Ação',`<button class="text-btn" data-edit data-action="revisar-tempo" data-id="${esc(t.id)}">Revisar</button>`)}</tr>`).join('')}</tbody></table></div><div class="pagination">${withTime} lançamentos possuem tempo histórico registrado</div></section>`;
+ const head=title('Níveis e tempos','Tempo e nível de cada funcionário em cada operação que executa, com histórico preservado.')+subtabs();
+ if(sub.niveis==='niveis')return head+`<div class="level-cards">${data.niveis.map(n=>`<div class="card level-card"><div class="level-number">${esc(n.ordem||n.id)}</div><h3>${esc(n.nome)}</h3><p>${esc(n.descricao)}</p></div>`).join('')}</div>
+<div class="notice"><strong>Metodologia:</strong> ao revisar o tempo ou o nível, os apontamentos anteriores continuam usando a meta histórica. Apontamentos com data retroativa usam o tempo que valia naquela data e hora.</div>`;
+ const all=activeEmployees(),emps=all.filter(f=>!nivFunc||f.id===nivFunc);
+ const totalOps=all.reduce((n,f)=>n+empOps(f).length,0);
+ const filtro=`<div class="card controls-panel"><select class="select" id="nivFuncionario" aria-label="Filtrar funcionário"><option value="">Todos os funcionários</option>${all.map(f=>`<option value="${esc(f.id)}" ${f.id===nivFunc?'selected':''}>${esc(f.nome)}</option>`).join('')}</select><div class="stats-row"><span><b>${totalOps}</b> operações vinculadas</span><span><b>${data.tempos.length}</b> com tempo individual</span></div></div>`;
+ return head+filtro+'<div class="op-people">'+emps.map(f=>{
+  const ops=empOps(f).sort((a,b)=>opLabel(a).localeCompare(opLabel(b))||(a.etapa-b.etapa));
+  const rows=ops.map(r=>{const t=timeFor(f.id,r.id),seg=Number(t?.segundos??r.tempo);
+   return `<div class="op-row"><div class="op-name"><b>${esc(byId('processos',r.processo)?.nome||'Operação')}</b><small>${esc(byId('produtos',r.produto)?.nome||'')} · etapa ${esc(r.etapa||'—')}</small></div>`+
+   `<div class="op-time"><b>${fNum(seg,1)} s</b><small>${t?'individual':'padrão'} · ${fNum(3600/seg,1)} pç/h</small></div>`+
+   `<span class="pill ${t?'blue':'grey'}">${t?esc(nivelNome(t.nivel)):'Sem nível'}</span>`+
+   `<button class="btn btn-sm" data-edit data-action="revisar-op" data-func="${esc(f.id)}" data-rot="${esc(r.id)}">Revisar</button></div>`}).join('');
+  return `<section class="card op-person"><div class="op-head"><div class="employee-avatar">${esc(initials(f.nome))}</div><div class="op-who"><b>${esc(f.nome)}</b><small>${esc(byId('setores',f.setor)?.nome||'Sem setor')} · ${ops.length} operação(ões)</small></div><button class="text-btn" data-edit data-action="editar-funcionario" data-id="${esc(f.id)}">Editar operações</button></div>`+
+  (rows||'<p class="muted-small op-empty">Nenhuma operação marcada. Use “Editar operações” para escolher o que este funcionário faz.</p>')+'</section>';
+ }).join('')+'</div>';
+}
+function reviseOp(fid,rid){
+ const f=byId('funcionarios',fid),r=byId('roteiro',rid);
+ if(!f||!r){toast('Operação não encontrada.');return;}
+ const t=timeFor(fid,rid),seg=t?.segundos??r.tempo;
+ showModal('Revisar tempo e nível',esc(f.nome)+' · '+esc(opLabel(r)),
+ `<div class="form-grid"><input type="hidden" name="funcionario" value="${esc(fid)}"><input type="hidden" name="produto" value="${esc(r.produto)}"><input type="hidden" name="processo" value="${esc(r.processo)}"><input type="hidden" name="roteiro" value="${esc(rid)}">`+
+ selectField('nivel','Nível do operador nesta operação',data.niveis,t?.nivel||data.niveis[0]?.id)+
+ inputField('segundos','Tempo (segundos/peça)','number',seg,'min="0.001" step="0.001"')+
+ `<div class="field full"><label for="motivo">Motivo da revisão</label><input class="input" name="motivo" id="motivo" value="Revisão de tempo e nível" required></div></div>`+
+ `<div class="modal-tip" style="margin-top:14px">Tempo padrão do roteiro: ${fNum(r.tempo,1)} s. ${t?'Atual: '+fNum(t.segundos,1)+' s, '+esc(nivelNome(t.nivel))+' (desde '+esc(fDate(t.alteradoEm))+').':'Hoje usa o tempo padrão.'} Apontamentos já feitos mantêm a meta histórica.</div>`,
+ 'Salvar nova versão','time');
 }
 function config(){return title('Configurações','Integração com Supabase, segurança e sincronização.')+
  '<div class="notice"><b>Conectado ao Supabase:</b> cadastros e apontamentos são gravados no banco de dados, não no armazenamento local. Contas sem autorização não podem ler ou modificar os registros.</div>'+
@@ -441,6 +433,11 @@ function newEmployee(id){
  (data.maquinas.length?data.maquinas.map(m=>'<label class="checkbox-line"><input type="checkbox" name="maquinas" value="'+esc(m.id)+'" '+((f?.maquinas||[]).includes(m.id)?'checked':'')+'> '+esc(m.nome)+'</label>').join(''):'<p class="muted-small">Nenhuma máquina cadastrada. Cadastre na aba Estrutura da fábrica.</p>')+
  '</div></div><div class="field full"><label>Funções que sabe realizar</label><div class="checkbox-grid">'+
  (data.funcoes.length?data.funcoes.map(fn=>'<label class="checkbox-line"><input type="checkbox" name="funcoes" value="'+esc(fn.id)+'" '+((f?.funcoes||[]).includes(fn.id)?'checked':'')+'> '+esc(fn.nome)+'</label>').join(''):'<p class="muted-small">Nenhuma função cadastrada.</p>')+
+ '</div></div>'+
+ '<div class="field full"><label>Operações que executa (por produto)</label><p class="muted-small" style="margin:0">Essas operações aparecem primeiro no apontamento e em Níveis e tempos, onde você define o tempo e o nível de cada uma.</p><div class="op-check">'+
+ data.produtos.map(p=>{const rot=routeOf(p.id);if(!rot.length)return '';const sel=rot.filter(r=>(f?.operacoes||[]).includes(r.id)).length;
+  return '<details class="op-group"'+(sel?' open':'')+'><summary><b>'+esc(p.nome)+'</b><span class="pill '+(sel?'green':'grey')+'">'+sel+' de '+rot.length+'</span></summary><div class="checkbox-grid">'+
+  rot.map(r=>'<label class="checkbox-line"><input type="checkbox" name="operacoes" value="'+esc(r.id)+'" '+((f?.operacoes||[]).includes(r.id)?'checked':'')+'> '+esc(r.etapa||'—')+'. '+esc(byId('processos',r.processo)?.nome||r.processo)+'</label>').join('')+'</div></details>';}).join('')+
  '</div></div></div>'+
  (f?'<input type="hidden" name="id" value="'+esc(f.id)+'">':'');
  showModal(f?'Editar funcionário':'Cadastrar funcionário','Escolha o setor, grupo e todas as máquinas e funções habilitadas.',body,f?'Salvar alterações':'Cadastrar funcionário',f?'employee_update':'employee');
@@ -497,7 +494,7 @@ async function handleSubmit(ev){
      if(!v('nome')||!v('matricula')||!v('setor'))throw Error('Informe nome, matrícula e setor.');
      if(v('grupo') && byId('grupos',v('grupo'))?.setor!==v('setor'))throw Error('Grupo diferente do setor informado.');
      payload={id:v('id'),nome:v('nome'),matricula:v('matricula'),setor:v('setor'),grupo:v('grupo'),
-        maquinas:fd.getAll('maquinas'),funcoes:fd.getAll('funcoes')};
+        maquinas:fd.getAll('maquinas'),funcoes:fd.getAll('funcoes'),operacoes:fd.getAll('operacoes')};
      page='funcionarios';
    }else if(formType==='sector'){
      if(!v('nome'))throw Error('Informe o nome do setor.');
@@ -529,10 +526,10 @@ async function handleSubmit(ev){
      payload={produto:v('produto'),processo:v('processo'),tempo:Number(v('tempo'))};
      page='produtos';
    }else if(formType==='time'){
-     if(!routeItem(v('produto'),v('processo')))throw Error('Essa operação não faz parte do roteiro deste produto.');
+     if(v('roteiro')?!byId('roteiro',v('roteiro')):!routeItem(v('produto'),v('processo')))throw Error('Essa operação não faz parte do roteiro deste produto.');
      if(!(Number(v('segundos'))>0))throw Error('O tempo deve ser positivo.');
      payload={funcionario:v('funcionario'),produto:v('produto'),processo:v('processo'),
-       nivel:v('nivel'),segundos:Number(v('segundos')),motivo:v('motivo')};
+       nivel:v('nivel'),segundos:Number(v('segundos')),motivo:v('motivo'),roteiro:v('roteiro')};
      page='niveis';sub.niveis='tempos';
    }else throw Error('Tipo de cadastro não reconhecido.');
    const res=await window.GUT_API.save(formType,payload);
@@ -566,6 +563,7 @@ function action(name,el){
  case 'novo-processo':newProcess();break;
  case 'vincular-processo':linkProcess(id);break;
  case 'revisar-tempo':reviseTime(id);break;
+ case 'revisar-op':reviseOp(el.dataset.func,el.dataset.rot);break;
  case 'toggle-slot':toggleSlot(id,el.dataset.ativo);break;
  case 'ver-funcionario':filters={...emptyFilters(),funcionario:id};filtersOpen=true;goTo('lancamentos','historico');break;
  case 'limpar-filtros':filters=emptyFilters();render();break;
@@ -598,18 +596,22 @@ document.addEventListener('change',ev=>{const t=ev.target;
  if(t.id==='filterSetor'){filters.setor=t.value;filters.grupo='';render();}
  if(t.id==='filterGrupo')filters.grupo=t.value,render();
  if(t.id==='entryData'){entry.data=t.value||todayLocal();if(!entry.custom)entry.slot='';refreshEntry();}
- if(t.id==='entryFuncionario'){entry.funcionario=t.value;if(!entry.custom)entry.slot='';refreshEntry();}
+ if(t.id==='entryFuncionario'){entry.funcionario=t.value;if(!entry.custom)entry.slot='';
+   const ops=empOps(byId('funcionarios',entry.funcionario));
+   if(ops.length&&!ops.some(r=>r.produto===entry.produto)){entry.produto=ops[0].produto;const ps=$('#entryProduto');if(ps)ps.value=entry.produto;}
+   entry.roteiro='';refreshEntry({route:true});}
  if(t.id==='entryProduto'){entry.produto=t.value;entry.roteiro='';refreshEntry({route:true});}
  if(t.id==='entryRoteiro'){entry.roteiro=t.value;refreshEntry();}
  if(t.id==='entryInicio'||t.id==='entryFim'){entry[t.id==='entryInicio'?'inicio':'fim']=t.value;refreshEntry();}
+ if(t.id==='nivFuncionario'){nivFunc=t.value;render();}
  if(t.id==='setor'&&$('#employeeGrupo'))updateEmployeeGroups();
 });
 document.addEventListener('input',ev=>{
  if(ev.target.id==='employeeSearch'){search=ev.target.value;const pos=ev.target.selectionStart;render();const el=$('#employeeSearch');el.focus();el.setSelectionRange(pos,pos)}
  if(ev.target.id==='entryRealizado'){entry.realizado=ev.target.value;paintPreview();}
 });
-document.addEventListener('submit',ev=>{const id=ev.target.id;if(id==='modalForm')handleSubmit(ev);else if(id==='loginForm')handleLogin(ev);else if(id==='entryForm')submitEntry(ev);else if(id==='slotForm')submitSlot(ev)});
-window.addEventListener?.('hashchange',()=>{const target=window.location?.hash==='#tv'?'tv':'dashboard';if(target==='tv'&&page!=='tv'){page='tv';render();}else if(target==='dashboard'&&page==='tv'){page='dashboard';render();}});
+document.addEventListener('submit',ev=>{const id=ev.target.getAttribute('id'); /* getAttribute: um campo chamado "id" sobrescreve form.id */if(id==='modalForm')handleSubmit(ev);else if(id==='loginForm')handleLogin(ev);else if(id==='entryForm')submitEntry(ev);else if(id==='slotForm')submitSlot(ev)});
+window.addEventListener?.('hashchange',()=>{const target=window.location?.hash==='#tv'?'tv':'lancamentos';if(target==='tv'&&page!=='tv'){page='tv';render();}else if(target==='lancamentos'&&page==='tv'){page='lancamentos';render();}});
 $('#overlay').addEventListener('click',closeModal);
 $('#openMenu').addEventListener('click',()=>$('#sidebar').classList.add('open'));
 $('#closeMenu').addEventListener('click',()=>$('#sidebar').classList.remove('open'));
