@@ -3,6 +3,7 @@
 'use strict';
 const fmt = (v,d=0) => Number(v||0).toLocaleString('pt-BR',{minimumFractionDigits:d,maximumFractionDigits:d});
 const pct = v => v==null?'—':fmt(v,2)+'%';
+const shortDate = value => value ? String(value).slice(8,10)+'/'+String(value).slice(5,7) : '—';
 const dateLabel = value => value ? String(value).slice(0,10).split('-').reverse().join('/') : '—';
 const escapeHtml = value => String(value??'').replace(/[&<>"']/g,ch=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]));
 const dayOffset = days => {const d=new Date();d.setDate(d.getDate()-days);return new Date(d.getTime()-d.getTimezoneOffset()*60000).toISOString().slice(0,10)};
@@ -45,7 +46,7 @@ function rowsHtml(rows){
  return rows.map(l=>{
   const e=l.metaSnapshot?100*Number(l.realizado||0)/Number(l.metaSnapshot):null;
   const fin=isFinished(l);
-  return '<tr class="'+cls(e)+'"><td class="tv-nw">'+escapeHtml(dateLabel(l.data))+'</td>'+
+  return '<tr class="'+cls(e)+'"><td class="tv-nw" title="'+escapeHtml(dateLabel(l.data))+'">'+escapeHtml(shortDate(l.data))+'</td>'+
   '<td class="tv-nw">'+escapeHtml(l.fim||'—')+'</td>'+
   '<td class="tv-product tv-text">'+escapeHtml(byId('produtos',l.produto)?.nome||'—')+'</td>'+
   '<td class="tv-text">'+escapeHtml(byId('funcionarios',l.funcionario)?.nome||'—')+'</td>'+
