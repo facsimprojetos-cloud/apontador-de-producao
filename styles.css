@@ -530,3 +530,15 @@ body:not(.is-admin) .admin-only{display:none!important}
 @media(max-width:700px){.bn-cards{grid-template-columns:1fr}.bn-ef small{display:none}.bn-ex-input{width:110px}.bn-tools .bn-tools-sep{display:none}}
 .bn-ex-func .select{flex:1;min-width:0;min-height:34px;padding:4px 8px;font-weight:700}
 .bn-ex-note{margin:-2px 0 2px;font-size:12px;color:#5a6b82;background:#f2f5f9;border-radius:6px;padding:6px 8px}
+/* Meta coletiva */
+.bn-section-title{display:flex;align-items:center;flex-wrap:wrap;gap:6px 14px;margin:16px 14px 0;color:#fff}
+.bn-section-title b{font-size:15px;letter-spacing:.8px;background:var(--red);padding:5px 10px;border-radius:6px}
+.bn-section-title small{color:#c6d1e6;font-size:12px;font-weight:600;flex:1;min-width:200px}
+.bn-section-col b{background:#f2c230;color:#2a2000}
+.bn-switch{display:flex;align-items:center;gap:6px;color:#fff;font-size:12px;font-weight:700;background:#ffffff14;border:1px solid #ffffff2e;border-radius:8px;padding:6px 10px}
+.bn-switch select{background:#fff;border-radius:5px;border:0;padding:3px 6px;font-weight:700}
+.bn-switch input{width:16px;height:16px}
+.bn-off{opacity:.38;pointer-events:none}
+.bn-section-col+div .bn-label-pct{background:#c99a12}
+.bn-section-col+div .bn-pct input,.bn-section-col+div .bn-pct span{color:#9a7300}
+.bn-ex-sep{margin-top:4px;padding-top:8px;border-top:2px solid #f2c230;font-size:11px;font-weight:900;letter-spacing:.8px;color:#8a6a00}
