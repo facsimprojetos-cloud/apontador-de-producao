@@ -438,7 +438,7 @@ function config(){return title('Configurações','Integração com Supabase, seg
 
 /* ===================== BONIFICAÇÃO ===================== */
 let bonusMes=todayLocal().slice(0,7),bonusData=null,bonusLoading=false,bonusErr='',bonusErrMes='',rulesDraft=null,rulesDirty=false;
-let exemplo={salario:2000,ef:90};
+let exemplo={salario:2000,ef:90,funcionario:''};
 const brl=n=>n==null||n===''?'—':Number(n).toLocaleString('pt-BR',{style:'currency',currency:'BRL'});
 const pctTxt=n=>n==null?'—':fNum(n,Number(n)%1?1:0)+'%';
 const mesLabel=m=>{const [y,mm]=String(m||'').split('-');const n=['janeiro','fevereiro','março','abril','maio','junho','julho','agosto','setembro','outubro','novembro','dezembro'][Number(mm)-1];return n?n+' de '+y:m};
@@ -531,7 +531,10 @@ function comoFunciona(){
 }
 function exemploHtml(){
  const d=draft(),pct=bonusPctFor(exemplo.ef,sortedFaixas()),bonus=Number(exemplo.salario||0)*pct/100;
- return `<div class="bn-ex-row"><span>Salário base</span><i></i><input class="bn-ex-input" type="text" inputmode="decimal" id="exSalario" value="${esc(String(exemplo.salario).replace('.',','))}"></div>
+ const linha=(bonusData?.linhas||[]).find(l=>l.funcionario===exemplo.funcionario);
+ return `<div class="bn-ex-row bn-ex-func"><span>Funcionário</span><select class="select" id="exFuncionario"><option value="">Simulação livre</option>${activeEmployees().map(f=>`<option value="${esc(f.id)}" ${f.id===exemplo.funcionario?'selected':''}>${esc(f.nome)}</option>`).join('')}</select></div>
+ ${exemplo.funcionario?`<p class="bn-ex-note">${linha?.salario==null?'⚠ Sem salário cadastrado — cadastre na aba Salários. ':''}Eficiência real de ${esc(mesLabel(bonusMes))}: ${linha?.meta>0?pctTxt(+Number(linha.eficiencia).toFixed(2)):'sem apontamentos'}.</p>`:''}
+ <div class="bn-ex-row"><span>Salário base</span><i></i><input class="bn-ex-input" type="text" inputmode="decimal" id="exSalario" value="${esc(String(exemplo.salario).replace('.',','))}"></div>
  <div class="bn-ex-row"><span>Eficiência alcançada</span><i></i><input class="bn-ex-input" type="text" inputmode="decimal" id="exEf" value="${esc(String(exemplo.ef).replace('.',','))}"><em>%</em></div>
  <div class="bn-ex-row"><span>Bonificação correspondente</span><i></i><b id="exPct">${pctTxt(pct)}</b></div>
  <div class="bn-ex-row"><span>Valor da bonificação</span><i></i><b id="exBonus">${brl(bonus)}</b></div>
@@ -844,6 +847,7 @@ document.addEventListener('change',ev=>{const t=ev.target;
  if(t.id==='entryInicio'||t.id==='entryFim'){entry[t.id==='entryInicio'?'inicio':'fim']=t.value;refreshEntry();}
  if(t.id==='nivFuncionario'){nivFunc=t.value;render();}
  if(t.id==='rotProduto'){rotProd=t.value;render();}
+ if(t.id==='exFuncionario'){exemplo.funcionario=t.value;const l=(bonusData?.linhas||[]).find(x=>x.funcionario===t.value);if(l){exemplo.salario=l.salario??0;exemplo.ef=l.meta>0?+Number(l.eficiencia).toFixed(2):0;}render();}
  if(t.id==='bonusMes'&&t.value){bonusMes=t.value;loadBonus(true);render();}
  if(t.name==='operacoes')updateOpsCounters();
  if(t.id==='setor'&&$('#employeeGrupo'))updateEmployeeGroups();

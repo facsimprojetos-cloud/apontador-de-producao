@@ -528,3 +528,5 @@ body:not(.is-admin) .admin-only{display:none!important}
 @media(max-width:1300px){.bn-cards{grid-template-columns:1fr 1fr}.bn-motto{display:none}}
 .bn-motto p{font-size:clamp(11px,.95vw,15px);overflow-wrap:normal}
 @media(max-width:700px){.bn-cards{grid-template-columns:1fr}.bn-ef small{display:none}.bn-ex-input{width:110px}.bn-tools .bn-tools-sep{display:none}}
+.bn-ex-func .select{flex:1;min-width:0;min-height:34px;padding:4px 8px;font-weight:700}
+.bn-ex-note{margin:-2px 0 2px;font-size:12px;color:#5a6b82;background:#f2f5f9;border-radius:6px;padding:6px 8px}
