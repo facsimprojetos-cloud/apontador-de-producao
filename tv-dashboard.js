@@ -67,8 +67,16 @@ function rankings(rows){
  if(!sorted.length)return '<div class="tv-rank-empty">Sem funcionários com registros no período.</div>';
  return sorted.map((v,i)=>{
   const e=v.meta?100*v.feito/v.meta:null;
-  return '<div class="tv-rank-row"><div class="tv-rank-index">'+(i+1)+'</div><div class="tv-rank-name"><b>'+escapeHtml(v.nome)+'</b><small>'+fmt(v.feito)+' / '+fmt(v.meta)+' peças</small></div><div class="tv-rank-eff '+cls(e)+'">'+pct(e)+'</div></div>';
+  const w=e==null?0:Math.max(2,Math.min(100,e/1.2));
+  return '<div class="tv-rank-row"><div class="tv-rank-index">'+(i+1)+'</div><div class="tv-rank-name"><b>'+escapeHtml(v.nome)+'</b><span class="tv-rank-bar"><i class="'+cls(e)+'" style="width:'+w+'%"></i></span></div><div class="tv-rank-eff '+cls(e)+'">'+pct(e)+'</div></div>';
  }).join('');
+}
+function filterSummary(){
+ const d=s=>s?String(s).slice(8,10)+'/'+String(s).slice(5,7):'…';
+ const parts=[d(filters.inicio)+' a '+d(filters.fim)];
+ const add=(col,id)=>{if(id){const x=byId(col,id);if(x)parts.push(x.nome)}};
+ add('funcionarios',filters.funcionario);add('produtos',filters.produto);add('processos',filters.processo);add('setores',filters.setor);add('grupos',filters.grupo);
+ return parts.join(' · ');
 }
 function updateClock(){
  const node=document.getElementById('tvClock');
@@ -82,6 +90,8 @@ function updateUi(){
  if(r)r.innerHTML=rowsHtml(rows);
  if(rank)rank.innerHTML=rankings(rows);
  if(count)count.textContent=fmt(rows.length)+' apontamento(s)';
+ const rc=document.getElementById('tvRankCount');if(rc)rc.textContent=new Set(rows.map(l=>l.funcionario)).size+' pessoa(s)';
+ const fs=document.getElementById('tvFilterSummary');if(fs)fs.textContent=filterSummary();
  if(sync)sync.textContent=lastError?lastError:lastUpdated?'Atualizado às '+lastUpdated.toLocaleTimeString('pt-BR'):'Sincronizando com o Supabase';
  updateClock();
 }
@@ -90,7 +100,7 @@ function template(incoming){
  const rows=rowsFor();
  return '<section id="tvWorkspace" class="tv-workspace">'+
  '<header class="tv-header"><div class="tv-brand"><img src="gut-logo.svg" alt="GUT Consultoria e Treinamentos" /><div class="tv-title"><span>PAINEL AO VIVO</span><h1>APONTADOR <em>DE PRODUÇÃO</em></h1></div></div>'+
- '<div class="tv-header-actions"><span class="tv-live"><span></span> ATUALIZAÇÃO AUTOMÁTICA · 15 S</span><span class="tv-clock" id="tvClock"></span>'+
+ '<div class="tv-header-actions"><span class="tv-filter-summary" id="tvFilterSummary">'+escapeHtml(filterSummary())+'</span><span class="tv-live"><span></span> ATUALIZAÇÃO AUTOMÁTICA · 15 S</span><span class="tv-clock" id="tvClock"></span>'+
  '<button type="button" class="tv-button" data-tv-action="refresh">↻ Atualizar</button>'+
  '<button type="button" class="tv-button" data-tv-action="fullscreen">⛶ Tela cheia</button>'+
  '<button type="button" class="tv-button tv-button-close" data-tv-action="back">← Voltar</button></div></header>'+
@@ -106,7 +116,7 @@ function template(incoming){
  '<section class="tv-kpis" id="tvKpis">'+kpiHtml(rows)+'</section>'+
  '<div class="tv-content-grid"><section class="tv-table-box"><div class="tv-panel-header"><div><b>LANÇAMENTOS DE PRODUÇÃO</b><small>Indicadores por apontamento no intervalo selecionado</small></div><span id="tvRowCount">'+fmt(rows.length)+' apontamento(s)</span></div>'+
  '<div class="tv-table-scroll"><table class="tv-data-table"><thead><tr><th>DATA</th><th>HORA</th><th>PRODUTO</th><th>FUNCIONÁRIO</th><th>PROCESSO</th><th>INÍCIO</th><th>FIM</th><th>META</th><th>REALIZADO</th><th>EFICIÊNCIA</th></tr></thead><tbody id="tvRows">'+rowsHtml(rows)+'</tbody></table></div></section>'+
- '<aside class="tv-ranking-box"><div class="tv-panel-header"><div><b>FUNCIONÁRIOS</b><small>Eficiência acumulada no período</small></div></div><div id="tvRanking" class="tv-ranking-scroll">'+rankings(rows)+'</div></aside></div>'+
+ '<aside class="tv-ranking-box"><div class="tv-panel-header"><div><b>FUNCIONÁRIOS</b><small>Eficiência acumulada no período</small></div><span id="tvRankCount"></span></div><div id="tvRanking" class="tv-ranking-scroll">'+rankings(rows)+'</div></aside></div>'+
  '<footer class="tv-bottom"><span>GUT • GESTÃO INDUSTRIAL</span><span>Produção pronta = apontamentos da operação final definida no cadastro do produto</span><span id="tvLastSync">Sincronizando com o Supabase</span></footer></section>';
 }
 async function refresh(){
@@ -125,6 +135,22 @@ async function refresh(){
   updateUi();
  }finally{busy=false}
 }
+let scrollTimer=null,scrollDir=1,scrollPause=0,scrollHold=false;
+function autoScrollTick(){
+ const box=document.getElementById('tvRanking');
+ if(!box||scrollHold)return;
+ const max=box.scrollHeight-box.clientHeight;
+ if(max<=2){box.scrollTop=0;return;}
+ if(scrollPause>0){scrollPause--;return;}
+ box.scrollTop=Math.max(0,Math.min(max,box.scrollTop+scrollDir));
+ if(scrollDir>0&&box.scrollTop>=max-1){scrollDir=-1;scrollPause=80;}       // ~4 s parado no fim
+ else if(scrollDir<0&&box.scrollTop<=0){scrollDir=1;scrollPause=80;}       // ~4 s parado no topo
+}
+function setFull(on){
+ const el=document.getElementById('tvWorkspace');if(!el)return;
+ el.classList.toggle('tv-full',on);
+ const b=el.querySelector('[data-tv-action=fullscreen]');if(b)b.textContent=on?'✕ Sair da tela cheia':'⛶ Tela cheia';
+}
 function start(opts){
  stop();
  active=true;
@@ -133,11 +159,13 @@ function start(opts){
  updateUi();
  timer=setInterval(refresh,15000);
  clockTimer=setInterval(updateClock,1000);
+ scrollDir=1;scrollPause=60;scrollTimer=setInterval(autoScrollTick,50);
 }
 function stop(){
  active=false;
  if(timer){clearInterval(timer);timer=null;}
  if(clockTimer){clearInterval(clockTimer);clockTimer=null;}
+ if(scrollTimer){clearInterval(scrollTimer);scrollTimer=null;}
 }
 function setFilter(target){
  const key=target.id.slice(2).toLowerCase();
@@ -172,10 +200,16 @@ document.addEventListener('click',ev=>{
  }
  if(action==='fullscreen'){
   const el=document.getElementById('tvWorkspace');
-  if(document.fullscreenElement){document.exitFullscreen?.();return;}
+  if(document.fullscreenElement){document.exitFullscreen?.();setFull(false);return;}
+  if(el?.classList.contains('tv-full')){setFull(false);return;}
+  setFull(true); // modo TV mesmo em navegadores de TV sem suporte a tela cheia
   if(el?.requestFullscreen)el.requestFullscreen().catch(()=>{});
  }
 });
+document.addEventListener('fullscreenchange',()=>{if(active&&!document.fullscreenElement)setFull(false);});
+document.addEventListener('pointerover',ev=>{if(ev.target.closest?.('#tvRanking'))scrollHold=true;});
+document.addEventListener('pointerout',ev=>{if(ev.target.closest?.('#tvRanking')&&!ev.relatedTarget?.closest?.('#tvRanking'))scrollHold=false;});
+document.addEventListener('keydown',ev=>{if(active&&ev.key==='Escape'){if(document.fullscreenElement)document.exitFullscreen?.();setFull(false);}});
 document.addEventListener('visibilitychange',()=>{if(active&&document.visibilityState==='visible')refresh();});
 window.GUT_TV={template,start,stop,refresh,updateUi};
 })();

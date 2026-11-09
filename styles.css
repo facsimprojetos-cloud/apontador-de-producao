@@ -377,3 +377,42 @@ body.read-only [data-edit]{display:none!important}
 .op-group[open]>summary{border-bottom:1px solid #eef2f5}
 .op-body{padding:10px 12px 12px}
 .op-body-tools{display:flex;justify-content:flex-end;margin-bottom:8px}
+
+/* ===== Painel TV: ranking com barra e modo tela cheia (TV) ===== */
+.tv-filter-summary{display:none}
+.tv-rank-name b{font-size:13px}
+.tv-rank-bar{display:block;height:5px;margin-top:7px;border-radius:9px;background:#ffffff14;overflow:hidden}
+.tv-rank-bar i{display:block;height:100%;border-radius:9px;background:#c0c6cd}
+.tv-rank-bar i.tv-good{background:#5fd39a}.tv-rank-bar i.tv-mid{background:#86a8f5}.tv-rank-bar i.tv-bad{background:#f07272}
+.tv-rank-eff{font-size:15px}
+#tvRankCount{font-size:11px;color:#9ea9aa;white-space:nowrap}
+
+.tv-workspace.tv-full{position:fixed;inset:0;z-index:50;height:100vh;width:100vw;overflow:hidden;padding:10px 16px 10px;gap:10px}
+.tv-full .tv-filterbar,.tv-full .tv-bottom,.tv-full .tv-kpi span,.tv-full .tv-panel-header small{display:none!important}
+.tv-full .tv-header{min-height:0;flex-wrap:nowrap;gap:16px}
+.tv-full .tv-brand{gap:16px}
+.tv-full .tv-brand img{width:auto;height:clamp(38px,5vh,58px);max-height:none}
+.tv-full .tv-title{padding-left:16px;display:flex;align-items:baseline;gap:12px}
+.tv-full .tv-title span{display:none}
+.tv-full .tv-title h1{max-width:none;margin:0;font-size:clamp(20px,2.1vw,38px);white-space:nowrap;letter-spacing:-.5px}
+.tv-full .tv-title em{display:inline}
+.tv-full .tv-header-actions{gap:14px;flex-wrap:nowrap}
+.tv-full .tv-filter-summary{display:inline;font-size:clamp(11px,.9vw,15px);color:#c9c48f;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:32vw}
+.tv-full .tv-clock{font-size:clamp(16px,1.5vw,26px)}
+.tv-full .tv-button:not([data-tv-action=fullscreen]){display:none}
+.tv-full [data-tv-action=fullscreen]{opacity:0;transition:opacity .2s;font-size:11px}
+.tv-full .tv-header:hover [data-tv-action=fullscreen],.tv-full [data-tv-action=fullscreen]:focus-visible{opacity:1}
+/* indicadores achatados */
+.tv-full .tv-kpis{gap:10px}
+.tv-full .tv-kpi{min-height:0;padding:8px 16px;flex-direction:row;align-items:center;justify-content:space-between;gap:10px}
+.tv-full .tv-kpi small{font-size:clamp(11px,.85vw,15px)}
+.tv-full .tv-kpi strong{font-size:clamp(26px,2.6vw,50px)}
+/* quadros ocupam o resto da tela */
+.tv-full .tv-content-grid{flex:1;min-height:0;grid-template-columns:minmax(0,2.5fr) minmax(320px,1.35fr);gap:12px}
+.tv-full .tv-data-table{font-size:clamp(12px,.95vw,17px)}
+.tv-full .tv-rank-row{grid-template-columns:clamp(28px,2.2vw,42px) minmax(0,1fr) auto;gap:12px;padding:clamp(9px,1.1vh,16px) 14px;min-height:0}
+.tv-full .tv-rank-index{font-size:clamp(14px,1.2vw,22px)}
+.tv-full .tv-rank-name b{font-size:clamp(16px,1.45vw,28px)}
+.tv-full .tv-rank-bar{height:clamp(5px,.6vh,9px);margin-top:8px}
+.tv-full .tv-rank-eff{font-size:clamp(22px,2.1vw,40px);letter-spacing:-.5px;font-variant-numeric:tabular-nums}
+.tv-full .tv-panel-header b{font-size:clamp(12px,.95vw,17px)}
