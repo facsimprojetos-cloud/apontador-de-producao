@@ -21,6 +21,7 @@
     async login(email, password) { return unwrap(await client.auth.signInWithPassword({email,password})); },
     async logout() { return unwrap(await client.auth.signOut()); },
     async load() { return unwrap(await client.rpc('apontador_carregar',{})); },
-    async save(type, payload) { return unwrap(await client.rpc('apontador_salvar',{p_tipo:type,p_dados:payload})); }
+    async save(type, payload) { return unwrap(await client.rpc('apontador_salvar',{p_tipo:type,p_dados:payload})); },
+    async preview(payload) { return unwrap(await client.rpc('apontador_previa',{p_dados:payload})); }
   };
 })();

@@ -16,8 +16,9 @@ const rowsFor=()=>data.lancamentos.filter(l=>
  (!filters.funcionario||l.funcionario===filters.funcionario)&&(!filters.produto||l.produto===filters.produto)&&
  (!filters.processo||l.processo===filters.processo)&&(!filters.setor||l.setor===filters.setor)&&(!filters.grupo||l.grupo===filters.grupo)
 ).sort((a,b)=>((b.data||'')+(b.fim||'')).localeCompare((a.data||'')+(a.fim||''))||Number(b.id)-Number(a.id));
+// Usa a classificação gravada no apontamento: mudar a operação final não altera o histórico.
 function isFinished(l){
- return data.roteiro.some(r=>r.produto===l.produto&&r.processo===l.processo&&r.final===true);
+ return l.finalSnapshot===true;
 }
 function sums(rows){
  const meta=rows.reduce((n,l)=>n+Number(l.metaSnapshot||0),0);

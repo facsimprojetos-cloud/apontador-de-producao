@@ -37,6 +37,17 @@ Painel de TV: https://facsimprojetos-cloud.github.io/apontador-de-producao/#tv
 Branch `main`, publicada automaticamente pelo GitHub Pages a partir da raiz, sem build.
 O Netlify não é mais usado para novas publicações (`netlify.toml` mantido apenas por compatibilidade).
 
+## Banco de dados (migrações)
+
+As alterações de banco ficam versionadas em `supabase/migrations/` (a partir de 2026-11-09). Migrações anteriores
+foram aplicadas diretamente no Supabase e constam apenas no histórico do projeto.
+
+Regras importantes:
+- Cada apontamento grava `etapa_final_snapshot`: peças prontas não mudam quando a operação final do produto é trocada
+  (a menos que a opção "aplicar aos apontamentos já registrados" seja marcada).
+- O tempo individual aplicado é o vigente na data/hora do apontamento (`tempo_vigente`), inclusive para lançamentos retroativos.
+- `horarios_padrao` define os atalhos de hora em hora da aba Apontar; `apontador_previa` calcula a meta no Supabase.
+
 ## Observações
 
 - A biblioteca oficial do Supabase é carregada de CDN com versão fixa (2.117.1).
