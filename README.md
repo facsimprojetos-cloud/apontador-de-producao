@@ -46,6 +46,8 @@ Regras importantes:
 - Cada apontamento grava `etapa_final_snapshot`: peças prontas não mudam quando a operação final do produto é trocada
   (a menos que a opção "aplicar aos apontamentos já registrados" seja marcada).
 - O tempo individual aplicado é o vigente na data/hora do apontamento (`tempo_vigente`), inclusive para lançamentos retroativos.
+- Estrutura da fábrica (setor, grupo, máquinas, funções) é opcional: funcionário pode ser cadastrado só com o nome.
+- Nível em `tempos_operador` é opcional: primeiro define-se o tempo individual, o nível depois (base do plano de pagamento).
 - `funcionario_operacoes` liga cada funcionário às operações do roteiro que executa; a tela Níveis e tempos revisa tempo e nível por operação.
 - `horarios_padrao` define os atalhos de hora em hora da aba Apontar; `apontador_previa` calcula a meta no Supabase.
 

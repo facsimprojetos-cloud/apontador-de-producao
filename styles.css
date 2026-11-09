@@ -319,3 +319,50 @@ body.read-only [data-edit]{display:none!important}
  .op-row .btn{justify-self:end}
  .op-head .text-btn{font-size:11px}
 }
+
+/* Cadastro do funcionário em janela grande */
+.modal.modal-wide{width:min(1080px,100%)}
+.emp-layout{display:grid;grid-template-columns:280px minmax(0,1fr);gap:22px;align-items:start}
+.emp-basic{display:grid;gap:14px}
+.opt-box{border:1px dashed #d3dde6;border-radius:10px;padding:10px 12px}
+.opt-box summary{cursor:pointer;font-size:12px;font-weight:800;color:#4b6277}
+.opt-box summary small{font-weight:500;color:#8a99a8}
+.opt-box[open]{display:grid;gap:12px}
+.opt-box .checkbox-grid{grid-template-columns:1fr}
+.emp-ops{border:1px solid #dbeee3;background:#f8fcfa;border-radius:12px;padding:14px;min-width:0}
+.emp-ops-head{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:12px;flex-wrap:wrap}
+.emp-ops-head b{display:block;font-size:14px;color:#14553b}
+.emp-ops-head small{display:block;font-size:11px;color:#5d7d6d;margin-top:2px}
+.emp-ops-head .input{flex:0 1 260px}
+.emp-ops .op-check{max-height:55vh;overflow:auto;padding-right:4px}
+.emp-ops .op-group{background:#fff}
+.op-group-head{display:flex;align-items:center;gap:10px;margin-bottom:8px}
+.op-group-head b{flex:1;font-size:13px}
+.op-items{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:6px}
+.op-item{display:flex;align-items:center;gap:8px;padding:9px 10px;border:1px solid #e6edf2;border-radius:8px;font-size:12px;cursor:pointer;min-height:42px}
+.op-item:has(input:checked){border-color:#9fd8bd;background:#eefaf3}
+.op-item span{flex:1;min-width:0;font-weight:700;color:#2a4057}
+.op-item small{color:#8a99a8;font-size:10px;white-space:nowrap}
+.op-item input{width:18px;height:18px;flex:0 0 auto}
+/* Tempos por produto */
+.rot-pick{flex:1 1 280px}
+.rot-pick .select{flex:1;min-width:0}
+.link-form{display:flex;align-items:center;gap:10px;flex-wrap:wrap;padding:14px 22px 20px;border-top:1px solid #eff2f5}
+.link-form .select{flex:1 1 200px}
+.link-form .inline-date input{width:110px}
+@media(max-width:820px){
+ .emp-layout{grid-template-columns:1fr}
+ .emp-ops .op-check{max-height:none;overflow:visible}
+ .op-items{grid-template-columns:1fr}
+}
+@media(max-width:700px){
+ .modal-wrap{padding:0}
+ .modal.modal-wide{border-radius:0;max-height:100vh;min-height:100vh}
+ .emp-ops{padding:10px}
+ .emp-ops-head .input{flex:1 1 100%}
+ .link-form{padding:14px 15px 18px}
+ .link-form>b{flex:1 1 100%}
+ .link-form .select{flex:1 1 100%}
+ .link-form .inline-date{flex:1 1 140px}.link-form .inline-date input{width:100%}
+ .link-form .btn{flex:1 1 100%}
+}

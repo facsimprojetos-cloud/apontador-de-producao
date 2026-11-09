@@ -5,10 +5,11 @@ const NAMES = {tv:'Painel para TV',lancamentos:'Apontamentos',funcionarios:'Func
 /* Sub-abas exibidas no cabeçalho de cada página. */
 const SUBS = {
  lancamentos:[['novo','Apontar'],['historico','Histórico'],['horarios','Horários fixos']],
+ produtos:[['produtos','Produtos'],['operacoes','Operações'],['tempos','Tempos por produto']],
  estrutura:[['setores','Setores e grupos'],['maquinas','Máquinas'],['funcoes','Funções']],
  niveis:[['tempos','Por funcionário'],['niveis','Níveis']]
 };
-const sub = {lancamentos:'novo',estrutura:'setores',niveis:'tempos'};
+const sub = {produtos:'produtos',lancamentos:'novo',estrutura:'setores',niveis:'tempos'};
 const $ = s => document.querySelector(s);
 const byId = (collection,id) => (data[collection]||[]).find(x=>String(x.id)===String(id));
 const esc = value => String(value??'').replace(/[&<>"']/g, s=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[s]));
@@ -43,7 +44,7 @@ let data=EMPTY();
 let authenticated=false;
 let authorizedEmail='';
 const $main=$('#content');let page=(window.location?.hash==='#tv'?'tv':'lancamentos'), search='', filters=emptyFilters();
-let filtersOpen=false,nivFunc='';
+let filtersOpen=false,nivFunc='',rotProd='';
 const canEdit=()=>data.perfil!=='leitor';
 function sums(rows){const realizado=rows.reduce((a,r)=>a+(Number(r.realizado)||0),0),meta=rows.reduce((a,r)=>a+(Number(r.metaSnapshot)||0),0);return {realizado,meta,eff:meta?realizado*100/meta:null,total:rows.length}}
 function pct(value){return value==null?'—':fNum(value,2)+'%'}
@@ -301,14 +302,12 @@ async function toggleSlot(id,ativo){
 /* ===================== FUNCIONÁRIOS ===================== */
 function funcionarios(){
  const items=data.funcionarios.filter(f=>!search||[f.nome,f.matricula,byId('setores',f.setor)?.nome,byId('grupos',f.grupo)?.nome].join(' ').toLowerCase().includes(search.toLowerCase()));
- return title('Funcionários','Cadastre funcionários por setor e grupo, com suas máquinas e funções.',btnNew('novo-funcionario','Cadastrar funcionário'))+
+ return title('Funcionários','Cadastre o funcionário e marque as operações que ele executa.',btnNew('novo-funcionario','Cadastrar funcionário'))+
  '<div class="card controls-panel"><input id="employeeSearch" class="input search" placeholder="⌕ Buscar nome, matrícula, setor ou grupo..." aria-label="Buscar funcionário" value="'+esc(search)+'" /><div class="stats-row"><span><b>'+data.funcionarios.length+'</b> funcionários</span><span><b>'+data.setores.length+'</b> setores</span><span><b>'+(data.grupos||[]).length+'</b> grupos</span></div></div>'+
  '<div class="data-grid">'+items.map(f=>
-   '<article class="card employee-card"><div class="employee-top"><div class="employee-avatar">'+esc(initials(f.nome))+'</div><div style="flex:1"><div class="employee-name">'+esc(f.nome)+'</div><div class="employee-code">Matrícula '+esc(f.matricula||f.id)+'</div></div>'+effPill(sums(data.lancamentos.filter(l=>l.funcionario===f.id)).eff)+'</div>'+
-   '<div class="employee-info"><span>Setor principal</span><strong>'+esc(byId('setores',f.setor)?.nome||'Não definido')+'</strong></div>'+
-   '<div class="employee-info"><span>Grupo de produção</span><strong>'+esc(byId('grupos',f.grupo)?.nome||'Sem grupo definido')+'</strong></div>'+
-   '<div><div class="eyebrow" style="color:#8998a8;letter-spacing:.7px;margin-bottom:8px">MÁQUINAS HABILITADAS</div><div class="taglist">'+((f.maquinas||[]).length?f.maquinas.map(id=>'<span class="tag">'+esc(byId('maquinas',id)?.nome||id)+'</span>').join(''):'<span class="tag">Nenhuma máquina vinculada</span>')+'</div></div>'+
-   '<div><div class="eyebrow" style="color:#8998a8;letter-spacing:.7px;margin-bottom:8px">FUNÇÕES QUE DOMINA</div><div class="taglist">'+((f.funcoes||[]).length?f.funcoes.map(id=>'<span class="tag">'+esc(byId('funcoes',id)?.nome||id)+'</span>').join(''):'<span class="tag">Nenhuma função vinculada</span>')+'</div></div>'+
+   '<article class="card employee-card"><div class="employee-top"><div class="employee-avatar">'+esc(initials(f.nome))+'</div><div style="flex:1"><div class="employee-name">'+esc(f.nome)+'</div><div class="employee-code">'+(f.matricula?'Matrícula '+esc(f.matricula):'Sem matrícula')+'</div></div>'+effPill(sums(data.lancamentos.filter(l=>l.funcionario===f.id)).eff)+'</div>'+
+   ((f.setor||f.grupo)?'<div class="employee-info"><span>Setor / grupo</span><strong>'+esc(byId('setores',f.setor)?.nome||'Sem setor')+(f.grupo?' · '+esc(byId('grupos',f.grupo)?.nome||''):'')+'</strong></div>':'')+
+   ((f.maquinas||[]).length?'<div><div class="eyebrow" style="color:#8998a8;letter-spacing:.7px;margin-bottom:8px">MÁQUINAS</div><div class="taglist">'+f.maquinas.map(id=>'<span class="tag">'+esc(byId('maquinas',id)?.nome||id)+'</span>').join('')+'</div></div>':'')+
    '<div><div class="eyebrow" style="color:#8998a8;letter-spacing:.7px;margin-bottom:8px">OPERAÇÕES QUE EXECUTA</div><div class="taglist">'+(empOps(f).length?empOps(f).map(r=>'<span class="tag">'+esc(opLabel(r))+'</span>').join(''):'<span class="tag">Nenhuma operação marcada</span>')+'</div></div>'+
    '<div class="employee-bottom"><span class="pill green"><span class="badge-dot"></span>Ativo</span><div class="card-actions"><button class="text-btn" data-edit data-action="editar-funcionario" data-id="'+esc(f.id)+'">Editar cadastro</button><button class="text-btn" data-action="ver-funcionario" data-id="'+esc(f.id)+'">Ver desempenho →</button></div></div></article>'
  ).join('')+'</div>';
@@ -337,22 +336,49 @@ function estrutura(){
 }
 /* ===================== PRODUTOS ===================== */
 function produtos(){
- const items=data.produtos;
- return title('Produtos e operações','Defina o roteiro e qual operação representa a peça pronta.',btnNew('novo-processo','Nova operação')+btnNew('novo-produto','Novo produto'))+
- '<div class="info-banner hide-mobile">Os tempos padrão calculam as metas. A operação final define as peças prontas a partir dos próximos apontamentos (o histórico só muda se você pedir).</div>'+
- '<div class="data-grid">'+items.map(p=>{
-  const rot=routeOf(p.id);
-  const final=rot.find(r=>r.final===true);
-  const nomeFinal=final?byId('processos',final.processo)?.nome||'Operação cadastrada':null;
-  return '<article class="card product-card"><div class="taglist" style="margin-bottom:13px"><span class="pill blue">'+esc(p.codigo||p.id)+'</span><span class="pill grey">'+rot.length+' operações</span></div>'+
-   '<h3>'+esc(p.nome)+'</h3><p>'+esc(p.descricao||'Produto cadastrado')+'</p>'+
-   '<div class="product-final-status '+(final?'is-set':'')+'"><span>✓ PEÇAS PRONTAS</span><strong>'+(final?esc(nomeFinal):'Operação final não definida')+'</strong></div>'+
-   rot.map(r=>{
-    const pr=byId('processos',r.processo);
-    return '<div class="process-row"><div><strong>'+esc(pr?.nome||r.processo)+(r.final===true?' <span class="pill green">ETAPA FINAL</span>':'')+'</strong><small>Etapa '+esc(r.etapa||'—')+' · '+fNum(3600/r.tempo)+' peças/h</small></div><div class="process-time">'+fNum(r.tempo)+' s<small>/peça</small></div></div>';
-   }).join('')+
-   '<div class="product-actions" data-edit><button class="btn" data-action="vincular-processo" data-id="'+esc(p.id)+'">＋ Vincular operação</button><button class="btn btn-primary" data-action="marcar-final" data-id="'+esc(p.id)+'">✓ Definir operação final</button></div></article>';
- }).join('')+'</div>';
+ const tb={produtos:btnNew('novo-produto','Novo produto'),operacoes:btnNew('novo-processo','Nova operação'),tempos:btnNew('novo-processo','Nova operação')}[sub.produtos];
+ const head=title('Produtos e operações','Cadastre produtos e operações e vincule cada operação ao produto com seu tempo padrão.',tb)+subtabs();
+ if(sub.produtos==='operacoes')return head+operacoesLista();
+ if(sub.produtos==='tempos')return head+temposPorProduto();
+ return head+(data.produtos.length?'<div class="data-grid">'+data.produtos.map(p=>{
+  const rot=routeOf(p.id),final=rot.find(r=>r.final===true),total=rot.reduce((n,r)=>n+Number(r.tempo||0),0);
+  return '<article class="card product-card"><div class="taglist" style="margin-bottom:10px">'+(p.codigo?'<span class="pill blue">'+esc(p.codigo)+'</span>':'')+'<span class="pill grey">'+rot.length+' operações</span>'+(rot.length?'<span class="pill grey">'+fNum(total/60,1)+' min/peça</span>':'')+'</div>'+
+   '<h3>'+esc(p.nome)+'</h3><p>'+esc(p.descricao||'')+'</p>'+
+   '<div class="product-final-status '+(final?'is-set':'')+'"><span>✓ PEÇAS PRONTAS</span><strong>'+(final?esc(byId('processos',final.processo)?.nome||''):'Operação final não definida')+'</strong></div>'+
+   '<div class="product-actions"><button class="btn btn-primary" data-action="ver-tempos" data-id="'+esc(p.id)+'">Operações e tempos →</button><button class="btn" data-edit data-action="marcar-final" data-id="'+esc(p.id)+'">✓ Operação final</button></div></article>';
+ }).join('')+'</div>':'<div class="card placeholder"><h3>Nenhum produto cadastrado</h3><p>Comece em “Novo produto”.</p></div>');
+}
+function operacoesLista(){
+ const procs=data.processos||[];
+ return '<section class="card"><div class="section-head"><div><h3 class="section-title">Operações cadastradas</h3><p class="section-sub">'+procs.length+' operação(ões). Uma operação pode ser usada em vários produtos.</p></div></div>'+
+ '<div class="table-wrap"><table class="table table-cards"><thead><tr><th>Operação</th><th>Código</th><th>Usada em</th></tr></thead><tbody>'+
+ (procs.length?procs.map(o=>{const uses=data.roteiro.filter(r=>r.processo===o.id);return '<tr>'+td('Operação',esc(o.nome),'strong card-title')+td('Código',esc(o.codigo||'—'))+td('Usada em',uses.length?uses.map(r=>esc(byId('produtos',r.produto)?.nome||'')).join(', '):'<span class="muted-small">Nenhum produto</span>')+'</tr>'}).join('')
+  :'<tr><td colspan="3" class="empty-row">Nenhuma operação cadastrada. Use “Nova operação”.</td></tr>')+'</tbody></table></div></section>';
+}
+function temposPorProduto(){
+ if(!data.produtos.length)return '<div class="card placeholder"><h3>Cadastre um produto primeiro</h3><p>Depois volte aqui para vincular as operações e os tempos.</p></div>';
+ if(!byId('produtos',rotProd))rotProd=data.produtos[0].id;
+ const p=byId('produtos',rotProd),rot=routeOf(p.id),used=new Set(rot.map(r=>r.processo)),free=(data.processos||[]).filter(o=>!used.has(o.id));
+ const total=rot.reduce((n,r)=>n+Number(r.tempo||0),0);
+ return '<div class="card controls-panel"><label class="inline-date rot-pick">Produto <select class="select" id="rotProduto">'+data.produtos.map(x=>'<option value="'+esc(x.id)+'" '+(x.id===p.id?'selected':'')+'>'+esc(x.nome)+'</option>').join('')+'</select></label>'+
+ '<div class="stats-row"><span><b>'+rot.length+'</b> operações</span><span><b>'+fNum(total,1)+' s</b> por peça ('+fNum(total/60,1)+' min)</span></div></div>'+
+ '<section class="card"><div class="section-head"><div><h3 class="section-title">'+esc(p.nome)+' — operações e tempo padrão</h3><p class="section-sub">O tempo padrão vale para todos os funcionários até você definir um tempo individual em Níveis e tempos.</p></div><button class="btn btn-sm" data-edit data-action="marcar-final" data-id="'+esc(p.id)+'">✓ Operação final</button></div>'+
+ '<div class="table-wrap"><table class="table table-cards"><thead><tr><th>Operação</th><th>Tempo padrão</th><th>Peças/hora</th><th>Funcionários</th><th></th></tr></thead><tbody>'+
+ (rot.length?rot.map(r=>'<tr>'+td('Operação',esc(r.etapa||'—')+'. '+esc(byId('processos',r.processo)?.nome||'')+(r.final?' <span class="final-flag">FINAL</span>':''),'strong card-title')+td('Tempo padrão',fNum(r.tempo,1)+' s','strong num')+td('Peças/hora',fNum(3600/r.tempo,1),'num')+td('Funcionários',String(data.funcionarios.filter(f=>(f.operacoes||[]).includes(r.id)).length),'num')+td('Ação','<button class="text-btn" data-edit data-action="editar-tempo-padrao" data-id="'+esc(r.id)+'">Alterar tempo</button>','num')+'</tr>').join('')
+  :'<tr><td colspan="5" class="empty-row">Nenhuma operação vinculada a este produto.</td></tr>')+'</tbody></table></div>'+
+ '<form id="linkForm" class="link-form" data-edit><input type="hidden" name="produto" value="'+esc(p.id)+'"><b>Vincular operação</b>'+
+ (free.length?'<select class="select" name="processo" required>'+free.map(o=>'<option value="'+esc(o.id)+'">'+esc(o.nome)+'</option>').join('')+'</select><label class="inline-date">Tempo (s/peça) <input class="input" type="number" name="tempo" min="0.001" step="0.001" required placeholder="ex.: 45"></label><button class="btn btn-primary" type="submit">＋ Vincular</button>'
+  :'<span class="muted-small">Todas as operações já estão neste produto. Cadastre uma “Nova operação” para vincular.</span>')+
+ '</form></section>';
+}
+async function submitLink(ev){
+ ev.preventDefault();
+ const fd=new FormData(ev.target),produto=String(fd.get('produto')||''),processo=String(fd.get('processo')||''),tempo=Number(fd.get('tempo'));
+ try{
+  if(!produto||!processo||!(tempo>0))throw Error('Escolha a operação e informe um tempo positivo.');
+  await window.GUT_API.save('linkprocess',{produto,processo,tempo});
+  rotProd=produto;await loadData();toast('Operação vinculada ao produto.');
+ }catch(err){toast('Não foi possível salvar: '+(err.message||String(err)))}
 }
 
 /* ===================== NÍVEIS ===================== */
@@ -368,7 +394,7 @@ function niveis(){
   const rows=ops.map(r=>{const t=timeFor(f.id,r.id),seg=Number(t?.segundos??r.tempo);
    return `<div class="op-row"><div class="op-name"><b>${esc(byId('processos',r.processo)?.nome||'Operação')}</b><small>${esc(byId('produtos',r.produto)?.nome||'')} · etapa ${esc(r.etapa||'—')}</small></div>`+
    `<div class="op-time"><b>${fNum(seg,1)} s</b><small>${t?'individual':'padrão'} · ${fNum(3600/seg,1)} pç/h</small></div>`+
-   `<span class="pill ${t?'blue':'grey'}">${t?esc(nivelNome(t.nivel)):'Sem nível'}</span>`+
+   `<span class="pill ${t?.nivel?'blue':'grey'}">${t?.nivel?esc(nivelNome(t.nivel)):'Sem nível'}</span>`+
    `<button class="btn btn-sm" data-edit data-action="revisar-op" data-func="${esc(f.id)}" data-rot="${esc(r.id)}">Revisar</button></div>`}).join('');
   return `<section class="card op-person"><div class="op-head"><div class="employee-avatar">${esc(initials(f.nome))}</div><div class="op-who"><b>${esc(f.nome)}</b><small>${esc(byId('setores',f.setor)?.nome||'Sem setor')} · ${ops.length} operação(ões)</small></div><button class="text-btn" data-edit data-action="editar-funcionario" data-id="${esc(f.id)}">Editar operações</button></div>`+
   (rows||'<p class="muted-small op-empty">Nenhuma operação marcada. Use “Editar operações” para escolher o que este funcionário faz.</p>')+'</section>';
@@ -378,12 +404,12 @@ function reviseOp(fid,rid){
  const f=byId('funcionarios',fid),r=byId('roteiro',rid);
  if(!f||!r){toast('Operação não encontrada.');return;}
  const t=timeFor(fid,rid),seg=t?.segundos??r.tempo;
- showModal('Revisar tempo e nível',esc(f.nome)+' · '+esc(opLabel(r)),
+ showModal('Tempo individual e nível',esc(f.nome)+' · '+esc(opLabel(r)),
  `<div class="form-grid"><input type="hidden" name="funcionario" value="${esc(fid)}"><input type="hidden" name="produto" value="${esc(r.produto)}"><input type="hidden" name="processo" value="${esc(r.processo)}"><input type="hidden" name="roteiro" value="${esc(rid)}">`+
- selectField('nivel','Nível do operador nesta operação',data.niveis,t?.nivel||data.niveis[0]?.id)+
- inputField('segundos','Tempo (segundos/peça)','number',seg,'min="0.001" step="0.001"')+
- `<div class="field full"><label for="motivo">Motivo da revisão</label><input class="input" name="motivo" id="motivo" value="Revisão de tempo e nível" required></div></div>`+
- `<div class="modal-tip" style="margin-top:14px">Tempo padrão do roteiro: ${fNum(r.tempo,1)} s. ${t?'Atual: '+fNum(t.segundos,1)+' s, '+esc(nivelNome(t.nivel))+' (desde '+esc(fDate(t.alteradoEm))+').':'Hoje usa o tempo padrão.'} Apontamentos já feitos mantêm a meta histórica.</div>`,
+ inputField('segundos','Tempo individual (segundos/peça)','number',seg,'min="0.001" step="0.001"')+
+ '<div class="field"><label for="nivel">Nível <small>(opcional — pode definir depois)</small></label><select class="select" id="nivel" name="nivel"><option value="">Sem nível definido</option>'+data.niveis.map(n=>'<option value="'+esc(n.id)+'" '+(String(t?.nivel??'')===String(n.id)?'selected':'')+'>'+esc(n.nome)+'</option>').join('')+'</select></div>'+
+ `<div class="field full"><label for="motivo">Motivo da revisão</label><input class="input" name="motivo" id="motivo" value="Meta individual" required></div></div>`+
+ `<div class="modal-tip" style="margin-top:14px">Tempo padrão do roteiro: ${fNum(r.tempo,1)} s. ${t?'Atual: '+fNum(t.segundos,1)+' s'+(t.nivel?', '+esc(nivelNome(t.nivel)):', sem nível')+' (desde '+esc(fDate(t.alteradoEm))+').':'Hoje usa o tempo padrão.'} Apontamentos já feitos mantêm a meta histórica.</div>`,
  'Salvar nova versão','time');
 }
 function config(){return title('Configurações','Integração com Supabase, segurança e sincronização.')+
@@ -400,7 +426,7 @@ function config(){return title('Configurações','Integração com Supabase, seg
 /* ===================== MODAIS DE CADASTRO ===================== */
 function selectField(name,label,arr,sel,required=true){return `<div class="field"><label for="${name}">${label}</label><select class="select" id="${name}" name="${name}" ${required?'required':''}>${!required?'<option value="">Selecione...</option>':''}${arr.map(x=>`<option value="${esc(x.id)}" ${String(sel)===String(x.id)?'selected':''}>${esc(x.nome)}</option>`).join('')}</select></div>`}
 const inputField=(name,label,type='text',val='',extra='')=>`<div class="field"><label for="${name}">${label}</label><input class="input" type="${type}" name="${name}" id="${name}" value="${esc(val)}" ${extra} required></div>`;
-function showModal(head,subtitle,body,submit='Salvar',modalType='generic'){ $('#overlay').classList.remove('hidden');$('#modal').classList.remove('hidden');$('#overlay').setAttribute('aria-hidden','false');$('#modal').innerHTML=`<div class="modal"><div class="modal-top"><div><h2>${head}</h2><p>${subtitle}</p></div><button class="icon-button" data-action="fechar-modal" aria-label="Fechar">×</button></div><form id="modalForm" data-type="${esc(modalType)}" data-submit-label="${esc(submit)}"><div class="modal-body">${body}</div><div class="modal-footer"><button type="button" class="btn" data-action="fechar-modal">Cancelar</button><button type="submit" class="btn btn-primary">${submit}</button></div></form></div>`;$('#modal').querySelector('input,select,button')?.focus() }
+function showModal(head,subtitle,body,submit='Salvar',modalType='generic',size=''){ $('#overlay').classList.remove('hidden');$('#modal').classList.remove('hidden');$('#overlay').setAttribute('aria-hidden','false');$('#modal').innerHTML=`<div class="modal ${size}"><div class="modal-top"><div><h2>${head}</h2><p>${subtitle}</p></div><button class="icon-button" data-action="fechar-modal" aria-label="Fechar">×</button></div><form id="modalForm" data-type="${esc(modalType)}" data-submit-label="${esc(submit)}"><div class="modal-body">${body}</div><div class="modal-footer"><button type="button" class="btn" data-action="fechar-modal">Cancelar</button><button type="submit" class="btn btn-primary">${submit}</button></div></form></div>`;$('#modal').querySelector('input,select,button')?.focus() }
 function closeModal(){$('#overlay').classList.add('hidden');$('#modal').classList.add('hidden');$('#overlay').setAttribute('aria-hidden','true');$('#modal').innerHTML=''}
 function toast(msg){const t=$('#toast');t.textContent=msg;t.classList.add('show');clearTimeout(toast._timer);toast._timer=setTimeout(()=>t.classList.remove('show'),3600)}
 
@@ -419,28 +445,33 @@ function optionalInput(name,label,value='',placeholder=''){
  return '<div class="field"><label for="'+esc(name)+'">'+esc(label)+'</label><input class="input" type="text" name="'+esc(name)+'" id="'+esc(name)+'" value="'+esc(value)+'" placeholder="'+esc(placeholder)+'"></div>';
 }
 function newEmployee(id){
- if(!data.setores.length){sub.estrutura='setores';goTo('estrutura');toast('Cadastre um setor antes de incluir funcionários.');return;}
  const f=id?byId('funcionarios',id):null;
  if(id&&!f){toast('Funcionário não encontrado.');return;}
- const setor=f?.setor||data.setores[0]?.id;
- const body='<div class="form-grid">'+
- inputField('nome','Nome do funcionário','text',f?.nome||'')+
- inputField('matricula','Matrícula','text',f?.matricula||'')+
- selectField('setor','Setor principal',data.setores,setor)+
- '<div class="field"><label for="employeeGrupo">Grupo de produção (opcional)</label><select id="employeeGrupo" name="grupo" class="select">'+employeeGroupOptions(setor,f?.grupo||'')+'</select></div>'+
- '<div class="field full"><div class="modal-tip">Funcionários podem mudar de setor ou grupo sem alterar os apontamentos históricos.</div></div>'+
- '<div class="field full"><label>Máquinas habilitadas</label><div class="checkbox-grid">'+
- (data.maquinas.length?data.maquinas.map(m=>'<label class="checkbox-line"><input type="checkbox" name="maquinas" value="'+esc(m.id)+'" '+((f?.maquinas||[]).includes(m.id)?'checked':'')+'> '+esc(m.nome)+'</label>').join(''):'<p class="muted-small">Nenhuma máquina cadastrada. Cadastre na aba Estrutura da fábrica.</p>')+
- '</div></div><div class="field full"><label>Funções que sabe realizar</label><div class="checkbox-grid">'+
- (data.funcoes.length?data.funcoes.map(fn=>'<label class="checkbox-line"><input type="checkbox" name="funcoes" value="'+esc(fn.id)+'" '+((f?.funcoes||[]).includes(fn.id)?'checked':'')+'> '+esc(fn.nome)+'</label>').join(''):'<p class="muted-small">Nenhuma função cadastrada.</p>')+
- '</div></div>'+
- '<div class="field full"><label>Operações que executa (por produto)</label><p class="muted-small" style="margin:0">Essas operações aparecem primeiro no apontamento e em Níveis e tempos, onde você define o tempo e o nível de cada uma.</p><div class="op-check">'+
- data.produtos.map(p=>{const rot=routeOf(p.id);if(!rot.length)return '';const sel=rot.filter(r=>(f?.operacoes||[]).includes(r.id)).length;
-  return '<details class="op-group"'+(sel?' open':'')+'><summary><b>'+esc(p.nome)+'</b><span class="pill '+(sel?'green':'grey')+'">'+sel+' de '+rot.length+'</span></summary><div class="checkbox-grid">'+
-  rot.map(r=>'<label class="checkbox-line"><input type="checkbox" name="operacoes" value="'+esc(r.id)+'" '+((f?.operacoes||[]).includes(r.id)?'checked':'')+'> '+esc(r.etapa||'—')+'. '+esc(byId('processos',r.processo)?.nome||r.processo)+'</label>').join('')+'</div></details>';}).join('')+
- '</div></div></div>'+
- (f?'<input type="hidden" name="id" value="'+esc(f.id)+'">':'');
- showModal(f?'Editar funcionário':'Cadastrar funcionário','Escolha o setor, grupo e todas as máquinas e funções habilitadas.',body,f?'Salvar alterações':'Cadastrar funcionário',f?'employee_update':'employee');
+ const has=new Set(f?.operacoes||[]),setor=f?.setor||'';
+ const prods=data.produtos.filter(p=>routeOf(p.id).length);
+ const body='<div class="emp-layout"><div class="emp-basic">'+
+ inputField('nome','Nome do funcionário','text',f?.nome||'','autocomplete="off"')+
+ optionalInput('matricula','Matrícula (opcional)',f?.matricula||'')+
+ '<details class="opt-box"'+((f?.setor||(f?.maquinas||[]).length||(f?.funcoes||[]).length)?' open':'')+'><summary>Estrutura da fábrica <small>(opcional)</small></summary>'+
+ '<div class="field"><label for="setor">Setor</label><select class="select" id="setor" name="setor"><option value="">Sem setor</option>'+data.setores.map(x=>'<option value="'+esc(x.id)+'" '+(x.id===setor?'selected':'')+'>'+esc(x.nome)+'</option>').join('')+'</select></div>'+
+ '<div class="field"><label for="employeeGrupo">Grupo</label><select id="employeeGrupo" name="grupo" class="select">'+employeeGroupOptions(setor,f?.grupo||'')+'</select></div>'+
+ '<div class="field"><label>Máquinas</label><div class="checkbox-grid">'+(data.maquinas.length?data.maquinas.map(m=>'<label class="checkbox-line"><input type="checkbox" name="maquinas" value="'+esc(m.id)+'" '+((f?.maquinas||[]).includes(m.id)?'checked':'')+'> '+esc(m.nome)+'</label>').join(''):'<p class="muted-small">Nenhuma máquina cadastrada.</p>')+'</div></div>'+
+ '<div class="field"><label>Funções</label><div class="checkbox-grid">'+(data.funcoes.length?data.funcoes.map(fn=>'<label class="checkbox-line"><input type="checkbox" name="funcoes" value="'+esc(fn.id)+'" '+((f?.funcoes||[]).includes(fn.id)?'checked':'')+'> '+esc(fn.nome)+'</label>').join(''):'<p class="muted-small">Nenhuma função cadastrada.</p>')+'</div></div>'+
+ '</details></div>'+
+ '<div class="emp-ops"><div class="emp-ops-head"><div><b>Operações que executa</b><small id="opsCount">'+has.size+' selecionada(s)</small></div><input class="input" id="opsSearch" placeholder="⌕ Filtrar produto ou operação" autocomplete="off"></div>'+
+ (prods.length?'<div class="op-check">'+prods.map(p=>{const rot=routeOf(p.id),sel=rot.filter(r=>has.has(r.id)).length;
+  return '<div class="op-group" data-prod="'+esc(p.id)+'"><div class="op-group-head"><b>'+esc(p.nome)+'</b><span class="pill '+(sel?'green':'grey')+'" data-count>'+sel+' de '+rot.length+'</span><button type="button" class="text-btn" data-opall="'+esc(p.id)+'">'+(sel===rot.length?'Desmarcar todas':'Marcar todas')+'</button></div><div class="op-items">'+
+  rot.map(r=>'<label class="op-item" data-text="'+esc((p.nome+' '+(byId('processos',r.processo)?.nome||'')).toLowerCase())+'"><input type="checkbox" name="operacoes" value="'+esc(r.id)+'" '+(has.has(r.id)?'checked':'')+'><span>'+esc(r.etapa||'—')+'. '+esc(byId('processos',r.processo)?.nome||r.processo)+'</span><small>'+fNum(r.tempo,1)+' s</small></label>').join('')+'</div></div>';}).join('')+'</div>'
+  :'<p class="notice">Nenhum produto com operações. Cadastre em Produtos e operações → Tempos por produto.</p>')+
+ '</div></div>'+(f?'<input type="hidden" name="id" value="'+esc(f.id)+'">':'');
+ showModal(f?'Editar funcionário':'Cadastrar funcionário','Marque as operações que ele executa. Em Níveis e tempos cada uma começa com o tempo padrão do produto.',body,f?'Salvar alterações':'Cadastrar funcionário',f?'employee_update':'employee','modal-wide');
+}
+function updateOpsCounters(){
+ const form=$('#modalForm');if(!form)return;
+ form.querySelectorAll('.op-group').forEach(g=>{const boxes=[...g.querySelectorAll('input[name=operacoes]')],n=boxes.filter(b=>b.checked).length;
+  const pill=g.querySelector('[data-count]');pill.textContent=n+' de '+boxes.length;pill.className='pill '+(n?'green':'grey');
+  const btn=g.querySelector('[data-opall]');if(btn)btn.textContent=n===boxes.length?'Desmarcar todas':'Marcar todas';});
+ const c=$('#opsCount');if(c)c.textContent=form.querySelectorAll('input[name=operacoes]:checked').length+' selecionada(s)';
 }
 function newSector(){
  const body='<div class="form-grid">'+inputField('nome','Nome do setor')+optionalInput('descricao','Descrição (opcional)','', 'Ex.: Montagem, Inicialização, Finalização')+'</div>';
@@ -477,10 +508,10 @@ function setFinalOperation(productId){
  '<div class="field full"><p class="modal-tip">Peças prontas = peças realizadas nos apontamentos da operação final. Sem marcar a opção acima, a mudança vale apenas para os próximos apontamentos e o histórico fica preservado.</p></div></div>';
  showModal('Definir operação final',esc(prod.nome)+' · Escolha qual operação conclui a peça.',body,'Salvar operação final','final_operation');
 }
-function newProduct(){showModal('Novo produto','Cadastre o produto e depois vincule as operações do roteiro.',`<div class="form-grid">${inputField('codigo','Código do produto')}${inputField('nome','Nome do produto')}<div class="field full"><label for="descricao">Descrição</label><textarea class="input" name="descricao" id="descricao" rows="3" style="min-height:80px"></textarea></div></div>`,'Salvar produto','product')}
-function newProcess(){showModal('Nova operação','O cadastro de operação é reutilizável em vários produtos.',`<div class="form-grid">${inputField('codigo','Código da operação')}${inputField('nome','Nome da operação')}${selectField('funcao','Competência relacionada',data.funcoes,data.funcoes[0]?.id,false)}</div>`,'Salvar operação','process')}
+function newProduct(){showModal('Novo produto','Depois, em Tempos por produto, vincule as operações e o tempo de cada uma.',`<div class="form-grid">${inputField('nome','Nome do produto')}${optionalInput('codigo','Código (opcional)')}<div class="field full"><label for="descricao">Descrição</label><textarea class="input" name="descricao" id="descricao" rows="3" style="min-height:80px"></textarea></div></div>`,'Salvar produto','product')}
+function newProcess(){showModal('Nova operação','A operação pode ser usada em vários produtos, cada um com seu tempo.',`<div class="form-grid">${inputField('nome','Nome da operação')}${optionalInput('codigo','Código (opcional)')}${data.funcoes.length?selectField('funcao','Função relacionada (opcional)',data.funcoes,'',false):''}</div>`,'Salvar operação','process')}
+function editRouteTime(id){const r=byId('roteiro',id);if(!r){toast('Operação não encontrada.');return;}showModal('Alterar tempo padrão',esc(opLabel(r)),`<div class="form-grid"><input type="hidden" name="id" value="${esc(id)}">${inputField('tempo','Tempo padrão (segundos/peça)','number',r.tempo,'min="0.001" step="0.001"')}</div><p class="modal-tip" style="margin-top:14px">Vale para os próximos apontamentos de quem não tem tempo individual. Apontamentos já registrados mantêm o tempo que usaram.</p>`,'Salvar tempo','route_update')}
 function linkProcess(id){const p=byId('produtos',id);showModal('Vincular operação',`Produto: ${esc(p?.nome||id)}`,`<div class="form-grid"><input type="hidden" name="produto" value="${esc(id)}">${selectField('processo','Operação',data.processos,data.processos[0]?.id)}${inputField('tempo','Tempo padrão (segundos/peça)','number',60,'min="0.001" step="0.001"')}</div>`,'Vincular operação','linkprocess')}
-function reviseTime(id){const t=data.tempos.find(x=>x.id===id),emp=t?.funcionario||data.funcionarios[0]?.id,product=t?.produto||data.produtos[0]?.id,proc=t?.processo||data.processos[0]?.id;const old=t?.segundos||getTime(emp,product,proc)?.segundos||60;showModal('Revisar tempo individual','Esta mudança não recalcula apontamentos históricos.',`<div class="form-grid"><input type="hidden" name="tempoId" value="${esc(id||'')}">${selectField('funcionario','Funcionário',data.funcionarios,emp)}${selectField('produto','Produto',data.produtos,product)}${selectField('processo','Operação',data.processos,proc)}${selectField('nivel','Nível do operador',data.niveis,t?.nivel||1)}${inputField('segundos','Novo tempo (segundos/peça)','number',old,'min="0.001" step="0.001"')}<div class="field"><label for="motivo">Motivo da revisão</label><input class="input" name="motivo" id="motivo" value="Revisão técnica de desempenho" required /></div></div><div class="info-banner" style="margin-top:18px">O tempo e o nível anteriores são mantidos no histórico.</div>`,'Salvar nova versão','time')}
 async function handleSubmit(ev){
  ev.preventDefault();
  if(!authenticated){renderLogin();return}
@@ -491,8 +522,8 @@ async function handleSubmit(ev){
  try{
    let payload,msg='Registro salvo com sucesso no Supabase.';
    if(formType==='employee'||formType==='employee_update'){
-     if(!v('nome')||!v('matricula')||!v('setor'))throw Error('Informe nome, matrícula e setor.');
-     if(v('grupo') && byId('grupos',v('grupo'))?.setor!==v('setor'))throw Error('Grupo diferente do setor informado.');
+     if(!v('nome'))throw Error('Informe o nome do funcionário.');
+     if(v('grupo') && byId('grupos',v('grupo'))?.setor!==v('setor'))throw Error('O grupo deve pertencer ao setor escolhido.');
      payload={id:v('id'),nome:v('nome'),matricula:v('matricula'),setor:v('setor'),grupo:v('grupo'),
         maquinas:fd.getAll('maquinas'),funcoes:fd.getAll('funcoes'),operacoes:fd.getAll('operacoes')};
      page='funcionarios';
@@ -514,17 +545,20 @@ async function handleSubmit(ev){
      payload={produto:v('produto'),roteiro:v('roteiro'),retroativo:fd.get('retroativo')==='on'};
      page='produtos';
    }else if(formType==='product'){
-     if(!v('nome')||!v('codigo'))throw Error('Informe o código e o nome do produto.');
+     if(!v('nome'))throw Error('Informe o nome do produto.');
      payload={codigo:v('codigo'),nome:v('nome'),descricao:v('descricao')};
-     page='produtos';
+     page='produtos';sub.produtos='produtos';
    }else if(formType==='process'){
-     if(!v('nome')||!v('codigo'))throw Error('Informe o código e o nome da operação.');
+     if(!v('nome'))throw Error('Informe o nome da operação.');
      payload={codigo:v('codigo'),nome:v('nome'),funcao:v('funcao')};
-     page='produtos';
+     page='produtos';if(sub.produtos==='produtos')sub.produtos='operacoes';
    }else if(formType==='linkprocess'){
      if(!v('produto')||!v('processo')||!(Number(v('tempo'))>0))throw Error('Informe um produto, a operação e o tempo padrão positivo.');
      payload={produto:v('produto'),processo:v('processo'),tempo:Number(v('tempo'))};
-     page='produtos';
+     page='produtos';sub.produtos='tempos';rotProd=v('produto');
+   }else if(formType==='route_update'){
+     if(!(Number(v('tempo'))>0))throw Error('O tempo padrão deve ser positivo.');
+     payload={id:v('id'),tempo:Number(v('tempo'))};page='produtos';sub.produtos='tempos';
    }else if(formType==='time'){
      if(v('roteiro')?!byId('roteiro',v('roteiro')):!routeItem(v('produto'),v('processo')))throw Error('Essa operação não faz parte do roteiro deste produto.');
      if(!(Number(v('segundos'))>0))throw Error('O tempo deve ser positivo.');
@@ -562,7 +596,8 @@ function action(name,el){
  case 'marcar-final':setFinalOperation(id);break;
  case 'novo-processo':newProcess();break;
  case 'vincular-processo':linkProcess(id);break;
- case 'revisar-tempo':reviseTime(id);break;
+ case 'editar-tempo-padrao':editRouteTime(id);break;
+ case 'ver-tempos':rotProd=id;sub.produtos='tempos';render();break;
  case 'revisar-op':reviseOp(el.dataset.func,el.dataset.rot);break;
  case 'toggle-slot':toggleSlot(id,el.dataset.ativo);break;
  case 'ver-funcionario':filters={...emptyFilters(),funcionario:id};filtersOpen=true;goTo('lancamentos','historico');break;
@@ -577,6 +612,8 @@ document.addEventListener('click',ev=>{
  const nav=ev.target.closest('[data-page]'),act=ev.target.closest('[data-action]'),tab=ev.target.closest('[data-sub]'),slot=ev.target.closest('[data-slot]');
  if(nav){if(!authenticated){renderLogin();return;}search='';goTo(nav.dataset.page);$('#sidebar').classList.remove('open');return}
  if(tab){sub[page]=tab.dataset.sub;render();return}
+ const opall=ev.target.closest('[data-opall]');
+ if(opall){const g=opall.closest('.op-group'),boxes=[...g.querySelectorAll('input[name=operacoes]')],all=boxes.every(b=>b.checked);boxes.forEach(b=>b.checked=!all);updateOpsCounters();return}
  if(slot){
   if(slot.dataset.slot==='custom'){entry.custom=true;}
   else{entry.custom=false;entry.slot=slot.dataset.slot;}
@@ -604,13 +641,16 @@ document.addEventListener('change',ev=>{const t=ev.target;
  if(t.id==='entryRoteiro'){entry.roteiro=t.value;refreshEntry();}
  if(t.id==='entryInicio'||t.id==='entryFim'){entry[t.id==='entryInicio'?'inicio':'fim']=t.value;refreshEntry();}
  if(t.id==='nivFuncionario'){nivFunc=t.value;render();}
+ if(t.id==='rotProduto'){rotProd=t.value;render();}
+ if(t.name==='operacoes')updateOpsCounters();
  if(t.id==='setor'&&$('#employeeGrupo'))updateEmployeeGroups();
 });
 document.addEventListener('input',ev=>{
  if(ev.target.id==='employeeSearch'){search=ev.target.value;const pos=ev.target.selectionStart;render();const el=$('#employeeSearch');el.focus();el.setSelectionRange(pos,pos)}
  if(ev.target.id==='entryRealizado'){entry.realizado=ev.target.value;paintPreview();}
+ if(ev.target.id==='opsSearch'){const q=ev.target.value.trim().toLowerCase();document.querySelectorAll('#modalForm .op-group').forEach(g=>{let any=false;g.querySelectorAll('.op-item').forEach(it=>{const ok=!q||it.dataset.text.includes(q);it.classList.toggle('hidden',!ok);any=any||ok});g.classList.toggle('hidden',!any)})}
 });
-document.addEventListener('submit',ev=>{const id=ev.target.getAttribute('id'); /* getAttribute: um campo chamado "id" sobrescreve form.id */if(id==='modalForm')handleSubmit(ev);else if(id==='loginForm')handleLogin(ev);else if(id==='entryForm')submitEntry(ev);else if(id==='slotForm')submitSlot(ev)});
+document.addEventListener('submit',ev=>{const id=ev.target.getAttribute('id'); /* getAttribute: um campo chamado "id" sobrescreve form.id */if(id==='modalForm')handleSubmit(ev);else if(id==='loginForm')handleLogin(ev);else if(id==='entryForm')submitEntry(ev);else if(id==='slotForm')submitSlot(ev);else if(id==='linkForm')submitLink(ev)});
 window.addEventListener?.('hashchange',()=>{const target=window.location?.hash==='#tv'?'tv':'lancamentos';if(target==='tv'&&page!=='tv'){page='tv';render();}else if(target==='lancamentos'&&page==='tv'){page='lancamentos';render();}});
 $('#overlay').addEventListener('click',closeModal);
 $('#openMenu').addEventListener('click',()=>$('#sidebar').classList.add('open'));
