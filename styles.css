@@ -416,3 +416,9 @@ body.read-only [data-edit]{display:none!important}
 .tv-full .tv-rank-bar{height:clamp(5px,.6vh,9px);margin-top:8px}
 .tv-full .tv-rank-eff{font-size:clamp(22px,2.1vw,40px);letter-spacing:-.5px;font-variant-numeric:tabular-nums}
 .tv-full .tv-panel-header b{font-size:clamp(12px,.95vw,17px)}
+
+/* Tabela da TV: data, horas e números nunca quebram; textos quebram só entre palavras */
+.tv-data-table tbody td.tv-nw{white-space:nowrap;overflow-wrap:normal;word-break:keep-all;max-width:none;width:1%;font-variant-numeric:tabular-nums}
+.tv-data-table tbody td.tv-text{white-space:normal;overflow-wrap:break-word;word-break:normal;hyphens:none;max-width:none;min-width:9ch}
+.tv-data-table tbody td.tv-product{min-width:12ch}
+.tv-finish{white-space:nowrap}

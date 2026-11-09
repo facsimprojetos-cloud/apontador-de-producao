@@ -45,13 +45,13 @@ function rowsHtml(rows){
  return rows.map(l=>{
   const e=l.metaSnapshot?100*Number(l.realizado||0)/Number(l.metaSnapshot):null;
   const fin=isFinished(l);
-  return '<tr class="'+cls(e)+'"><td>'+escapeHtml(dateLabel(l.data))+'</td>'+
-  '<td>'+escapeHtml(l.fim||'—')+'</td>'+
-  '<td class="tv-product">'+escapeHtml(byId('produtos',l.produto)?.nome||'—')+'</td>'+
-  '<td>'+escapeHtml(byId('funcionarios',l.funcionario)?.nome||'—')+'</td>'+
-  '<td>'+escapeHtml(byId('processos',l.processo)?.nome||'—')+(fin?' <span class="tv-finish">FINAL</span>':'')+'</td>'+
-  '<td>'+escapeHtml(l.inicio||'—')+'</td><td>'+escapeHtml(l.fim||'—')+'</td>'+
-  '<td>'+fmt(l.metaSnapshot)+'</td><td>'+fmt(l.realizado)+'</td>'+
+  return '<tr class="'+cls(e)+'"><td class="tv-nw">'+escapeHtml(dateLabel(l.data))+'</td>'+
+  '<td class="tv-nw">'+escapeHtml(l.fim||'—')+'</td>'+
+  '<td class="tv-product tv-text">'+escapeHtml(byId('produtos',l.produto)?.nome||'—')+'</td>'+
+  '<td class="tv-text">'+escapeHtml(byId('funcionarios',l.funcionario)?.nome||'—')+'</td>'+
+  '<td class="tv-text">'+escapeHtml(byId('processos',l.processo)?.nome||'—')+(fin?' <span class="tv-finish">FINAL</span>':'')+'</td>'+
+  '<td class="tv-nw">'+escapeHtml(l.inicio||'—')+'</td><td class="tv-nw">'+escapeHtml(l.fim||'—')+'</td>'+
+  '<td class="tv-nw">'+fmt(l.metaSnapshot)+'</td><td class="tv-nw">'+fmt(l.realizado)+'</td>'+
   '<td class="tv-eff-num">'+pct(e)+'</td></tr>';
  }).join('');
 }
