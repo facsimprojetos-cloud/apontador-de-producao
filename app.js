@@ -607,7 +607,7 @@ function bonificacao(){
  return head+bonusMesView();
 }
 function bonusMesView(){
- const L=bonusData.linhas||[],com=L.filter(l=>l.meta>0),colAtiva=bonusData.config?.coletivaAtiva!==false,colFab=bonusData.coletivas?.fabrica,emp=bonusData.empresa||{};
+ const L=bonusData.linhas||[],com=L.filter(l=>l.meta>0),colAtiva=bonusData.config?.coletivaAtiva!==false,colBase=bonusData.config?.coletivaBase||'fabrica',colFab=colBase==='final'?bonusData.coletivas?.final:bonusData.coletivas?.fabrica,emp=bonusData.empresa||{};
  const soma=k=>L.reduce((n,l)=>n+Number(l[k]||0),0);
  const semSal=L.filter(l=>l.salario==null&&l.meta>0).length,brindes=L.filter(l=>l.brinde).length,crono=L.filter(l=>l.cronoanalise).length;
  const tr=l=>{const alerts=[];
@@ -629,7 +629,7 @@ function bonusMesView(){
  <article class="card kpi"><div class="kpi-top"><span>Folha (salário + prêmio)</span><span class="kpi-icon">Σ</span></div><div class="kpi-value">${brl(L.reduce((n,l)=>n+Number(l.total||0),0))}</div><div class="kpi-foot">${semSal?'<strong style="color:#b43e43">'+semSal+' sem salário cadastrado</strong>':'Todos com salário cadastrado'}</div></article>
  <article class="card kpi"><div class="kpi-top"><span>Brindes (acima de 100%)</span><span class="kpi-icon">🎁</span></div><div class="kpi-value">${brindes}</div><div class="kpi-foot">${crono} alerta(s) de cronoanálise</div></article>
  <article class="card kpi kpi-empresa"><div class="kpi-top"><span>Eficiência da empresa</span><span class="kpi-icon">🏭</span></div><div class="kpi-value">${emp.eficienciaEmpresa!=null?pctTxt(+Number(emp.eficienciaEmpresa).toFixed(1)):'—'}</div><div class="kpi-foot">Considera ${hhmm(emp.minutosAusencia||0)} de ausências${emp.minutosAusenciaColetiva?' ('+hhmm(emp.minutosAusenciaColetiva)+' coletivas)':''}</div></article>
- <article class="card kpi"><div class="kpi-top"><span>Eficiência coletiva (fábrica)</span><span class="kpi-icon">👥</span></div><div class="kpi-value">${colFab!=null?pctTxt(+Number(colFab).toFixed(1)):'—'}</div><div class="kpi-foot">${colAtiva?'Meta coletiva ativa · base '+esc({fabrica:'fábrica',setor:'setor',grupo:'grupo'}[bonusData.config?.coletivaBase||'fabrica']):'Meta coletiva desativada'}</div></article>
+ <article class="card kpi"><div class="kpi-top"><span>Eficiência coletiva (${colBase==='final'?'peças prontas':'fábrica'})</span><span class="kpi-icon">👥</span></div><div class="kpi-value">${colFab!=null?pctTxt(+Number(colFab).toFixed(1)):'—'}</div><div class="kpi-foot">${colAtiva?'Meta coletiva ativa · base '+esc({final:'peças prontas',fabrica:'fábrica',setor:'setor',grupo:'grupo'}[colBase]):'Meta coletiva desativada'}</div></article>
  <article class="card kpi"><div class="kpi-top"><span>Faltas no mês</span><span class="kpi-icon">✕</span></div><div class="kpi-value">${(bonusData.faltas||[]).length}</div><div class="kpi-foot">${L.filter(l=>l.faltas).length} funcionário(s) com desconto</div></article>
  </div>
  <section class="card"><div class="section-head"><div><h3 class="section-title">Fechamento de ${esc(mesLabel(bonusMes))}</h3><p class="section-sub">Eficiência do mês = peças realizadas ÷ meta (tempo individual), só no tempo trabalhado — ausências não reduzem a eficiência do funcionário. Faixa pela eficiência arredondada para baixo.</p></div></div>
@@ -670,7 +670,7 @@ function draft(){
 }
 const sortedBy=kind=>(draft()[kind]||[]).slice().sort((a,b)=>a.min-b.min);
 function sortedFaixas(){return sortedBy('faixas')}
-const BASES={fabrica:'da fábrica toda',setor:'do setor do funcionário',grupo:'do grupo do funcionário'};
+const BASES={final:'das peças prontas (operação final)',fabrica:'da fábrica toda',setor:'do setor do funcionário',grupo:'do grupo do funcionário'};
 function regraTexto(fx){
  if(!fx.length)return null;
  const steps=fx.slice(1).map((f,i)=>+(f.pct-fx[i].pct).toFixed(3)),linear=steps.length&&steps.every(s=>s===steps[0])&&fx.slice(1).every((f,i)=>f.min-fx[i].min===1);
@@ -737,7 +737,7 @@ function bnTable(kind,labelEf,labelPct){
 }
 function bonusRegras(){
  const d=draft(),fl=d.faltas.slice().sort((a,b)=>a.min-b.min),cfg=d.config,col=bonusData.coletivas||{};
- const efAtual=cfg.coletivaBase==='fabrica'?(col.fabrica!=null?pctTxt(+col.fabrica):'sem apontamentos'):'varia por '+(cfg.coletivaBase==='setor'?'setor':'grupo');
+ const efAtual=(cfg.coletivaBase==='fabrica'||cfg.coletivaBase==='final')?(col[cfg.coletivaBase]!=null?pctTxt(+Number(col[cfg.coletivaBase]).toFixed(1)):'sem apontamentos'):'varia por '+(cfg.coletivaBase==='setor'?'setor':'grupo');
  const ico='<svg viewBox="0 0 48 48" aria-hidden="true"><circle cx="24" cy="24" r="21" fill="none" stroke="currentColor" stroke-width="3"/><rect x="13" y="27" width="5" height="9" fill="currentColor"/><rect x="21" y="22" width="5" height="14" fill="currentColor"/><rect x="29" y="17" width="5" height="19" fill="currentColor"/><path d="M12 24 L22 15 L27 19 L36 11" fill="none" stroke="currentColor" stroke-width="3"/><path d="M31 11 h5 v5" fill="none" stroke="currentColor" stroke-width="3"/></svg>';
  return `<div class="bn-sheet">
  <header class="bn-hero"><div class="bn-hero-ico">${ico}</div><div><h2>TABELA DE <span>BONIFICAÇÃO PROGRESSIVA</span></h2><p>Mais desempenho, mais resultado, mais reconhecimento!</p></div></header>
@@ -745,7 +745,7 @@ function bonusRegras(){
  ${bnTable('faixas','EFICIÊNCIA<br>(%)','BONIFICAÇÃO SOBRE O SALÁRIO<br>(SALÁRIO BASE)')}
  <div class="bn-section-title bn-section-col"><b>META COLETIVA</b><small>eficiência ${esc(BASES[cfg.coletivaBase])} · ${esc(mesLabel(bonusMes))}: ${esc(efAtual)}</small>
   <label class="bn-switch"><input type="checkbox" id="cfgColAtiva" ${cfg.coletivaAtiva?'checked':''}> Pagar meta coletiva</label>
-  <label class="bn-switch">Base <select id="cfgColBase">${Object.entries({fabrica:'Fábrica toda',setor:'Setor do funcionário',grupo:'Grupo do funcionário'}).map(([k,v])=>`<option value="${k}" ${cfg.coletivaBase===k?'selected':''}>${v}</option>`).join('')}</select></label>
+  <label class="bn-switch">Base <select id="cfgColBase">${Object.entries({final:'Peças prontas (operação final)',fabrica:'Fábrica toda',setor:'Setor do funcionário',grupo:'Grupo do funcionário'}).map(([k,v])=>`<option value="${k}" ${cfg.coletivaBase===k?'selected':''}>${v}</option>`).join('')}</select></label>
   <label class="bn-switch"><input type="checkbox" id="cfgColFaltas" ${cfg.coletivaDescontaFaltas?'checked':''}> Faltas descontam também</label></div>
  <div class="${cfg.coletivaAtiva?'':'bn-off'}">${bnTable('faixasColetiva','EFICIÊNCIA<br>COLETIVA (%)','BONIFICAÇÃO<br>COLETIVA')}</div>
  <div class="bn-cards">

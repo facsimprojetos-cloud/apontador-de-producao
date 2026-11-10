@@ -603,3 +603,88 @@ body:not(.is-admin) .admin-only{display:none!important}
  .jornada-dia{grid-column:1/-1}.jornada-int{grid-column:1/-1}.jornada-int .input{flex:1}
  .jornada-row b{grid-column:1/-1;text-align:left;color:#14553b}
 }
+
+/* ===== Painéis de TV: abas, rodízio, gargalos e peças prontas ===== */
+.tv-p{display:none;flex-direction:column;gap:15px;flex:1;min-height:0}
+.tv-workspace[data-panel="1"] .tv-p1,.tv-workspace[data-panel="2"] .tv-p2,.tv-workspace[data-panel="3"] .tv-p3{display:flex}
+.tv-full .tv-p{gap:10px}
+.tv-panelbar{position:relative;display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.tv-panels{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.tv-panel-tab{background:#14171c;border:1.5px solid #5c5428;color:#cfc9a0;border-radius:8px;padding:9px 14px;font:inherit;font-size:12px;font-weight:900;letter-spacing:.8px;cursor:pointer}
+.tv-panel-tab.on{background:#f2d95e;border-color:#f2d95e;color:#111}
+.tv-rotate{display:inline-flex;align-items:center;gap:6px;font-size:11px;font-weight:900;letter-spacing:.8px;color:#ded089;background:#14171c;border:1.5px solid #3c3a2a;border-radius:8px;padding:6px 10px;cursor:pointer}
+.tv-rotate input[type=checkbox]{width:17px;height:17px;accent-color:#f2d95e}
+.tv-rotate input[type=number]{width:62px;background:#0b0d11;border:1px solid #5c5428;color:#fff;border-radius:6px;padding:4px 6px;font:inherit;font-size:13px}
+.tv-panel-now{display:none;align-items:center;gap:10px;font-weight:900;letter-spacing:1.2px;color:#f2d95e;font-size:clamp(12px,1vw,18px)}
+.tv-dots{display:inline-flex;gap:6px}.tv-dots i{width:9px;height:9px;border-radius:50%;background:#4a4630}.tv-dots i.on{background:#f2d95e}
+.tv-rot-track{display:none;position:absolute;left:0;right:0;bottom:-6px;height:3px;background:#22252a;border-radius:3px;overflow:hidden}
+.tv-rot-track i{display:block;height:100%;width:0;background:#f2d95e;transition:width 1s linear}
+.tv-rotating .tv-rot-track{display:block}
+/* em tela cheia: só o nome do painel, bolinhas e a barra do rodízio */
+.tv-full .tv-panelbar{justify-content:flex-end;margin-top:-4px}
+.tv-full .tv-panels{display:none}
+.tv-full .tv-panel-now{display:inline-flex}
+.tv-full .tv-panelbar:hover .tv-panels{display:flex}
+.tv-full .tv-panelbar:hover .tv-panel-now{display:none}
+
+.tvg-kpis{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px}
+.tvg-kpis5{grid-template-columns:repeat(5,minmax(0,1fr))}
+.tvg-kpi{display:flex;flex-direction:column;justify-content:center;gap:5px;padding:14px 18px;background:#0b0c0f;border:2px solid #f2d95e;border-radius:11px;min-width:0}
+.tvg-kpi small{color:#f2d95e;font-size:12px;letter-spacing:1.6px;font-weight:900}
+.tvg-kpi strong{font-size:clamp(26px,3vw,52px);font-weight:800;line-height:1;color:#fff;white-space:nowrap;font-variant-numeric:tabular-nums;letter-spacing:-1px}
+.tvg-kpi span{font-size:11px;color:#9ea9aa}
+.tvg-kpi.tvg-yellow strong{color:#f2d95e}
+.tvg-kpi.tvg-tv-good strong{color:#79ebad}.tvg-kpi.tvg-tv-mid strong{color:#9fbaf7}.tvg-kpi.tvg-tv-bad strong{color:#ff8984}
+.tv-full .tvg-kpi{flex-direction:row;align-items:center;justify-content:space-between;padding:8px 16px}
+.tv-full .tvg-kpi span{display:none}
+.tv-full .tvg-kpi small{font-size:clamp(11px,.85vw,15px)}
+.tvg-grid{display:grid;grid-template-columns:minmax(0,2.6fr) minmax(280px,1fr);gap:12px;flex:1;min-height:340px}
+.tv-full .tvg-grid{min-height:0}
+.tvg-box{border:1.5px solid #b8a646;border-radius:11px;background:#07080b;display:flex;flex-direction:column;min-width:0;min-height:0;overflow:hidden}
+.tvg-toggle{display:flex;border:1.5px solid #f2d95e;border-radius:8px;overflow:hidden;flex-shrink:0}
+.tvg-toggle button{background:transparent;border:0;color:#f2d95e;font:inherit;font-size:11px;font-weight:900;letter-spacing:.8px;padding:7px 12px;cursor:pointer}
+.tvg-toggle button.on{background:#f2d95e;color:#111}
+.tvg-plot{flex:1;min-height:0;display:flex;flex-direction:column;padding:34px 18px 10px 18px}
+.tvg-area{position:relative;flex:1;min-height:150px;border-bottom:2px solid #f2d95e}
+.tvg-bars{position:absolute;inset:0;display:grid;grid-template-columns:repeat(var(--n),minmax(0,1fr));gap:clamp(4px,1vw,18px);align-items:end}
+.tvg-bar{position:relative;background:#f2d95e;border-radius:3px 3px 0 0;min-height:2px}
+.tvg-bar span{position:absolute;bottom:100%;left:50%;transform:translateX(-50%);margin-bottom:4px;font-weight:800;font-size:clamp(11px,1vw,20px);color:#fff;white-space:nowrap;font-variant-numeric:tabular-nums}
+.tvg-bar.is-abaixo{background:#c8a937}
+.tvg-bar.is-gargalo{background:#ef5350}
+.tvg-bar.is-gargalo span{color:#ff8984}
+.tvg-bar.is-final{box-shadow:inset 0 0 0 3px #79ebad}
+.tvg-bar.tvp-tv-good{background:#5fd39a}.tvg-bar.tvp-tv-mid{background:#f2d95e}.tvg-bar.tvp-tv-bad{background:#ef5350}
+.tvg-marker{position:absolute;left:-4px;right:-4px;height:0;border-top:3px solid #fff;pointer-events:none}
+.tvg-line{position:absolute;left:0;right:0;height:0;border-top:2px dashed;z-index:2;pointer-events:none}
+.tvg-line em{position:absolute;right:0;bottom:2px;font-style:normal;font-size:clamp(9px,.75vw,13px);font-weight:900;letter-spacing:.6px;background:#07080bcc;padding:1px 5px;border-radius:3px;white-space:nowrap}
+.tvg-line.l-media{border-color:#4f8cff}.tvg-line.l-media em{color:#8fb4ff}
+.tvg-line.l-meta{border-color:#4cd18a}.tvg-line.l-meta em{color:#79ebad;right:auto;left:0}
+.tvg-line.l-gargalo{border-color:#ef5350}.tvg-line.l-gargalo em{color:#ff8984;bottom:auto;top:2px}
+.tvg-labels{display:grid;grid-template-columns:repeat(var(--n),minmax(0,1fr));gap:clamp(4px,1vw,18px);padding-top:8px}
+.tvg-labels span{font-size:clamp(9px,.8vw,14px);font-weight:700;color:#d8d3b0;text-align:center;line-height:1.15;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;word-break:break-word}
+.tvg-side{background:#0d1016}
+.tvg-sug-list{flex:1;overflow:auto;padding:12px;display:flex;flex-direction:column;gap:10px}
+.tvg-alvo{border:2px solid #ef5350;border-radius:10px;padding:10px 12px;background:#2a1213}
+.tvg-alvo small{display:block;font-size:10px;letter-spacing:1.4px;font-weight:900;color:#ff8984}
+.tvg-alvo b{display:block;font-size:clamp(16px,1.4vw,26px);color:#fff;margin:2px 0}
+.tvg-alvo span{font-size:clamp(11px,.85vw,15px);color:#ffc4c2}
+.tvg-sug{display:grid;grid-template-columns:auto minmax(0,1fr);gap:10px;align-items:start;padding:10px 12px;border:1px solid #3a3a2a;border-radius:10px;background:#14171c}
+.tvg-sug>i{font-style:normal;width:28px;height:28px;border-radius:50%;background:#f2d95e;color:#111;display:grid;place-items:center;font-weight:900}
+.tvg-sug b{display:block;font-size:clamp(14px,1.2vw,22px);color:#fff}
+.tvg-sug span{display:block;font-size:clamp(11px,.85vw,15px);color:#d8d3b0;margin-top:2px}
+.tvg-sug em{font-style:normal;color:#f2d95e;font-weight:700}
+.tvg-sug small{display:block;font-size:clamp(10px,.75vw,13px);color:#9ea9aa;margin-top:3px}
+.tvg-outros small{display:block;font-size:10px;letter-spacing:1.3px;font-weight:900;color:#9ea9aa;margin-bottom:6px}
+.tvg-outros span{display:inline-block;margin:0 6px 6px 0;padding:4px 9px;border-radius:20px;background:#22252a;color:#e8e3c0;font-size:clamp(11px,.8vw,14px)}
+.tvg-empty{color:#9ea9aa;font-size:13px;padding:8px 4px;line-height:1.4}
+.tvg-empty-big{display:grid;place-items:center;flex:1;font-size:16px;text-align:center}
+.tvp-prod{border:1px solid #3a3a2a;border-radius:10px;background:#14171c;padding:10px 12px}
+.tvp-prod-top{display:flex;justify-content:space-between;align-items:baseline;gap:8px}
+.tvp-prod-top b{font-size:clamp(14px,1.15vw,22px);color:#fff}
+.tvp-eff{font-weight:800;font-size:clamp(18px,1.6vw,30px);font-variant-numeric:tabular-nums}
+.tvp-eff.tv-good{color:#79ebad}.tvp-eff.tv-mid{color:#9fbaf7}.tvp-eff.tv-bad{color:#ff8984}.tvp-eff.tv-neutral{color:#9ea9aa}
+.tvp-line{display:flex;gap:8px;align-items:baseline;font-size:clamp(11px,.85vw,15px);color:#9ea9aa;margin-top:4px}
+.tvp-line b{color:#f2d95e}
+.tvp-line.warn{color:#ffb36b}
+@media (max-width:1100px){.tvg-grid{grid-template-columns:minmax(0,1fr)}.tvg-kpis,.tvg-kpis5{grid-template-columns:repeat(2,minmax(0,1fr))}.tvg-plot{min-height:340px}}
+@media (max-width:560px){.tvg-labels span{font-size:9px}.tvg-bar span{font-size:10px}.tv-panel-tab{padding:7px 9px;font-size:11px}}
