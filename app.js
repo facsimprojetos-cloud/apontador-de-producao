@@ -1080,6 +1080,11 @@ document.addEventListener('submit',ev=>{const id=ev.target.getAttribute('id'); /
 window.addEventListener?.('hashchange',()=>{const target=window.location?.hash==='#tv'?'tv':'lancamentos';if(target==='tv'&&page!=='tv'){page='tv';render();}else if(target==='lancamentos'&&page==='tv'){page='lancamentos';render();}});
 $('#overlay').addEventListener('click',closeModal);
 $('#openMenu').addEventListener('click',()=>$('#sidebar').classList.add('open'));
+/* menu lateral recolhível (computador): lembra a escolha neste navegador */
+function setNavCollapsed(on){document.body.classList.toggle('nav-collapsed',on);const b=$('#toggleSidebar');if(b){b.textContent=on?'»':'«';const t=on?'Expandir menu':'Recolher menu';b.title=t;b.setAttribute('aria-label',t);}try{localStorage.setItem('gut_nav_collapsed',on?'1':'0')}catch(_){}}
+document.querySelectorAll('.sidebar .nav-link').forEach(b=>{if(!b.title)b.title=b.textContent.replace(/^\S+\s*/,'').trim()});
+$('#toggleSidebar').addEventListener('click',()=>setNavCollapsed(!document.body.classList.contains('nav-collapsed')));
+try{if(localStorage.getItem('gut_nav_collapsed')==='1')setNavCollapsed(true)}catch(_){}
 $('#closeMenu').addEventListener('click',()=>$('#sidebar').classList.remove('open'));
 document.addEventListener('keydown',ev=>{if(ev.key==='Escape')closeModal()});
 boot();

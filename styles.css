@@ -688,3 +688,20 @@ body:not(.is-admin) .admin-only{display:none!important}
 .tvp-line.warn{color:#ffb36b}
 @media (max-width:1100px){.tvg-grid{grid-template-columns:minmax(0,1fr)}.tvg-kpis,.tvg-kpis5{grid-template-columns:repeat(2,minmax(0,1fr))}.tvg-plot{min-height:340px}}
 @media (max-width:560px){.tvg-labels span{font-size:9px}.tvg-bar span{font-size:10px}.tv-panel-tab{padding:7px 9px;font-size:11px}}
+
+/* ===== Menu lateral recolhível (somente telas largas) ===== */
+.desktop-collapse{font-size:18px;color:#5d6f83;border:1px solid var(--line);min-width:34px;min-height:34px;line-height:1}
+.desktop-collapse:hover{color:var(--ink)}
+.sidebar,.main{transition:width .18s,margin-left .18s,padding .18s}
+@media(min-width:941px){
+ body.nav-collapsed .sidebar{width:70px;padding:18px 9px 14px;overflow:hidden}
+ body.nav-collapsed .main{margin-left:70px}
+ body.nav-collapsed .sidebar .brand{min-height:0;padding:0 0 18px;justify-content:center}
+ body.nav-collapsed .gut-sidebar-logo{width:35px;height:40px;max-height:none;object-fit:cover;object-position:left center}
+ body.nav-collapsed .sidebar-label,body.nav-collapsed .sidebar-footer,body.nav-collapsed .sidebar-status div,body.nav-collapsed .nav-link span:not(.nav-ico){display:none}
+ body.nav-collapsed .nav-link{justify-content:center;padding:12px 0;gap:0}
+ body.nav-collapsed .nav-link.active{padding-left:0;border-left-width:3px}
+ body.nav-collapsed .sidebar-status{justify-content:center;padding:10px;background:transparent;border:0}
+ body.nav-collapsed .sidebar-status .live-dot{margin:0}
+}
+@media(max-width:940px){.desktop-collapse{display:none}}
