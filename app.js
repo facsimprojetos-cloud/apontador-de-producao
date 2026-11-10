@@ -4,7 +4,7 @@
 const NAMES = {tv:'Painel para TV',bonificacao:'Bonificação',lancamentos:'Apontamentos',funcionarios:'Funcionários',estrutura:'Estrutura da fábrica',produtos:'Produtos e operações',niveis:'Níveis e tempos',config:'Configurações'};
 /* Sub-abas exibidas no cabeçalho de cada página. */
 const SUBS = {
- lancamentos:[['novo','Apontar'],['historico','Histórico'],['horarios','Horários fixos']],
+ lancamentos:[['novo','Apontar'],['historico','Histórico'],['ausencias','Ausências'],['horarios','Horários e jornada']],
  bonificacao:[['mes','Fechamento do mês'],['faltas','Faltas'],['salarios','Salários'],['regras','Regras']],
  produtos:[['produtos','Produtos'],['operacoes','Operações'],['tempos','Tempos por produto']],
  estrutura:[['setores','Setores e grupos'],['maquinas','Máquinas'],['funcoes','Funções']],
@@ -40,7 +40,7 @@ const opLabel=r=>`${byId('produtos',r.produto)?.nome||'Produto'} · ${byId('proc
 const nivelNome=id=>byId('niveis',id)?.nome||('Nível '+id);
 const routeOf=produto=>data.roteiro.filter(r=>r.produto===produto).sort((a,b)=>(a.etapa||0)-(b.etapa||0));
 function getTime(funcionario,produto,processo){const t=timeItem(funcionario,produto,processo),r=routeItem(produto,processo);if(!r)return null;return {segundos:Number(t?.segundos??r.tempo),nivel:t?.nivel??null,fonte:t?'individual':'padrão',vinculo:t?.id??null}}
-const EMPTY=()=>({setores:[],grupos:[],maquinas:[],funcoes:[],funcionarios:[],produtos:[],processos:[],roteiro:[],niveis:[],tempos:[],horarios:[],lancamentos:[]});
+const EMPTY=()=>({setores:[],grupos:[],maquinas:[],funcoes:[],funcionarios:[],produtos:[],processos:[],roteiro:[],niveis:[],tempos:[],horarios:[],jornada:[],ausencias:[],lancamentos:[]});
 let data=EMPTY();
 let authenticated=false;
 let authorizedEmail='';
@@ -134,9 +134,10 @@ function selectOpts(collection,sel='',all=false,label='Todos'){const ar=data[col
 
 /* ===================== APONTAMENTOS ===================== */
 function lancamentos(){
- const head=title('Apontamentos de produção','Registre a produção por hora e consulte o histórico.')+subtabs();
+ const head=title('Apontamentos','Registre produção e ausências e consulte o histórico.')+subtabs();
  if(sub.lancamentos==='historico')return head+historico();
- if(sub.lancamentos==='horarios')return head+horariosFixos();
+ if(sub.lancamentos==='ausencias')return head+ausenciasLista();
+ if(sub.lancamentos==='horarios')return head+horariosJornada();
  return head+apontar();
 }
 function historico(){
@@ -157,13 +158,27 @@ function historico(){
  '<section class="card">'+tableApontamentos(rows)+'<div class="pagination">'+rows.length+' registro(s) • meta histórica preservada</div></section>';
 }
 
-/* --- Apontamento rápido com horários fixos --- */
-let entry={data:todayLocal(),funcionario:'',produto:'',roteiro:'',slot:'',inicio:'',fim:'',custom:false,realizado:''};
+/* --- Apontamento: produção, ausência e ausência coletiva --- */
+const novoEntry=(d)=>({modo:'producao',data:d||todayLocal(),funcionario:'',produto:'',roteiro:'',slot:'',inicio:'',fim:'',custom:false,realizado:'',
+ ausTipo:'falta',ausInicio:'',ausFim:'',motivo:'',colSetor:'',colInicio:'',colFim:''});
+let entry=novoEntry();
+function resetEntry(){entry=novoEntry(entry.data);lastPreview=null;}
 let lastPreview=null,previewSeq=0,previewTimer=null;
 const activeSlots=()=>(data.horarios||[]).filter(h=>h.ativo!==false).sort((a,b)=>toMin(a.inicio)-toMin(b.inicio));
 const activeEmployees=()=>data.funcionarios.filter(f=>f.ativo!==false);
 const dayEntries=()=>(data.lancamentos||[]).filter(l=>l.funcionario===entry.funcionario&&String(l.data)===entry.data).sort((a,b)=>toMin(a.inicio)-toMin(b.inicio));
-const slotDone=s=>dayEntries().some(l=>overlaps(l.inicio,l.fim,s.inicio,s.fim));
+const dayAbsences=(func,d)=>(data.ausencias||[]).filter(a=>a.funcionario===func&&String(a.data)===d).sort((a,b)=>toMin(a.inicio)-toMin(b.inicio));
+const slotDone=s=>entry.funcionario&&(dayEntries().some(l=>overlaps(l.inicio,l.fim,s.inicio,s.fim))||dayAbsences(entry.funcionario,entry.data).some(a=>overlaps(a.inicio,a.fim,s.inicio,s.fim)));
+const DIAS=['Domingo','Segunda','Terça','Quarta','Quinta','Sexta','Sábado'];
+const dowOf=d=>new Date(String(d)+'T12:00:00').getDay();
+const jornadaDo=d=>(data.jornada||[]).find(j=>Number(j.dia)===dowOf(d));
+const hhmm=min=>{min=Math.round(Number(min)||0);return Math.floor(min/60)+'h'+String(min%60).padStart(2,'0')};
+function minutosAusencia(ini,fim,d){
+ if(!ini||!fim||toMin(fim)<=toMin(ini))return 0;
+ let m=toMin(fim)-toMin(ini);const j=jornadaDo(d);
+ if(j&&j.ativo&&j.intervaloInicio&&j.intervaloFim)m-=Math.max(0,Math.min(toMin(fim),toMin(j.intervaloFim))-Math.max(toMin(ini),toMin(j.intervaloInicio)));
+ return Math.max(0,m);
+}
 function nextFreeSlot(){const list=activeSlots();return list.find(s=>!slotDone(s))||null}
 /* Horário sugerido: hoje, a última faixa já encerrada (ex.: após 9h → 08–09).
    Se ela já foi apontada para o funcionário, sugere a faixa encerrada mais recente ainda pendente. */
@@ -177,11 +192,9 @@ function defaultSlot(){
  return pend.length?pend[pend.length-1]:ended[ended.length-1];
 }
 function ensureEntryDefaults(){
- if(!activeEmployees().some(f=>f.id===entry.funcionario))entry.funcionario=activeEmployees()[0]?.id||'';
- if(!byId('produtos',entry.produto))entry.produto=data.produtos[0]?.id||'';
- const rot=routeOf(entry.produto);
- const mine=new Set(byId('funcionarios',entry.funcionario)?.operacoes||[]);
- if(!rot.some(r=>r.id===entry.roteiro))entry.roteiro=(rot.find(r=>mine.has(r.id))||rot[0])?.id||'';
+ if(entry.funcionario&&!activeEmployees().some(f=>f.id===entry.funcionario))entry.funcionario='';
+ if(entry.produto&&!byId('produtos',entry.produto))entry.produto='';
+ if(entry.roteiro&&!routeOf(entry.produto).some(r=>r.id===entry.roteiro))entry.roteiro='';
  if(!entry.custom){
   if(!activeSlots().some(s=>s.id===entry.slot))entry.slot=defaultSlot()?.id||'';
   const s=byId('horarios',entry.slot);
@@ -189,33 +202,57 @@ function ensureEntryDefaults(){
  }
 }
 function routeOptions(){
+ if(!entry.produto)return '<option value="">Escolha o produto primeiro</option>';
  const rot=routeOf(entry.produto);if(!rot.length)return '<option value="">Produto sem operações no roteiro</option>';
  const mine=new Set(byId('funcionarios',entry.funcionario)?.operacoes||[]);
  const opt=r=>`<option value="${esc(r.id)}" ${r.id===entry.roteiro?'selected':''}>${esc(r.etapa||'—')}. ${esc(byId('processos',r.processo)?.nome||r.processo)}${r.final?' (final)':''}</option>`;
  const a=rot.filter(r=>mine.has(r.id)),b=rot.filter(r=>!mine.has(r.id));
- if(!a.length)return rot.map(opt).join('');
- return `<optgroup label="Operações do funcionário">${a.map(opt).join('')}</optgroup>`+(b.length?`<optgroup label="Outras operações">${b.map(opt).join('')}</optgroup>`:'');
+ return '<option value="">Selecione a operação</option>'+(!a.length?rot.map(opt).join(''):
+  `<optgroup label="Operações do funcionário">${a.map(opt).join('')}</optgroup>`+(b.length?`<optgroup label="Outras operações">${b.map(opt).join('')}</optgroup>`:''));
 }
 function slotChips(){
  const slots=activeSlots();
- return slots.map(s=>{const done=slotDone(s),on=!entry.custom&&entry.slot===s.id;return `<button type="button" class="slot-chip${on?' active':''}${done?' done':''}" data-slot="${esc(s.id)}" aria-pressed="${on}" title="${done?'Já existe apontamento neste horário':'Horário livre'}">${hourLabel(s.inicio,s.fim)}${done?' <span aria-hidden="true">✓</span>':''}</button>`}).join('')+
+ return slots.map(s=>{const done=slotDone(s),on=!entry.custom&&entry.slot===s.id;return `<button type="button" class="slot-chip${on?' active':''}${done?' done':''}" data-slot="${esc(s.id)}" aria-pressed="${on}" title="${done?'Já existe apontamento ou ausência neste horário':'Horário livre'}">${hourLabel(s.inicio,s.fim)}${done?' <span aria-hidden="true">✓</span>':''}</button>`}).join('')+
  `<button type="button" class="slot-chip slot-custom${entry.custom?' active':''}" data-slot="custom" aria-pressed="${entry.custom}">✎ Outro horário</button>`;
 }
+const AUS_LABEL={falta:'Falta',parcial:'Ausência',coletiva:'Ausência coletiva'};
 function dayList(){
- const rows=dayEntries();const person=byId('funcionarios',entry.funcionario);const t=sums(rows);
- return `<div class="section-head"><div><h3 class="section-title">${esc(first(person?.nome)||'Funcionário')} · ${esc(fDate(entry.data))}</h3><p class="section-sub">${rows.length} apontamento(s) · ${fNum(t.realizado)} peças · ${pct(t.eff)}</p></div></div>`+
- (rows.length?`<div class="day-list">${rows.map(l=>{const eff=l.metaSnapshot?l.realizado*100/l.metaSnapshot:null;return `<div class="day-row"><span class="day-hour">${esc(l.inicio)}–${esc(l.fim)}</span><span class="day-op">${esc(byId('processos',l.processo)?.nome||'—')}<small>${esc(byId('produtos',l.produto)?.nome||'')}</small></span><span class="day-qty">${fNum(l.realizado)}<small>/ ${fNum(l.metaSnapshot)}</small></span>${effPill(eff)}</div>`}).join('')}</div>`:'<p class="muted-small day-empty">Nenhum apontamento deste funcionário nesta data.</p>');
+ if(entry.modo==='coletiva'){
+  const lotes={};(data.ausencias||[]).filter(a=>a.tipo==='coletiva'&&String(a.data)===entry.data).forEach(a=>{(lotes[a.lote]=lotes[a.lote]||{...a,n:0}).n++});
+  const L=Object.values(lotes).sort((a,b)=>toMin(a.inicio)-toMin(b.inicio));
+  return `<div class="section-head"><div><h3 class="section-title">Ausências coletivas · ${esc(fDate(entry.data))}</h3><p class="section-sub">${L.length} lançamento(s) neste dia</p></div></div>`+
+  (L.length?`<div class="day-list">${L.map(a=>`<div class="day-row aus-row"><span class="day-hour">${esc(a.inicio)}–${esc(a.fim)}</span><span class="day-op">${esc(a.motivo||'Ausência coletiva')}<small>${a.n} funcionário(s) · ${hhmm(a.minutos)} cada</small></span><span></span><button type="button" class="text-btn danger-btn" data-edit data-action="aus-excluir-lote" data-id="${esc(a.lote)}">Excluir</button></div>`).join('')}</div>`:'<p class="muted-small day-empty">Nenhuma ausência coletiva nesta data.</p>');
+ }
+ if(!entry.funcionario)return '<p class="muted-small day-empty day-hint">Escolha um funcionário para ver os apontamentos e ausências dele no dia.</p>';
+ const rows=dayEntries(),aus=dayAbsences(entry.funcionario,entry.data);const person=byId('funcionarios',entry.funcionario);const t=sums(rows);
+ const minAus=aus.reduce((n,a)=>n+Number(a.minutos||0),0);
+ const itens=[...rows.map(l=>({k:'p',ini:l.inicio,l})),...aus.map(a=>({k:'a',ini:a.inicio,a}))].sort((x,y)=>toMin(x.ini)-toMin(y.ini));
+ return `<div class="section-head"><div><h3 class="section-title">${esc(first(person?.nome)||'Funcionário')} · ${esc(fDate(entry.data))}</h3><p class="section-sub">${rows.length} apontamento(s) · ${fNum(t.realizado)} peças · ${pct(t.eff)}${minAus?' · ausente '+hhmm(minAus):''}</p></div></div>`+
+ (itens.length?`<div class="day-list">${itens.map(it=>{
+  if(it.k==='a'){const a=it.a;return `<div class="day-row aus-row"><span class="day-hour">${esc(a.inicio)}–${esc(a.fim)}</span><span class="day-op">${esc(AUS_LABEL[a.tipo]||'Ausência')}${a.motivo&&a.motivo!==AUS_LABEL[a.tipo]?' · '+esc(a.motivo):''}<small>${hhmm(a.minutos)} sem produção${a.tipo==='falta'?' · entrou nas faltas da bonificação':''}</small></span><span></span>${a.tipo==='coletiva'?'<span class="pill grey">coletiva</span>':`<button type="button" class="text-btn danger-btn" data-edit data-action="aus-excluir" data-id="${esc(a.id)}">Excluir</button>`}</div>`}
+  const l=it.l,eff=l.metaSnapshot?l.realizado*100/l.metaSnapshot:null;return `<div class="day-row"><span class="day-hour">${esc(l.inicio)}–${esc(l.fim)}</span><span class="day-op">${esc(byId('processos',l.processo)?.nome||'—')}<small>${esc(byId('produtos',l.produto)?.nome||'')}</small></span><span class="day-qty">${fNum(l.realizado)}<small>/ ${fNum(l.metaSnapshot)}</small></span>${effPill(eff)}</div>`}).join('')}</div>`
+ :'<p class="muted-small day-empty">Nenhum apontamento deste funcionário nesta data.</p>');
+}
+function funcOptions(){return '<option value="">Selecione o funcionário</option>'+activeEmployees().map(f=>`<option value="${esc(f.id)}" ${f.id===entry.funcionario?'selected':''}>${esc(f.nome)}</option>`).join('')}
+function jornadaTxt(d){
+ const j=jornadaDo(d);
+ if(!j||!j.ativo)return `<div class="aus-info warn">⚠ ${esc(DIAS[dowOf(d)])} não tem jornada ativa. Ajuste em <b>Horários e jornada</b>.</div>`;
+ return `<div class="aus-info">Turno de ${esc(DIAS[dowOf(d)].toLowerCase())}: <b>${esc(j.entrada)}–${esc(j.saida)}</b>${j.intervaloInicio?` · intervalo ${esc(j.intervaloInicio)}–${esc(j.intervaloFim)}`:''} · <b>${hhmm(j.minutos)}</b> de jornada.<br><small>A falta também é registrada em Bonificação → Faltas.</small></div>`;
 }
 function apontar(){
  if(!canEdit())return '<div class="notice">Seu perfil é somente leitura. Consulte a aba Histórico.</div>';
- if(!activeEmployees().length||!data.produtos.length)return '<div class="notice">Cadastre funcionários e produtos com operações antes de apontar.</div>';
+ if(!activeEmployees().length)return '<div class="notice">Cadastre funcionários antes de apontar.</div>';
  ensureEntryDefaults();
- return `<section class="card entry-card"><form id="entryForm" class="entry-form" autocomplete="off">
- <div class="entry-grid">
-  <div class="field"><label for="entryData">Data</label><input class="input" type="date" id="entryData" value="${esc(entry.data)}" required></div>
-  <div class="field"><label for="entryFuncionario">Funcionário</label><select class="select" id="entryFuncionario" required>${activeEmployees().map(f=>`<option value="${esc(f.id)}" ${f.id===entry.funcionario?'selected':''}>${esc(f.nome)}</option>`).join('')}</select></div>
-  <div class="field"><label for="entryProduto">Produto</label><select class="select" id="entryProduto" required>${data.produtos.map(p=>`<option value="${esc(p.id)}" ${p.id===entry.produto?'selected':''}>${esc(p.nome)}</option>`).join('')}</select></div>
-  <div class="field"><label for="entryRoteiro">Operação</label><select class="select" id="entryRoteiro" required>${routeOptions()}</select></div>
+ const modo=entry.modo;
+ const tabs=`<div class="modo-tabs" role="tablist">${[['producao','▤ Produção'],['ausencia','⏸ Ausência'],['coletiva','👥 Ausência coletiva']].map(([k,l])=>`<button type="button" role="tab" class="modo-tab${modo===k?' active':''}" data-modo="${k}" aria-selected="${modo===k}">${l}</button>`).join('')}</div>`;
+ const dataField=`<div class="field"><label for="entryData">Data</label><input class="input" type="date" id="entryData" value="${esc(entry.data)}" required></div>`;
+ const funcField=`<div class="field"><label for="entryFuncionario">Funcionário</label><select class="select" id="entryFuncionario" required>${funcOptions()}</select></div>`;
+ let body='';
+ if(modo==='producao'){
+  if(!data.produtos.length)body='<div class="notice">Cadastre produtos com operações antes de apontar produção.</div>';
+  else body=`<div class="entry-grid">${dataField}${funcField}
+  <div class="field"><label for="entryProduto">Produto</label><select class="select" id="entryProduto" required><option value="">Selecione o produto</option>${data.produtos.map(p=>`<option value="${esc(p.id)}" ${p.id===entry.produto?'selected':''}>${esc(p.nome)}</option>`).join('')}</select></div>
+  <div class="field"><label for="entryRoteiro">Operação</label><select class="select" id="entryRoteiro" required ${entry.produto?'':'disabled'}>${routeOptions()}</select></div>
  </div>
  <div class="field"><label>Horário</label><div class="slot-chips" id="slotChips">${slotChips()}</div>
   <div class="custom-time${entry.custom?'':' hidden'}" id="customTime">
@@ -227,18 +264,39 @@ function apontar(){
   <div class="field qty-field"><label for="entryRealizado">Peças realizadas</label><input class="input qty-input" type="number" inputmode="numeric" min="0" step="1" id="entryRealizado" value="${esc(entry.realizado)}" placeholder="0" required></div>
   <div class="entry-preview" id="entryPreview"></div>
   <button type="submit" class="btn btn-primary entry-submit">Registrar apontamento</button>
- </div>
- </form></section>
+ </div>`;
+ }else if(modo==='ausencia'){
+  const min=minutosAusencia(entry.ausInicio,entry.ausFim,entry.data);
+  body=`<div class="entry-grid aus-grid">${dataField}${funcField}</div>
+ <div class="field"><label>Tipo de ausência</label><div class="aus-tipos">
+  <button type="button" class="aus-tipo${entry.ausTipo==='falta'?' active':''}" data-austipo="falta"><b>Falta</b><small>dia inteiro — usa o turno do dia</small></button>
+  <button type="button" class="aus-tipo${entry.ausTipo==='parcial'?' active':''}" data-austipo="parcial"><b>Ausência parcial</b><small>saiu cedo, chegou tarde, consulta…</small></button></div></div>
+ ${entry.ausTipo==='falta'?jornadaTxt(entry.data):`<div class="custom-time"><label class="inline-date">Início <input class="input" type="time" id="ausInicio" value="${esc(entry.ausInicio)}" required></label><label class="inline-date">Fim <input class="input" type="time" id="ausFim" value="${esc(entry.ausFim)}" required></label><small class="muted-small" id="ausMin">${min?hhmm(min)+' de ausência (sem contar o intervalo)':'Informe o horário em que a pessoa não trabalhou.'}</small></div>`}
+ <div class="entry-bottom aus-bottom"><div class="field"><label for="ausMotivo">Motivo (opcional)</label><input class="input" id="ausMotivo" value="${esc(entry.motivo)}" placeholder="${entry.ausTipo==='falta'?'Ex.: atestado, falta sem aviso':'Ex.: saiu mais cedo, consulta médica'}"></div>
+ <button type="submit" class="btn btn-primary entry-submit">${entry.ausTipo==='falta'?'Registrar falta':'Registrar ausência'}</button></div>
+ <p class="muted-small aus-nota">A ausência não altera a eficiência do funcionário; ela entra na eficiência da empresa.</p>`;
+ }else{
+  const alvo=activeEmployees().filter(f=>!entry.colSetor||f.setor===entry.colSetor).filter(f=>!dayAbsences(f.id,entry.data).some(a=>a.tipo==='falta')).length;
+  const min=minutosAusencia(entry.colInicio,entry.colFim,entry.data);
+  body=`<div class="entry-grid">${dataField}
+  <div class="field"><label for="colInicio">Início</label><input class="input" type="time" id="colInicio" value="${esc(entry.colInicio)}" required></div>
+  <div class="field"><label for="colFim">Fim</label><input class="input" type="time" id="colFim" value="${esc(entry.colFim)}" required></div>
+  <div class="field"><label for="colSetor">Para quem</label><select class="select" id="colSetor"><option value="">Todos os funcionários</option>${data.setores.map(s=>`<option value="${esc(s.id)}" ${s.id===entry.colSetor?'selected':''}>Setor ${esc(s.nome)}</option>`).join('')}</select></div></div>
+ <div class="entry-bottom aus-bottom"><div class="field"><label for="ausMotivo">Motivo</label><input class="input" id="ausMotivo" value="${esc(entry.motivo)}" placeholder="Ex.: café, reunião, falta de energia"></div>
+ <button type="submit" class="btn btn-primary entry-submit" id="colSubmit">Lançar para ${alvo} funcionário(s)</button></div>
+ <p class="muted-small aus-nota" id="colInfo">${min?hhmm(min)+' para cada um. ':''}Não altera a eficiência de ninguém; entra só na eficiência da empresa. Quem tem falta no dia fica de fora.</p>`;
+ }
+ return `<section class="card entry-card">${tabs}<form id="entryForm" class="entry-form" autocomplete="off">${body}</form></section>
  <section class="card" id="entryDay">${dayList()}</section>`;
 }
 function refreshEntry(opts={}){
  ensureEntryDefaults();
  const chips=$('#slotChips');if(chips)chips.innerHTML=slotChips();
- const ct=$('#customTime');if(ct)ct.classList.toggle('hidden',!entry.custom);
- if(opts.route){const r=$('#entryRoteiro');if(r)r.innerHTML=routeOptions();}
+ const ct=$('#customTime');if(ct&&entry.modo==='producao')ct.classList.toggle('hidden',!entry.custom);
+ if(opts.route){const r=$('#entryRoteiro');if(r){r.innerHTML=routeOptions();r.disabled=!entry.produto;}}
  if(opts.times||!entry.custom){const i=$('#entryInicio'),f=$('#entryFim');if(i)i.value=entry.inicio;if(f)f.value=entry.fim;}
  const day=$('#entryDay');if(day)day.innerHTML=dayList();
- schedulePreview();
+ if(entry.modo==='producao')schedulePreview();
 }
 function localPreview(){
  const r=byId('roteiro',entry.roteiro);if(!r)return null;
@@ -250,7 +308,7 @@ function paintPreview(){
  const el=$('#entryPreview');if(!el)return;
  const p=lastPreview,raw=String($('#entryRealizado')?.value??'').trim(),done=Number(raw);
  const meta=p?.meta,eff=meta&&raw!==''?done*100/meta:null;
- el.innerHTML=`<div><strong>Tempo</strong><b>${p?.segundos?fNum(p.segundos,1)+' s':'—'}</b><small>${p?.fonte?(p.fonte==='individual'?'Individual':'Padrão')+(p.nivel?' · nível '+esc(p.nivel):''):'Sem roteiro'}</small></div>`+
+ el.innerHTML=`<div><strong>Tempo</strong><b>${p?.segundos?fNum(p.segundos,1)+' s':'—'}</b><small>${p?.fonte?(p.fonte==='individual'?'Individual':'Padrão')+(p.nivel?' · nível '+esc(p.nivel):''):'Escolha a operação'}</small></div>`+
  `<div><strong>Meta</strong><b>${meta!=null?fNum(meta):'—'}</b><small>${p?.minutos?fNum(p.minutos)+' min':'Verifique o horário'}</small></div>`+
  `<div><strong>Eficiência</strong><b class="${eff==null?'':eff>=100?'ok':eff>=85?'mid':'low'}">${pct(eff)}</b><small>${p?.final?'Operação final ✓':'&nbsp;'}</small></div>`;
 }
@@ -264,39 +322,120 @@ function schedulePreview(){
    if(seq===previewSeq&&r?.ok){lastPreview=r;paintPreview();}}catch(_){/* mantém a estimativa local */}
  },250);
 }
-function afterEntryRender(){schedulePreview()}
+function afterEntryRender(){if(entry.modo==='producao')schedulePreview()}
 async function submitEntry(ev){
  ev.preventDefault();
  const form=ev.target,button=form.querySelector('[type="submit"]');
- const route=byId('roteiro',entry.roteiro);
- entry.realizado=String($('#entryRealizado')?.value||'').trim();
+ const label0=button?.textContent;
  try{
-  if(!route)throw Error('Escolha uma operação do roteiro do produto.');
-  if(!entry.inicio||!entry.fim)throw Error('Escolha um horário ou informe início e fim.');
-  const min=minutesBetween(entry.inicio,entry.fim);
-  if(min<=0||min>720)throw Error('O período deve ser maior que zero e não superar 12 horas.');
-  const total=Number(entry.realizado);
-  if(entry.realizado===''||!Number.isInteger(total)||total<0)throw Error('Peças realizadas devem ser um número inteiro (0 ou mais).');
-  if(button){button.disabled=true;button.textContent='Gravando...'}
-  await window.GUT_API.save('entry',{data:entry.data,funcionario:entry.funcionario,produto:entry.produto,processo:route.processo,roteiro:route.id,inicio:entry.inicio,fim:entry.fim,realizado:total});
-  const label=hourLabel(entry.inicio,entry.fim);
-  entry.realizado='';
-  if(!entry.custom)entry.slot='';
+  let msg;
+  if(entry.modo==='producao'){
+   const route=byId('roteiro',entry.roteiro);
+   entry.realizado=String($('#entryRealizado')?.value||'').trim();
+   if(!entry.funcionario)throw Error('Escolha o funcionário.');
+   if(!entry.produto)throw Error('Escolha o produto.');
+   if(!route)throw Error('Escolha a operação.');
+   if(!entry.inicio||!entry.fim)throw Error('Escolha um horário ou informe início e fim.');
+   const min=minutesBetween(entry.inicio,entry.fim);
+   if(min<=0||min>720)throw Error('O período deve ser maior que zero e não superar 12 horas.');
+   const total=Number(entry.realizado);
+   if(entry.realizado===''||!Number.isInteger(total)||total<0)throw Error('Peças realizadas devem ser um número inteiro (0 ou mais).');
+   if(button){button.disabled=true;button.textContent='Gravando...'}
+   await window.GUT_API.save('entry',{data:entry.data,funcionario:entry.funcionario,produto:entry.produto,processo:route.processo,roteiro:route.id,inicio:entry.inicio,fim:entry.fim,realizado:total});
+   msg=`Apontamento registrado: ${first(byId('funcionarios',entry.funcionario)?.nome)} · ${hourLabel(entry.inicio,entry.fim)} · ${fNum(total)} peças.`;
+  }else if(entry.modo==='ausencia'){
+   entry.motivo=String($('#ausMotivo')?.value||'').trim();
+   if(!entry.funcionario)throw Error('Escolha o funcionário.');
+   const nome=first(byId('funcionarios',entry.funcionario)?.nome);
+   if(entry.ausTipo==='falta'){
+    const j=jornadaDo(entry.data);if(!j||!j.ativo)throw Error('Este dia da semana não tem jornada ativa. Ajuste em Horários e jornada.');
+    if(button){button.disabled=true;button.textContent='Gravando...'}
+    await window.GUT_API.ausencia('falta',{funcionario:entry.funcionario,data:entry.data,motivo:entry.motivo});
+    msg=`Falta registrada: ${nome} · ${fDate(entry.data)} (${hhmm(j.minutos)}). Também entrou nas faltas da bonificação.`;
+   }else{
+    if(!entry.ausInicio||!entry.ausFim||toMin(entry.ausFim)<=toMin(entry.ausInicio))throw Error('Informe início e fim da ausência (fim maior que início).');
+    if(button){button.disabled=true;button.textContent='Gravando...'}
+    await window.GUT_API.ausencia('parcial',{funcionario:entry.funcionario,data:entry.data,inicio:entry.ausInicio,fim:entry.ausFim,motivo:entry.motivo});
+    msg=`Ausência registrada: ${nome} · ${hourLabel(entry.ausInicio,entry.ausFim)}.`;
+   }
+  }else{
+   entry.motivo=String($('#ausMotivo')?.value||'').trim();
+   if(!entry.colInicio||!entry.colFim||toMin(entry.colFim)<=toMin(entry.colInicio))throw Error('Informe início e fim da ausência coletiva (fim maior que início).');
+   if(button){button.disabled=true;button.textContent='Gravando...'}
+   const r=await window.GUT_API.ausencia('coletiva',{data:entry.data,inicio:entry.colInicio,fim:entry.colFim,motivo:entry.motivo,setor:entry.colSetor});
+   msg=`Ausência coletiva lançada para ${fNum(r?.afetados||0)} funcionário(s): ${hourLabel(entry.colInicio,entry.colFim)}.`;
+  }
+  resetEntry();
   await loadData();
-  toast(`Apontamento registrado: ${label} · ${fNum(total)} peças.`);
-  $('#entryRealizado')?.focus();
+  toast(msg);
  }catch(err){
   toast('Não foi possível salvar: '+(err.message||String(err)));
-  if(button&&button.isConnected){button.disabled=false;button.textContent='Registrar apontamento'}
+  if(button&&button.isConnected){button.disabled=false;button.textContent=label0||'Registrar'}
  }
 }
+async function excluirAusencia(payload,msg){
+ try{await window.GUT_API.ausencia('excluir',payload);await loadData();toast(msg)}
+ catch(err){toast('Não foi possível excluir: '+(err.message||String(err)))}
+}
 
-/* --- Horários fixos --- */
-function horariosFixos(){
+/* --- Lista de ausências --- */
+let ausMes=todayLocal().slice(0,7);
+function ausenciasLista(){
+ const A=(data.ausencias||[]).filter(a=>String(a.data).slice(0,7)===ausMes);
+ const lotes={},ind=[];
+ A.forEach(a=>{if(a.tipo==='coletiva'){(lotes[a.lote]=lotes[a.lote]||{...a,n:0,total:0}).n++;lotes[a.lote].total+=Number(a.minutos||0);}else ind.push(a)});
+ const linhas=[...Object.values(lotes).map(a=>({...a,col:true})),...ind].sort((a,b)=>(String(b.data)+b.inicio).localeCompare(String(a.data)+a.inicio));
+ const soma=t=>A.filter(a=>a.tipo===t).reduce((n,a)=>n+Number(a.minutos||0),0);
+ return `<div class="card controls-panel"><label class="inline-date">Mês <input type="month" class="input" id="ausMes" value="${esc(ausMes)}"></label>
+ <div class="stats-row"><span><b>${A.filter(a=>a.tipo==='falta').length}</b> falta(s) · ${hhmm(soma('falta'))}</span><span><b>${A.filter(a=>a.tipo==='parcial').length}</b> parcial(is) · ${hhmm(soma('parcial'))}</span><span><b>${Object.keys(lotes).length}</b> coletiva(s) · ${hhmm(soma('coletiva'))} somadas</span></div></div>
+ <section class="card"><div class="table-wrap"><table class="table table-cards"><thead><tr><th>Quem</th><th>Data</th><th>Tipo</th><th>Horário</th><th>Tempo</th><th>Motivo</th><th></th></tr></thead><tbody>
+ ${linhas.length?linhas.map(a=>'<tr>'+td('Quem',a.col?'<b>'+a.n+' funcionário(s)</b>':esc(byId('funcionarios',a.funcionario)?.nome||'—'),'strong card-title')+td('Data',esc(fDate(a.data)),'num')+
+  td('Tipo','<span class="pill '+(a.tipo==='falta'?'red-pill':a.tipo==='coletiva'?'blue':'amber')+'">'+esc(AUS_LABEL[a.tipo])+'</span>','num')+td('Horário',esc(a.inicio)+'–'+esc(a.fim),'num')+
+  td('Tempo',hhmm(a.minutos)+(a.col?' cada':''),'num')+td('Motivo',esc(a.motivo||'—'))+
+  td('Ação',`<button type="button" class="text-btn danger-btn" data-edit data-action="${a.col?'aus-excluir-lote':'aus-excluir'}" data-id="${esc(a.col?a.lote:a.id)}">Excluir</button>`,'num')+'</tr>').join('')
+  :'<tr><td colspan="7" class="empty-row">Nenhuma ausência neste mês. Lance em Apontar → Ausência.</td></tr>'}
+ </tbody></table></div></section>`;
+}
+
+/* --- Horários fixos e jornada --- */
+let jornadaDraft=null;
+function jornadaRows(){
+ if(!jornadaDraft)jornadaDraft=[1,2,3,4,5,6,0].map(d=>{const j=(data.jornada||[]).find(x=>Number(x.dia)===d)||{dia:d,ativo:false,entrada:'07:00',saida:'17:00'};return {dia:d,ativo:!!j.ativo,entrada:j.entrada||'',saida:j.saida||'',intervaloInicio:j.intervaloInicio||'',intervaloFim:j.intervaloFim||''}});
+ return jornadaDraft;
+}
+const jornadaMin=j=>{if(!j.ativo||!j.entrada||!j.saida||toMin(j.saida)<=toMin(j.entrada))return 0;let m=toMin(j.saida)-toMin(j.entrada);if(j.intervaloInicio&&j.intervaloFim&&toMin(j.intervaloFim)>toMin(j.intervaloInicio))m-=toMin(j.intervaloFim)-toMin(j.intervaloInicio);return Math.max(0,m)};
+function horariosJornada(){
+ const J=jornadaRows(),semana=J.reduce((n,j)=>n+jornadaMin(j),0);
  const list=(data.horarios||[]).slice().sort((a,b)=>toMin(a.inicio)-toMin(b.inicio));
- return `<section class="card"><div class="section-head"><div><h3 class="section-title">Horários fixos de apontamento</h3><p class="section-sub">Aparecem como atalhos na aba Apontar. Inative os que não usa.</p></div></div>
+ return `<section class="card"><div class="section-head"><div><h3 class="section-title">Jornada por dia da semana</h3><p class="section-sub">Usada para lançar falta de dia inteiro. Total da semana: <b id="jornadaSemana">${hhmm(semana)}</b></p></div><button type="button" class="btn btn-primary btn-sm" data-edit data-action="jornada-salvar">Salvar jornada</button></div>
+ <div class="jornada-grid"><div class="jornada-head"><span>Dia</span><span>Entrada</span><span>Saída</span><span>Intervalo</span><span>Total</span></div>
+ ${J.map(j=>`<div class="jornada-row${j.ativo?'':' off'}" data-jrow="${j.dia}"><label class="jornada-dia"><input type="checkbox" data-jd="${j.dia}" data-k="ativo" ${j.ativo?'checked':''}> ${DIAS[j.dia]}</label>
+  <input class="input" type="time" data-jd="${j.dia}" data-k="entrada" value="${esc(j.entrada)}"><input class="input" type="time" data-jd="${j.dia}" data-k="saida" value="${esc(j.saida)}">
+  <span class="jornada-int"><input class="input" type="time" data-jd="${j.dia}" data-k="intervaloInicio" value="${esc(j.intervaloInicio)}"><i>–</i><input class="input" type="time" data-jd="${j.dia}" data-k="intervaloFim" value="${esc(j.intervaloFim)}"></span>
+  <b id="jt-${j.dia}">${j.ativo?hhmm(jornadaMin(j)):'folga'}</b></div>`).join('')}</div></section>
+ <section class="card"><div class="section-head"><div><h3 class="section-title">Horários fixos de apontamento</h3><p class="section-sub">Aparecem como atalhos na aba Apontar. Inative os que não usa.</p></div></div>
  <div class="slot-admin">${list.length?list.map(h=>`<div class="slot-row${h.ativo===false?' off':''}"><b>${hourLabel(h.inicio,h.fim)}</b><span class="pill ${h.ativo===false?'grey':'green'}">${h.ativo===false?'Inativo':'Ativo'}</span><button class="text-btn" data-edit data-action="toggle-slot" data-id="${esc(h.id)}" data-ativo="${h.ativo===false?'true':'false'}">${h.ativo===false?'Ativar':'Inativar'}</button></div>`).join(''):'<p class="muted-small">Nenhum horário cadastrado.</p>'}</div>
  <form id="slotForm" class="slot-form" data-edit><label class="inline-date">Início <input class="input" type="time" name="inicio" required></label><label class="inline-date">Fim <input class="input" type="time" name="fim" required></label><button class="btn btn-primary" type="submit">＋ Adicionar horário</button></form></section>`;
+}
+function jornadaInput(t){
+ if(t.dataset.jd===undefined)return false;
+ const j=jornadaRows().find(x=>String(x.dia)===t.dataset.jd);if(!j)return true;
+ j[t.dataset.k]=t.type==='checkbox'?t.checked:t.value;
+ const el=document.getElementById('jt-'+j.dia);if(el)el.textContent=j.ativo?hhmm(jornadaMin(j)):'folga';
+ const row=document.querySelector(`[data-jrow="${j.dia}"]`);if(row)row.classList.toggle('off',!j.ativo);
+ const s=document.getElementById('jornadaSemana');if(s)s.textContent=hhmm(jornadaRows().reduce((n,x)=>n+jornadaMin(x),0));
+ return true;
+}
+async function saveJornada(){
+ const J=jornadaRows();
+ try{
+  for(const j of J){if(!j.ativo)continue;const n=DIAS[j.dia];
+   if(!j.entrada||!j.saida||toMin(j.saida)<=toMin(j.entrada))throw Error(n+': a saída deve ser depois da entrada.');
+   if(!!j.intervaloInicio!==!!j.intervaloFim)throw Error(n+': informe início e fim do intervalo, ou deixe os dois vazios.');
+   if(j.intervaloInicio&&(toMin(j.intervaloFim)<=toMin(j.intervaloInicio)||toMin(j.intervaloInicio)<toMin(j.entrada)||toMin(j.intervaloFim)>toMin(j.saida)))throw Error(n+': o intervalo deve ficar dentro do expediente.');}
+  await window.GUT_API.ausencia('jornada',{dias:J.map(j=>({dia:j.dia,ativo:j.ativo,entrada:j.entrada||'07:00',saida:j.saida||'17:00',intervaloInicio:j.ativo?j.intervaloInicio:'',intervaloFim:j.ativo?j.intervaloFim:''}))});
+  jornadaDraft=null;await loadData();toast('Jornada salva.');
+ }catch(err){toast('Não foi possível salvar: '+(err.message||String(err)))}
 }
 async function submitSlot(ev){
  ev.preventDefault();
@@ -422,7 +561,7 @@ function reviseOp(fid,rid){
  inputField('segundos','Tempo individual (segundos/peça)','number',seg,'min="0.001" step="0.001"')+
  '<div class="field"><label for="nivel">Nível <small>(opcional — pode definir depois)</small></label><select class="select" id="nivel" name="nivel"><option value="">Sem nível definido</option>'+data.niveis.map(n=>'<option value="'+esc(n.id)+'" '+(String(t?.nivel??'')===String(n.id)?'selected':'')+'>'+esc(n.nome)+'</option>').join('')+'</select></div>'+
  `<div class="field full"><label for="motivo">Motivo da revisão</label><input class="input" name="motivo" id="motivo" value="Meta individual" required></div></div>`+
- `<div class="modal-tip" style="margin-top:14px">Tempo padrão do roteiro: ${fNum(r.tempo,1)} s. ${t?'Atual: '+fNum(t.segundos,1)+' s'+(t.nivel?', '+esc(nivelNome(t.nivel)):', sem nível')+' (desde '+esc(fDate(t.alteradoEm))+').':'Hoje usa o tempo padrão.'} Apontamentos já feitos mantêm a meta histórica.</div>`,
+ `<div class="modal-tip" style="margin-top:14px">Tempo padrão do roteiro: ${fNum(r.tempo,1)} s. ${t?'Atual: '+fNum(t.segundos,1)+' s'+(t.nivel?', '+esc(nivelNome(t.nivel)):', sem nível')+' (desde '+esc(fDate(t.alteradoEm))+').':'Hoje usa o tempo padrão.'} A revisão vale para os apontamentos com data de hoje em diante, em qualquer horário do dia. Apontamentos já registrados mantêm a meta com que foram gravados.</div>`,
  'Salvar nova versão','time');
 }
 function config(){return title('Configurações','Integração com Supabase, segurança e sincronização.')+
@@ -468,7 +607,7 @@ function bonificacao(){
  return head+bonusMesView();
 }
 function bonusMesView(){
- const L=bonusData.linhas||[],com=L.filter(l=>l.meta>0),colAtiva=bonusData.config?.coletivaAtiva!==false,colFab=bonusData.coletivas?.fabrica;
+ const L=bonusData.linhas||[],com=L.filter(l=>l.meta>0),colAtiva=bonusData.config?.coletivaAtiva!==false,colFab=bonusData.coletivas?.fabrica,emp=bonusData.empresa||{};
  const soma=k=>L.reduce((n,l)=>n+Number(l[k]||0),0);
  const semSal=L.filter(l=>l.salario==null&&l.meta>0).length,brindes=L.filter(l=>l.brinde).length,crono=L.filter(l=>l.cronoanalise).length;
  const tr=l=>{const alerts=[];
@@ -482,17 +621,19 @@ function bonusMesView(){
   td('Bônus individual',brl(l.bonusBruto),'num')+
   (colAtiva?td('Coletiva',l.meta>0&&l.eficienciaColetiva!=null?pctTxt(+Number(l.eficienciaColetiva).toFixed(1))+' → '+pctTxt(l.percentualColetivo)+'<small class="cell-sub">'+brl(l.bonusColetivoBruto)+'</small>':'—','num'):'')+
   td('Faltas',l.faltas?(l.faltas+' (−'+pctTxt(l.perdaPercentual)+')'):'0','num')+
+  td('Ausências',l.minutosAusencia?hhmm(l.minutosAusencia):'—','num')+
   td('Prêmio',brl(l.bonus),'strong num')+td('Total a receber',brl(l.total),'strong num')+
   td('Alertas',alerts.join(' ')||'—','card-wide')+'</tr>'};
  return `<div class="grid-kpis bonus-kpis">
  <article class="card kpi"><div class="kpi-top"><span>Prêmios do mês</span><span class="kpi-icon">R$</span></div><div class="kpi-value">${brl(soma('bonus'))}</div><div class="kpi-foot">${com.length} funcionário(s) com apontamentos</div></article>
  <article class="card kpi"><div class="kpi-top"><span>Folha (salário + prêmio)</span><span class="kpi-icon">Σ</span></div><div class="kpi-value">${brl(L.reduce((n,l)=>n+Number(l.total||0),0))}</div><div class="kpi-foot">${semSal?'<strong style="color:#b43e43">'+semSal+' sem salário cadastrado</strong>':'Todos com salário cadastrado'}</div></article>
  <article class="card kpi"><div class="kpi-top"><span>Brindes (acima de 100%)</span><span class="kpi-icon">🎁</span></div><div class="kpi-value">${brindes}</div><div class="kpi-foot">${crono} alerta(s) de cronoanálise</div></article>
+ <article class="card kpi kpi-empresa"><div class="kpi-top"><span>Eficiência da empresa</span><span class="kpi-icon">🏭</span></div><div class="kpi-value">${emp.eficienciaEmpresa!=null?pctTxt(+Number(emp.eficienciaEmpresa).toFixed(1)):'—'}</div><div class="kpi-foot">Considera ${hhmm(emp.minutosAusencia||0)} de ausências${emp.minutosAusenciaColetiva?' ('+hhmm(emp.minutosAusenciaColetiva)+' coletivas)':''}</div></article>
  <article class="card kpi"><div class="kpi-top"><span>Eficiência coletiva (fábrica)</span><span class="kpi-icon">👥</span></div><div class="kpi-value">${colFab!=null?pctTxt(+Number(colFab).toFixed(1)):'—'}</div><div class="kpi-foot">${colAtiva?'Meta coletiva ativa · base '+esc({fabrica:'fábrica',setor:'setor',grupo:'grupo'}[bonusData.config?.coletivaBase||'fabrica']):'Meta coletiva desativada'}</div></article>
  <article class="card kpi"><div class="kpi-top"><span>Faltas no mês</span><span class="kpi-icon">✕</span></div><div class="kpi-value">${(bonusData.faltas||[]).length}</div><div class="kpi-foot">${L.filter(l=>l.faltas).length} funcionário(s) com desconto</div></article>
  </div>
- <section class="card"><div class="section-head"><div><h3 class="section-title">Fechamento de ${esc(mesLabel(bonusMes))}</h3><p class="section-sub">Eficiência do mês = peças realizadas ÷ meta (tempo individual). Faixa pela eficiência arredondada para baixo.</p></div></div>
- <div class="table-wrap"><table class="table table-cards"><thead><tr><th>Funcionário</th><th>Eficiência</th><th>Bônus</th><th>Salário base</th><th>Bônus individual</th>${colAtiva?'<th>Meta coletiva</th>':''}<th>Faltas</th><th>Prêmio</th><th>Total a receber</th><th>Alertas</th></tr></thead><tbody>${L.length?L.map(tr).join(''):'<tr><td colspan="10" class="empty-row">Nenhum funcionário.</td></tr>'}</tbody></table></div></section>`;
+ <section class="card"><div class="section-head"><div><h3 class="section-title">Fechamento de ${esc(mesLabel(bonusMes))}</h3><p class="section-sub">Eficiência do mês = peças realizadas ÷ meta (tempo individual), só no tempo trabalhado — ausências não reduzem a eficiência do funcionário. Faixa pela eficiência arredondada para baixo.</p></div></div>
+ <div class="table-wrap sticky-table"><table class="table table-cards"><thead><tr><th>Funcionário</th><th>Eficiência</th><th>Bônus</th><th>Salário base</th><th>Bônus individual</th>${colAtiva?'<th>Meta coletiva</th>':''}<th>Faltas</th><th>Ausências</th><th>Prêmio</th><th>Total a receber</th><th>Alertas</th></tr></thead><tbody>${L.length?L.map(tr).join(''):'<tr><td colspan="11" class="empty-row">Nenhum funcionário.</td></tr>'}</tbody></table></div></section>`;
 }
 function bonusFaltas(){
  const F=bonusData.faltas||[],ini=bonusMes+'-01',hoje=todayLocal(),def=hoje.slice(0,7)===bonusMes?hoje:ini;
@@ -868,6 +1009,9 @@ function action(name,el){
  case 'sincronizar':loadData().then(()=>toast('Dados atualizados do Supabase.')).catch(e=>toast(e.message));break;
  case 'fechar-modal':closeModal();break;
  case 'bonus-csv':bonusCsv();break;
+ case 'jornada-salvar':saveJornada();break;
+ case 'aus-excluir':case 'aus-excluir-lote':if(el.dataset.confirm!=='1'){el.dataset.confirm='1';el.textContent='Confirmar exclusão';setTimeout(()=>{if(el.isConnected){el.dataset.confirm='';el.textContent='Excluir'}},4000);break;}
+  excluirAusencia(name==='aus-excluir'?{id}:{lote:id},name==='aus-excluir'?'Ausência excluída.':'Ausência coletiva excluída para todos.');break;
  case 'bonus-recarregar':bonusErrMes='';loadBonus(true);render();break;
  case 'tab-add':case 'tab-del':case 'tab-gerar':case 'fl-add':case 'fl-del':rulesAction(name,el.dataset.kind);break;
  case 'regras-salvar':saveRules();break;
@@ -881,6 +1025,10 @@ document.addEventListener('click',ev=>{
  const nav=ev.target.closest('[data-page]'),act=ev.target.closest('[data-action]'),tab=ev.target.closest('[data-sub]'),slot=ev.target.closest('[data-slot]');
  if(nav){if(!authenticated){renderLogin();return;}search='';goTo(nav.dataset.page);$('#sidebar').classList.remove('open');return}
  if(tab){sub[page]=tab.dataset.sub;render();return}
+ const modoBtn=ev.target.closest('[data-modo]');
+ if(modoBtn){const keep=entry.data;resetEntry();entry.data=keep;entry.modo=modoBtn.dataset.modo;render();return}
+ const tipoBtn=ev.target.closest('[data-austipo]');
+ if(tipoBtn){entry.ausTipo=tipoBtn.dataset.austipo;entry.motivo=String($('#ausMotivo')?.value||entry.motivo);render();return}
  const opall=ev.target.closest('[data-opall]');
  if(opall){const g=opall.closest('.op-group'),boxes=[...g.querySelectorAll('input[name=operacoes]')],all=boxes.every(b=>b.checked);boxes.forEach(b=>b.checked=!all);updateOpsCounters();return}
  if(slot){
@@ -901,11 +1049,11 @@ document.addEventListener('change',ev=>{const t=ev.target;
  if(t.id==='filterProcesso')filters.processo=t.value,render();
  if(t.id==='filterSetor'){filters.setor=t.value;filters.grupo='';render();}
  if(t.id==='filterGrupo')filters.grupo=t.value,render();
- if(t.id==='entryData'){entry.data=t.value||todayLocal();if(!entry.custom)entry.slot='';refreshEntry();}
- if(t.id==='entryFuncionario'){entry.funcionario=t.value;if(!entry.custom)entry.slot='';
-   const ops=empOps(byId('funcionarios',entry.funcionario));
-   if(ops.length&&!ops.some(r=>r.produto===entry.produto)){entry.produto=ops[0].produto;const ps=$('#entryProduto');if(ps)ps.value=entry.produto;}
-   entry.roteiro='';refreshEntry({route:true});}
+ if(t.id==='entryData'){entry.data=t.value||todayLocal();if(!entry.custom)entry.slot='';if(entry.modo==='producao')refreshEntry();else render();}
+ if(t.id==='entryFuncionario'){entry.funcionario=t.value;if(!entry.custom)entry.slot='';entry.roteiro='';if(entry.modo==='producao')refreshEntry({route:true});else render();}
+ if(t.id==='colSetor'){entry.colSetor=t.value;render();}
+ if(t.id==='ausMes'&&t.value){ausMes=t.value;render();}
+ if(jornadaInput(t))return;
  if(t.id==='entryProduto'){entry.produto=t.value;entry.roteiro='';refreshEntry({route:true});}
  if(t.id==='entryRoteiro'){entry.roteiro=t.value;refreshEntry();}
  if(t.id==='entryInicio'||t.id==='entryFim'){entry[t.id==='entryInicio'?'inicio':'fim']=t.value;refreshEntry();}
@@ -920,6 +1068,11 @@ document.addEventListener('change',ev=>{const t=ev.target;
 document.addEventListener('input',ev=>{
  if(ev.target.id==='employeeSearch'){search=ev.target.value;const pos=ev.target.selectionStart;render();const el=$('#employeeSearch');el.focus();el.setSelectionRange(pos,pos)}
  if(ev.target.id==='entryRealizado'){entry.realizado=ev.target.value;paintPreview();}
+ if(['ausInicio','ausFim','colInicio','colFim'].includes(ev.target.id)){entry[ev.target.id]=ev.target.value;
+   const m=$('#ausMin');if(m){const n=minutosAusencia(entry.ausInicio,entry.ausFim,entry.data);m.textContent=n?hhmm(n)+' de ausência (sem contar o intervalo)':'Informe o horário em que a pessoa não trabalhou.';}
+   const c=$('#colInfo');if(c){const n=minutosAusencia(entry.colInicio,entry.colFim,entry.data);c.textContent=(n?hhmm(n)+' para cada um. ':'')+'Não altera a eficiência de ninguém; entra só na eficiência da empresa. Quem tem falta no dia fica de fora.';}}
+ if(ev.target.id==='ausMotivo')entry.motivo=ev.target.value;
+ if(ev.target.dataset?.jd!==undefined&&ev.target.type!=='checkbox')jornadaInput(ev.target);
  if(page==='bonificacao'&&sub.bonificacao==='regras'&&rulesInput(ev.target))return;
  if(ev.target.id==='opsSearch'){const q=ev.target.value.trim().toLowerCase();document.querySelectorAll('#modalForm .op-group').forEach(g=>{let any=false;g.querySelectorAll('.op-item').forEach(it=>{const ok=!q||it.dataset.text.includes(q);it.classList.toggle('hidden',!ok);any=any||ok});g.classList.toggle('hidden',!any);if(q)g.open=any;})}
 });

@@ -559,3 +559,47 @@ body:not(.is-admin) .admin-only{display:none!important}
 .bn-ex-sep-red{border-top-color:var(--red);color:var(--red)}
 #exDesc{white-space:normal;text-align:right;font-size:13px}
 .bn-neg{color:var(--red)}
+
+/* Fechamento: cabeçalho e coluna do funcionário fixos */
+.sticky-table{max-height:calc(100vh - 150px);overflow:auto}
+.sticky-table thead th{position:sticky;top:0;z-index:3;background:#f6f8fa;box-shadow:0 1px 0 #e3e8ee}
+.sticky-table tbody td:first-child,.sticky-table thead th:first-child{position:sticky;left:0;z-index:2;background:#fff}
+.sticky-table thead th:first-child{z-index:4;background:#f6f8fa}
+.kpi-empresa{border-top:3px solid #128669}
+@media(max-width:700px){.sticky-table{max-height:none;overflow:visible}.sticky-table tbody td:first-child{position:static}}
+
+/* Apontar: modos e ausências */
+.modo-tabs{display:flex;gap:6px;margin:-4px 0 16px;background:#f2f5f8;padding:4px;border-radius:12px;width:fit-content;max-width:100%;overflow-x:auto}
+.modo-tab{border:0;background:transparent;padding:9px 16px;border-radius:9px;font-weight:800;font-size:13px;color:#5b6d80;white-space:nowrap}
+.modo-tab.active{background:#fff;color:#14553b;box-shadow:0 2px 8px #0b215318}
+.aus-grid{grid-template-columns:150px minmax(0,1fr)}
+.aus-tipos{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.aus-tipo{text-align:left;border:1.5px solid #d5dfe8;background:#fff;border-radius:12px;padding:12px 14px;min-height:56px}
+.aus-tipo b{display:block;font-size:14px;color:#20364f}
+.aus-tipo small{color:#7d8d9c;font-size:11px}
+.aus-tipo.active{border-color:#128669;background:#eefaf3;box-shadow:0 0 0 3px #12866922}
+.aus-info{background:#f2f8f5;border:1px solid #cfe9da;border-radius:10px;padding:12px 14px;font-size:13px;color:#2a4057}
+.aus-info.warn{background:#fff6e5;border-color:#f4d48a}
+.aus-info small{color:#5d7d6d}
+.aus-bottom{grid-template-columns:minmax(0,1fr) auto}
+.aus-nota{margin:0}
+.aus-row{background:#fafbfc}
+.aus-row .day-op{color:#7a5a00}
+.day-hint{padding:18px 22px}
+.jornada-grid{padding:0 22px 18px;display:grid;gap:6px}
+.jornada-head,.jornada-row{display:grid;grid-template-columns:150px 110px 110px minmax(220px,1fr) 80px;gap:10px;align-items:center}
+.jornada-head{font-size:10px;font-weight:800;letter-spacing:.6px;text-transform:uppercase;color:#8a99a8;padding:0 2px}
+.jornada-row{padding:6px 2px;border-top:1px solid #eff2f5}
+.jornada-row.off input[type=time]{opacity:.35}
+.jornada-dia{display:flex;align-items:center;gap:8px;font-weight:800;font-size:13px}
+.jornada-dia input{width:18px;height:18px}
+.jornada-int{display:flex;align-items:center;gap:6px}.jornada-int i{color:#8a99a8;font-style:normal}
+.jornada-row b{font-variant-numeric:tabular-nums;text-align:right}
+@media(max-width:700px){
+ .modo-tabs{width:100%}.modo-tab{flex:1;padding:9px 8px;font-size:12px}
+ .aus-grid{grid-template-columns:1fr}.aus-tipos{grid-template-columns:1fr}.aus-bottom{grid-template-columns:1fr}
+ .jornada-grid{padding:0 12px 14px}.jornada-head{display:none}
+ .jornada-row{grid-template-columns:1fr 1fr;gap:6px 8px;padding:10px 0}
+ .jornada-dia{grid-column:1/-1}.jornada-int{grid-column:1/-1}.jornada-int .input{flex:1}
+ .jornada-row b{grid-column:1/-1;text-align:left;color:#14553b}
+}
