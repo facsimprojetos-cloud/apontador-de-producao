@@ -46,7 +46,7 @@
 }
 
 
-/* ===== PAINEL DE TV · ESTILO GUT ===== */
+/* ===== PAINEL DE TV ===== */
 .inline-date{display:inline-flex;align-items:center;gap:7px;white-space:nowrap;font-size:12px;color:#687e90;font-weight:700}
 .inline-date input{width:150px;min-height:40px}
 .product-final-status{display:grid;gap:4px;border-radius:11px;padding:12px 14px;margin:12px 0;background:#f4f6f8;border:1px dashed #cad6e0}
@@ -175,9 +175,8 @@ body.tv-page .content{width:100%;max-width:none;margin:0;padding:0;display:flex;
  .tv-workspace{padding:12px 9px}
 }
 
-/* Identidade GUT na navegação */
+/* Navegação */
 .sidebar .brand{padding:3px 11px 28px;justify-content:space-between;min-height:83px}
-.gut-sidebar-logo{width:193px;height:auto;max-height:69px;object-fit:contain;object-position:left center;display:block}
 
 /* ===== Sub-abas, apontamento rápido e celular (2026-11) ===== */
 .topbar{position:sticky;top:0;z-index:8}
@@ -697,7 +696,6 @@ body:not(.is-admin) .admin-only{display:none!important}
  body.nav-collapsed .sidebar{width:70px;padding:18px 9px 14px;overflow:hidden}
  body.nav-collapsed .main{margin-left:70px}
  body.nav-collapsed .sidebar .brand{min-height:0;padding:0 0 18px;justify-content:center}
- body.nav-collapsed .gut-sidebar-logo{width:35px;height:40px;max-height:none;object-fit:cover;object-position:left center}
  body.nav-collapsed .sidebar-label,body.nav-collapsed .sidebar-footer,body.nav-collapsed .sidebar-status div,body.nav-collapsed .nav-link span:not(.nav-ico){display:none}
  body.nav-collapsed .nav-link{justify-content:center;padding:12px 0;gap:0}
  body.nav-collapsed .nav-link.active{padding-left:0;border-left-width:3px}
@@ -711,3 +709,26 @@ body:not(.is-admin) .admin-only{display:none!important}
 .level-sal small{font-size:10.5px;color:#8a98a5}
 .sal-nivel{min-width:150px}
 .input.flash{box-shadow:0 0 0 3px #25ab8455;border-color:#23aa87;transition:box-shadow .2s}
+
+/* ===== Identidade FACSIM ===== */
+.fx-brand{display:flex;align-items:center;gap:12px;min-width:0}
+.fx-mark{width:42px;height:42px;flex:0 0 42px;display:block}
+.fx-word{display:flex;flex-direction:column;gap:4px;min-width:0}
+.fx-word b{font:800 25px/1 'Manrope','DM Sans',Arial,sans-serif;letter-spacing:.6px;color:#fff}
+.fx-word small{font-size:8.6px;font-weight:700;letter-spacing:1.9px;color:#9fb3c8;white-space:nowrap}
+.sidebar .brand{min-height:0;padding:3px 8px 30px}
+.fx-login{margin-bottom:22px}
+.fx-login .fx-mark{width:48px;height:48px;flex-basis:48px}
+.fx-login .fx-word b{color:var(--navy);font-size:28px}
+.fx-login .fx-word small{color:#4e6276}
+@media(min-width:941px){
+ body.nav-collapsed .sidebar .fx-word{display:none}
+ body.nav-collapsed .sidebar .fx-mark{width:40px;height:40px;flex-basis:40px}
+}
+/* TV: símbolo na versão amarela da paleta do painel */
+.tv-brand .tv-fx{display:flex;align-items:center;gap:14px;flex:0 0 auto}
+.tv-brand .tv-fx img{width:clamp(46px,4.4vw,72px);height:auto;max-height:none;flex:0 0 auto}
+.tv-brand .tv-fx b{font:800 clamp(26px,2.9vw,46px)/1 'Manrope',Arial,sans-serif;letter-spacing:.8px;color:#fff}
+.tv-full .tv-brand .tv-fx img{width:auto;height:clamp(36px,4.8vh,56px)}
+.tv-full .tv-brand .tv-fx b{font-size:clamp(22px,2.2vw,38px)}
+@media(max-width:560px){.tv-brand .tv-fx img{width:40px}.tv-brand .tv-fx b{font-size:22px}}

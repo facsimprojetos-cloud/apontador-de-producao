@@ -1,4 +1,4 @@
-/* GUT Apontador — interface conectada ao Supabase Auth e funções RPC protegidas por RLS. */
+/* FACSIM Apontador — interface conectada ao Supabase Auth e funções RPC protegidas por RLS. */
 (() => {
 'use strict';
 const NAMES = {tv:'Painel para TV',bonificacao:'Bonificação',lancamentos:'Apontamentos',funcionarios:'Funcionários',estrutura:'Estrutura da fábrica',produtos:'Produtos e operações',niveis:'Níveis e tempos',config:'Configurações'};
@@ -50,7 +50,7 @@ const canEdit=()=>data.perfil!=='leitor';
 function sums(rows){const realizado=rows.reduce((a,r)=>a+(Number(r.realizado)||0),0),meta=rows.reduce((a,r)=>a+(Number(r.metaSnapshot)||0),0);return {realizado,meta,eff:meta?realizado*100/meta:null,total:rows.length}}
 function pct(value){return value==null?'—':fNum(value,2)+'%'}
 function effPill(value){return `<span class="pill ${value==null?'grey':value>=100?'green':value>=85?'amber':'grey'}">${pct(value)}</span>`}
-function title(text,subtitle,right=''){return `<div class="page-head"><div><div class="eyebrow">GUT • CHÃO DE FÁBRICA</div><h1 class="page-title">${esc(text)}</h1><p class="page-subtitle">${esc(subtitle)}</p></div>${right?`<div class="toolbar">${right}</div>`:''}</div>`}
+function title(text,subtitle,right=''){return `<div class="page-head"><div><div class="eyebrow">FACSIM • CHÃO DE FÁBRICA</div><h1 class="page-title">${esc(text)}</h1><p class="page-subtitle">${esc(subtitle)}</p></div>${right?`<div class="toolbar">${right}</div>`:''}</div>`}
 function subtabs(){const list=SUBS[page];if(!list)return '';return `<nav class="subtabs" role="tablist" aria-label="Seções de ${esc(NAMES[page])}">${list.map(([k,l])=>`<button type="button" role="tab" class="subtab ${sub[page]===k?'active':''}" data-sub="${k}" aria-selected="${sub[page]===k}">${l}</button>`).join('')}</nav>`}
 const btnNew=(what,label)=>`<button class="btn btn-primary" data-action="${what}" data-edit>＋ ${label}</button>`;
 const td=(label,content,cls='')=>`<td data-label="${esc(label)}"${cls?` class="${cls}"`:''}>${content}</td>`;
@@ -61,7 +61,7 @@ function renderLogin(message=''){
  authenticated=false;
  $('#breadcrumb').textContent='Acesso';
  $main.innerHTML = '<div class="login-layout"><section class="card login-card">' +
- '<div class="eyebrow">GUT • APONTADOR DE PRODUÇÃO</div>' +
+ '<div class="fx-brand fx-login"><img class="fx-mark" src="facsim-mark.svg" alt="" /><span class="fx-word"><b>FACSIM</b><small>APONTADOR DE PRODUÇÃO</small></span></div>' +
  '<h1 class="page-title">Acesse o sistema</h1>' +
  '<p class="page-subtitle">Entre com o e-mail e a senha cadastrados no Supabase Auth. Os dados ficam protegidos e sincronizados.</p>' +
  (message ? '<div class="login-error" role="alert">'+esc(message)+'</div>' : '') +

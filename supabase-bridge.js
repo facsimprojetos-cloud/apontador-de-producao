@@ -1,4 +1,4 @@
-/* GUT Apontador — cliente Supabase. Somente a chave PUBLICÁVEL é usada aqui.
+/* FACSIM Apontador — cliente Supabase. Somente a chave PUBLICÁVEL é usada aqui.
  * As políticas RLS e a lista de usuários autorizados protegem os registros.
  */
 (() => {

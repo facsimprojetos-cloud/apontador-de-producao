@@ -1,4 +1,4 @@
-/* GUT | Painel de TV. Consulta autenticada ao Supabase a cada 15 segundos. */
+/* FACSIM | Painel de TV. Consulta autenticada ao Supabase a cada 15 segundos. */
 (() => {
 'use strict';
 const fmt = (v,d=0) => Number(v||0).toLocaleString('pt-BR',{minimumFractionDigits:d,maximumFractionDigits:d});
@@ -248,7 +248,7 @@ function template(incoming){
  data=incoming;active=true;
  const rows=rowsFor();
  return '<section id="tvWorkspace" class="tv-workspace'+(cfg.rotate?' tv-rotating':'')+'" data-panel="'+cfg.panel+'">'+
- '<header class="tv-header"><div class="tv-brand"><img src="gut-logo.svg" alt="GUT Consultoria e Treinamentos" /><div class="tv-title"><span>PAINEL AO VIVO</span><h1>APONTADOR <em>DE PRODUÇÃO</em></h1></div></div>'+
+ '<header class="tv-header"><div class="tv-brand"><div class="tv-fx"><img src="facsim-mark-tv.svg" alt="" /><b>FACSIM</b></div><div class="tv-title"><span>PAINEL AO VIVO</span><h1>APONTADOR <em>DE PRODUÇÃO</em></h1></div></div>'+
  '<div class="tv-header-actions"><span class="tv-filter-summary" id="tvFilterSummary">'+escapeHtml(filterSummary())+'</span><span class="tv-live"><span></span> ATUALIZAÇÃO AUTOMÁTICA · 15 S</span><span class="tv-clock" id="tvClock"></span>'+
  '<button type="button" class="tv-button" data-tv-action="refresh">↻ Atualizar</button>'+
  '<button type="button" class="tv-button" data-tv-action="fullscreen">⛶ Tela cheia</button>'+
@@ -268,7 +268,7 @@ function template(incoming){
  '<div class="tv-table-scroll"><table class="tv-data-table"><thead><tr><th>DATA</th><th>HORA</th><th>PRODUTO</th><th>FUNCIONÁRIO</th><th>PROCESSO</th><th>INÍCIO</th><th>FIM</th><th>META</th><th>REALIZADO</th><th>EFICIÊNCIA</th></tr></thead><tbody id="tvRows">'+rowsHtml(rows)+'</tbody></table></div></section>'+
  '<aside class="tv-ranking-box"><div class="tv-panel-header"><div><b>FUNCIONÁRIOS</b><small>Eficiência acumulada no período</small></div><span id="tvRankCount"></span></div><div id="tvRanking" class="tv-ranking-scroll">'+rankings(rows)+'</div></aside></div></div>'+
  '<div class="tv-p tv-p2" id="tvP2">'+(cfg.panel===2?panel2():'')+'</div><div class="tv-p tv-p3" id="tvP3">'+(cfg.panel===3?panel3():'')+'</div>'+
- '<footer class="tv-bottom"><span>GUT • GESTÃO INDUSTRIAL</span><span>Peça pronta = apontamento da operação final do produto · Gargalos e Peças prontas usam o fluxo inteiro (ignoram filtro de funcionário e processo)</span><span id="tvLastSync">Sincronizando com o Supabase</span></footer></section>';
+ '<footer class="tv-bottom"><span>FACSIM • GESTÃO INDUSTRIAL</span><span>Peça pronta = apontamento da operação final do produto · Gargalos e Peças prontas usam o fluxo inteiro (ignoram filtro de funcionário e processo)</span><span id="tvLastSync">Sincronizando com o Supabase</span></footer></section>';
 }
 async function refresh(){
  if(!active||busy||typeof reload!=='function'||document.visibilityState==='hidden')return;
