@@ -705,3 +705,9 @@ body:not(.is-admin) .admin-only{display:none!important}
  body.nav-collapsed .sidebar-status .live-dot{margin:0}
 }
 @media(max-width:940px){.desktop-collapse{display:none}}
+.level-sal{margin-top:14px;padding-top:12px;border-top:1px solid #edf1f4;display:flex;flex-direction:column;gap:6px}
+.level-sal label{font-size:11px;font-weight:800;color:#4b6277}
+.level-sal-row{display:flex;gap:8px}.level-sal-row .input{flex:1;min-width:0}
+.level-sal small{font-size:10.5px;color:#8a98a5}
+.sal-nivel{min-width:150px}
+.input.flash{box-shadow:0 0 0 3px #25ab8455;border-color:#23aa87;transition:box-shadow .2s}

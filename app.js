@@ -536,8 +536,14 @@ async function submitLink(ev){
 /* ===================== NÍVEIS ===================== */
 function niveis(){
  const head=title('Níveis e tempos','Tempo e nível de cada funcionário em cada operação que executa, com histórico preservado.')+subtabs();
- if(sub.niveis==='niveis')return head+`<div class="level-cards">${data.niveis.map(n=>`<div class="card level-card"><div class="level-number">${esc(n.ordem||n.id)}</div><h3>${esc(n.nome)}</h3><p>${esc(n.descricao)}</p></div>`).join('')}</div>
-<div class="notice"><strong>Metodologia:</strong> ao revisar o tempo ou o nível, os apontamentos anteriores continuam usando a meta histórica. Apontamentos com data retroativa usam o tempo que valia naquela data e hora.</div>`;
+ if(sub.niveis==='niveis'){
+  const adm=data.perfil==='admin';if(adm&&!bonusData&&!bonusLoading&&!bonusErr)loadBonus();
+  const NS={};(bonusData?.niveisSalario||[]).forEach(x=>NS[x.nivel]=x.salario);
+  const salBox=n=>!adm?'':!bonusData?'<div class="level-sal muted-small">'+(bonusErr?esc(bonusErr):'Carregando salário…')+'</div>':
+   `<div class="level-sal"><label for="nsal-${esc(n.id)}">Salário básico do nível</label><div class="level-sal-row"><input class="input" type="number" min="0" step="0.01" inputmode="decimal" id="nsal-${esc(n.id)}" value="${NS[n.id]!=null?esc(NS[n.id]):''}" placeholder="0,00"><button class="btn btn-sm btn-primary" data-action="salvar-nivel-salario" data-id="${esc(n.id)}">Salvar</button></div><small>${NS[n.id]!=null?'Atual: '+brl(NS[n.id]):'Sem salário definido'}</small></div>`;
+  return head+`<div class="level-cards">${data.niveis.map(n=>`<div class="card level-card"><div class="level-number">${esc(n.ordem||n.id)}</div><h3>${esc(n.nome)}</h3><p>${esc(n.descricao)}</p>${salBox(n)}</div>`).join('')}</div>`+
+  (adm?'<div class="notice">O salário básico do nível é uma sugestão: em <b>Bonificação → Salários</b>, ao escolher o nível do funcionário o salário vem preenchido e pode ser ajustado antes de salvar. Mudar o valor aqui não altera salários já gravados.</div>':'')+`
+<div class="notice"><strong>Metodologia:</strong> ao revisar o tempo ou o nível, os apontamentos anteriores continuam usando a meta histórica. Apontamentos com data retroativa usam o tempo que valia naquela data e hora.</div>`;}
  const all=activeEmployees(),emps=all.filter(f=>!nivFunc||f.id===nivFunc);
  const totalOps=all.reduce((n,f)=>n+empOps(f).length,0);
  const filtro=`<div class="card controls-panel"><select class="select" id="nivFuncionario" aria-label="Filtrar funcionário"><option value="">Todos os funcionários</option>${all.map(f=>`<option value="${esc(f.id)}" ${f.id===nivFunc?'selected':''}>${esc(f.nome)}</option>`).join('')}</select><div class="stats-row"><span><b>${totalOps}</b> operações vinculadas</span><span><b>${data.tempos.length}</b> com tempo individual</span></div></div>`;
@@ -590,7 +596,7 @@ async function loadBonus(force){
  try{bonusData=await window.GUT_API.bonus(bonusMes+'-01');if(!rulesDirty)rulesDraft=null;bonusErrMes='';}
  catch(e){bonusErr=e.message||String(e);bonusErrMes=bonusMes;}
  finally{bonusLoading=false;}
- if(page==='bonificacao')render();
+ if(page==='bonificacao'||page==='niveis')render();
 }
 function bonificacao(){
  const mesInput=`<label class="inline-date">Mês <input type="month" class="input" id="bonusMes" value="${esc(bonusMes)}"></label>`;
@@ -650,9 +656,11 @@ function bonusFaltas(){
 }
 function bonusSalarios(){
  const S={};(bonusData.salarios||[]).forEach(s=>S[s.funcionario]=s);
+ const NS={};(bonusData.niveisSalario||[]).forEach(x=>NS[x.nivel]=x.salario);
  return `<div class="notice">O salário salvo aqui vale a partir de <b>${esc(mesLabel(bonusMes))}</b> (mês selecionado acima). Os meses anteriores mantêm o valor que tinham.</div>
- <section class="card"><div class="table-wrap"><table class="table table-cards"><thead><tr><th>Funcionário</th><th>Salário base vigente</th><th>Desde</th><th>Novo salário</th><th></th></tr></thead><tbody>
+ <section class="card"><div class="table-wrap"><table class="table table-cards"><thead><tr><th>Funcionário</th><th>Salário base vigente</th><th>Desde</th><th>Nível</th><th>Novo salário</th><th></th></tr></thead><tbody>
  ${activeEmployees().map(f=>{const s=S[f.id];return '<tr>'+td('Funcionário',esc(f.nome),'strong card-title')+td('Salário vigente',brl(s?.salario),'num')+td('Desde',s?esc(fDate(s.desde).slice(3)):'—','num')+
+  td('Nível',`<select class="select sal-nivel" id="snv-${esc(f.id)}" data-func="${esc(f.id)}"><option value="">Sem nível</option>${data.niveis.map(n=>`<option value="${esc(n.id)}" ${String(s?.nivel??'')===String(n.id)?'selected':''}>${esc(n.nome)}${NS[n.id]!=null?' · '+brl(NS[n.id]):''}</option>`).join('')}</select>`)+
   td('Novo salário',`<input class="input sal-input" type="number" min="0" step="0.01" inputmode="decimal" id="sal-${esc(f.id)}" value="${s?esc(s.salario):''}" placeholder="0,00">`)+
   td('Ação',`<button class="btn btn-sm btn-primary" data-action="salvar-salario" data-id="${esc(f.id)}">Salvar</button>`,'num')+'</tr>'}).join('')}
  </tbody></table></div></section>`;
@@ -1016,7 +1024,8 @@ function action(name,el){
  case 'tab-add':case 'tab-del':case 'tab-gerar':case 'fl-add':case 'fl-del':rulesAction(name,el.dataset.kind);break;
  case 'regras-salvar':saveRules();break;
  case 'regras-descartar':rulesDraft=null;rulesDirty=false;render();break;
- case 'salvar-salario':{const v=$('#sal-'+id)?.value;if(v===''||!(Number(v)>=0)){toast('Informe um salário válido.');break;}bonusSaveAndReload('salario',{funcionario:id,salario:Number(v),desde:bonusMes+'-01'},'Salário salvo a partir de '+mesLabel(bonusMes)+'.');break;}
+ case 'salvar-nivel-salario':{const v=$('#nsal-'+id)?.value;if(v!==''&&!(Number(v)>=0)){toast('Informe um salário válido.');break;}bonusSaveAndReload('nivel_salario',{nivel:id,salario:v===''?null:Number(v)},v===''?'Salário do nível removido.':'Salário básico do nível salvo.');break;}
+ case 'salvar-salario':{const v=$('#sal-'+id)?.value;if(v===''||!(Number(v)>=0)){toast('Informe um salário válido.');break;}bonusSaveAndReload('salario',{funcionario:id,salario:Number(v),desde:bonusMes+'-01',nivel:$('#snv-'+id)?.value||null},'Salário salvo a partir de '+mesLabel(bonusMes)+'.');break;}
  case 'falta-excluir':if(el.dataset.confirm!=='1'){el.dataset.confirm='1';el.textContent='Confirmar exclusão';setTimeout(()=>{if(el.isConnected){el.dataset.confirm='';el.textContent='Excluir'}},4000);break;}bonusSaveAndReload('falta_excluir',{id},'Falta excluída.');break;
  default:break;
  }
@@ -1042,6 +1051,7 @@ document.addEventListener('click',ev=>{
 });
 document.addEventListener('toggle',ev=>{if(ev.target?.id==='filterBox')filtersOpen=ev.target.open},true);
 document.addEventListener('change',ev=>{const t=ev.target;
+ if(t.classList?.contains('sal-nivel')){const ns=(bonusData?.niveisSalario||[]).find(x=>String(x.nivel)===t.value);const inp=$('#sal-'+t.dataset.func);if(ns&&inp){inp.value=ns.salario;inp.classList.add('flash');setTimeout(()=>inp.classList.remove('flash'),700);}return;}
  if(t.id==='filterInicio'||t.id==='dashInicio'){filters.inicio=t.value;render();}
  if(t.id==='filterFim'||t.id==='dashFim'){filters.fim=t.value;render();}
  if(t.id==='filterFuncionario')filters.funcionario=t.value,render();
