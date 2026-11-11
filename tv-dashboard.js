@@ -187,7 +187,7 @@ const ico=(k,c='')=>`<svg class="nx-ico ${c}" viewBox="0 0 24 24" aria-hidden="t
 const p1=v=>v==null?'—':fmt(v,1).replace(/,0$/,'')+'%';
 const tone=eff=>eff==null?'cyan':eff>=100?'green':eff>=85?'yellow':'red';
 const pill=eff=>`<span class="nx-pill nx-${tone(eff)}">${pct(eff)}</span>`;
-function nk(icon,label,value,t,sub){return `<article class="nx-kpi nx-${t}">${icon?ico(icon):''}<div class="nx-kpi-txt"><small>${label}</small>${sub?`<span>${sub}</span>`:''}</div><strong>${value}</strong></article>`}
+function nk(icon,label,value,t,sub,nome){return `<article class="nx-kpi nx-${t}${nome?' has-nome':''}">${icon?ico(icon):'<i></i>'}<div class="nx-kpi-txt"><small>${label}</small>${nome?`<b class="nx-k-nome" title="${escapeHtml(nome)}">${escapeHtml(nome)}</b>`:''}${sub?`<span>${sub}</span>`:''}</div><strong>${value}</strong></article>`}
 const box=(icon,title,extra,body,cls='')=>`<section class="nx-box ${cls}"><header class="nx-box-h">${ico(icon)}<b>${title}</b>${extra?`<span class="nx-chip">${extra}</span>`:''}</header><div class="nx-box-b">${body}</div></section>`;
 const empty=t=>`<div class="nx-empty">${t}</div>`;
 
@@ -247,9 +247,9 @@ function panelProcessos(){
   <div class="nx-alert nx-alert-amber">${ico('wrench')}<div><small>INTERVENÇÃO SUGERIDA</small><b>${escapeHtml(g.nome)}</b></div><div class="nx-alert-v"><span>Aumentar capacidade ou realocar pessoas — veja a tela Gargalos.</span></div></div>`;
  return `<section class="nx-kpis">
   ${nk('layers','OPERAÇÕES<br>APONTADAS',fmt(st.length),'yellow')}
-  ${nk('trophy','MELHOR<br>EFICIÊNCIA',`<em class="nx-k-name">${escapeHtml(melhor.nome)}</em>${p1(melhor.eff)}`,'green')}
-  ${nk('clock','TEMPO MÉDIO',`${fmt(tMedio,2)} <em>min/peça</em>`,'cyan')}
-  ${nk('alert','GARGALO',`<em class="nx-k-name">${escapeHtml(g.nome)}</em>${fmt(g.ciclo,2)} <em>min/pç</em>`,'red')}
+  ${nk('trophy','MELHOR EFICIÊNCIA',p1(melhor.eff),'green','',melhor.nome)}
+  ${nk('clock','TEMPO MÉDIO',`${fmt(tMedio,2)}<em>min/pç</em>`,'cyan','por operação')}
+  ${nk('alert','GARGALO',`${fmt(g.ciclo,2)}<em>min/pç</em>`,'red','',g.nome)}
   ${nk('bolt','EFICIÊNCIA<br>MÉDIA',p1(all.eff),tone(all.eff))}</section>
  <div class="nx-grid2">${box('bars','DESEMPENHO POR OPERAÇÃO','Peças por hora trabalhada e eficiência',`<div class="nx-hbars">${bars}</div>`)}
   ${box('clock','TEMPO REAL POR PEÇA','Minutos por peça · '+(filters.produto?'na ordem do roteiro':'por operação'),lineChart(ordem.map(o=>({label:o.nome.length>14?o.nome.slice(0,13)+'…':o.nome,value:o.ciclo,tone:o===lenta?'red':'cyan'})),{fmt:v=>fmt(v,2),floor:0,id:'c',aria:'Tempo por peça por operação'}))}
@@ -305,7 +305,7 @@ function panelTendencias(){
   ${nk('bolt','EFICIÊNCIA<br>DO DIA',p1(sDia.eff),tone(sDia.eff),dateLabel(dia))}
   ${nk('trend','EFICIÊNCIA<br>NO PERÍODO',p1(sPer.eff),tone(sPer.eff),dias.length+' dia(s)')}
   ${nk('box','PRONTAS<br>NO DIA',fmt(sums(flow.filter(l=>l.data===dia&&isFinished(l))).feito),'yellow')}
-  ${nk('trophy','MELHOR DIA',melhor?`<em class="nx-k-name">${melhor.label}</em>${p1(melhor.value)}`:'—','green')}</section>
+  ${nk('trophy','MELHOR DIA',melhor?p1(melhor.value):'—','green','',melhor?melhor.label:'')}</section>
  <div class="nx-grid2">${box('clock','EFICIÊNCIA HORA A HORA',dateLabel(dia),lineChart(ptsH,{ref:100,refLabel:'META 100%',fmt:v=>fmt(v,1)+'%',floor:0,id:'h',aria:'Eficiência por hora'}))}
   ${box('trend','EFICIÊNCIA ACUMULADA NO DIA',dateLabel(dia),lineChart(ptsAcc,{ref:100,refLabel:'META 100%',fmt:v=>fmt(v,1)+'%',floor:0,id:'a',aria:'Eficiência acumulada no dia'}))}
   ${box('calendar','EFICIÊNCIA DIA A DIA',filterSummary(),lineChart(ptsD,{ref:100,refLabel:'META 100%',fmt:v=>fmt(v,1)+'%',floor:0,id:'d',aria:'Eficiência por dia'}))}
