@@ -777,3 +777,18 @@ body:not(.is-admin) .admin-only{display:none!important}
 .imp-avisos ul{margin:8px 0 0 18px;padding:0;max-height:260px;overflow:auto}
 .imp-avisos li{margin:2px 0}
 @media(max-width:940px){.imp-steps{grid-template-columns:minmax(0,1fr)}}
+.acc-uso{margin:6px 0 0;font-size:13px;color:#4e6276}.acc-uso b{color:var(--navy)}
+.acc-cheio,.acc-cheio b{color:#a42828!important}
+.acc-grid .table-wrap{overflow-x:auto}
+.acc-table{width:100%;table-layout:fixed}
+.acc-table th:nth-child(1){width:auto}.acc-table th:nth-child(2){width:150px}.acc-table th:nth-child(3){width:96px}.acc-table th:nth-child(4){width:130px}
+.acc-table .select{min-width:0;width:100%}
+.acc-table td:first-child{overflow-wrap:anywhere}
+@media(max-width:940px){.acc-table{table-layout:auto}}
+.acc-users{display:flex;flex-direction:column;border-top:1px solid var(--line)}
+.acc-user{display:grid;grid-template-columns:minmax(0,1fr) 160px 76px 210px;gap:12px;align-items:center;padding:12px 2px;border-bottom:1px solid var(--line)}
+.acc-user.row-off{opacity:.7}
+.acc-u-id b{color:var(--navy)}.acc-u-id small{display:block;overflow-wrap:anywhere}
+.acc-u-perfil .select{width:100%}
+.acc-user .acc-row-actions{flex-direction:row;justify-content:flex-end}
+@media(max-width:1180px){.acc-user{grid-template-columns:minmax(0,1fr) 150px;}.acc-user .acc-row-actions{justify-content:flex-start}}

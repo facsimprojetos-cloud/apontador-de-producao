@@ -145,6 +145,9 @@ async function loadAcessos(force){
  catch(e){accErr=e.message||String(e);}
  accLoading=false;if(page==='acessos')render();
 }
+const accAtivos=e=>Number(e.ativos??(e.usuarios||[]).filter(u=>u.ativo).length);
+const accCheio=e=>!!e.limite&&accAtivos(e)>=Number(e.limite);
+const accUsoTxt=e=>e.limite?`<b>${fNum(accAtivos(e))}</b> de <b>${fNum(e.limite)}</b> acessos ativos em uso`:`<b>${fNum(accAtivos(e))}</b> acesso(s) ativo(s) · sem limite definido`;
 function senhaForte(){const c='ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnpqrstuvwxyz23456789';let s='';const r=new Uint32Array(10);(window.crypto||{}).getRandomValues?.(r);for(let i=0;i<10;i++)s+=c[(r[i]||Math.floor(Math.random()*1e9))%c.length];return s+'!'+(r[0]%90+10)}
 function acessos(){
  const head=title('Gestão de acessos','Empresas, usuários e perfis de acesso ao sistema.');
@@ -159,30 +162,33 @@ function accEmpresasView(emps){
  return `<div class="acc-grid"><section class="card"><h3 class="card-title">Nova empresa</h3><p class="muted-small">A empresa nasce zerada, só com as regras padrão (faixas de bonificação, níveis, horários e jornada). Depois cadastre o administrador dela em Usuários.</p>
   <form id="accEmpresaForm" class="acc-form"><div class="field"><label for="accEmpNome">Nome da empresa</label><input class="input" id="accEmpNome" name="nome" required maxlength="120" autocomplete="organization"></div>
   <div class="field"><label for="accEmpDoc">CNPJ (opcional)</label><input class="input" id="accEmpDoc" name="documento" maxlength="20" inputmode="numeric"></div>
+  <div class="field"><label for="accEmpLim">Limite de acessos</label><input class="input" id="accEmpLim" name="limite" type="number" min="1" step="1" inputmode="numeric" placeholder="Sem limite"><small class="muted-small">Quantos logins ativos a empresa pode ter. Em branco = sem limite.</small></div>
   <button type="submit" class="btn btn-primary">Criar empresa</button></form></section>
-  <section class="acc-list">${emps.map(e=>`<article class="card acc-emp ${e.ativo?'':'is-off'}"><div class="acc-emp-top"><div><h3>${esc(e.nome)}${e.id===accData.minhaEmpresa?' <span class="pill">sua empresa</span>':''}</h3><small>${e.documento?esc(e.documento)+' · ':''}desde ${esc(fDate(e.criadaEm))}</small></div>
+  <section class="acc-list">${emps.map(e=>`<article class="card acc-emp ${e.ativo?'':'is-off'}"><div class="acc-emp-top"><div><h3>${esc(e.nome)}${e.plataforma?' <span class="pill">plataforma</span>':''}${e.id===accData.minhaEmpresa?' <span class="pill">sua empresa</span>':''}</h3><small>${e.documento?esc(e.documento)+' · ':''}desde ${esc(fDate(e.criadaEm))}</small></div>
    <span class="acc-status ${e.ativo?'on':'off'}">${e.ativo?'Ativa':'Bloqueada'}</span></div>
-   <div class="acc-nums"><span><b>${fNum(e.usuarios.length)}</b> usuário(s)</span><span><b>${fNum(e.funcionarios)}</b> funcionário(s)</span><span><b>${fNum(e.lancamentos)}</b> apontamento(s)</span></div>
-   <div class="acc-actions"><button class="btn btn-sm" data-action="acc-ver-usuarios" data-id="${esc(e.id)}">Usuários</button><button class="btn btn-sm" data-action="acc-renomear" data-id="${esc(e.id)}">Renomear</button>
-   ${e.id===accData.minhaEmpresa?'':`<button class="btn btn-sm ${e.ativo?'btn-danger-soft':''}" data-action="acc-empresa-ativo" data-id="${esc(e.id)}" data-on="${e.ativo?'0':'1'}">${e.ativo?'Bloquear acesso':'Reativar'}</button>`}</div></article>`).join('')}</section></div>`;
+   <div class="acc-nums"><span class="${accCheio(e)?'acc-cheio':''}"><b>${fNum(e.ativos??e.usuarios.filter(u=>u.ativo).length)}</b>${e.limite?' de <b>'+fNum(e.limite)+'</b>':''} acesso(s) ativo(s)${e.limite?'':' · sem limite'}</span><span><b>${fNum(e.funcionarios)}</b> funcionário(s)</span><span><b>${fNum(e.lancamentos)}</b> apontamento(s)</span></div>
+   <div class="acc-actions"><button class="btn btn-sm" data-action="acc-ver-usuarios" data-id="${esc(e.id)}">Usuários</button><button class="btn btn-sm" data-action="acc-renomear" data-id="${esc(e.id)}">Editar dados e limite</button>
+   ${e.plataforma||e.id===accData.minhaEmpresa?'':`<button class="btn btn-sm ${e.ativo?'btn-danger-soft':''}" data-action="acc-empresa-ativo" data-id="${esc(e.id)}" data-on="${e.ativo?'0':'1'}">${e.ativo?'Bloquear acesso':'Reativar'}</button>`}</div></article>`).join('')}</section></div>`;
 }
 function accUsuariosView(emps,dono){
  const emp=emps.find(e=>e.id===accEmpresa)||emps[0];if(!emp)return '<div class="notice">Nenhuma empresa encontrada.</div>';
  const eu=String(authorizedEmail||'').toLowerCase();
  const sel=dono?`<div class="field acc-emp-sel"><label for="accEmpSel">Empresa</label><select class="select" id="accEmpSel">${emps.map(e=>`<option value="${esc(e.id)}" ${e.id===emp.id?'selected':''}>${esc(e.nome)}${e.ativo?'':' (bloqueada)'}</option>`).join('')}</select></div>`:'';
- const rows=emp.usuarios.map(u=>{const me=u.email===eu;return `<tr class="${u.ativo?'':'row-off'}"><td data-label="Usuário"><b>${esc(u.nome||u.email.split('@')[0])}</b>${u.dono?' <span class="pill">dono da plataforma</span>':''}${me?' <span class="pill">você</span>':''}<br><small class="muted-small">${esc(u.email)}</small></td>
-  <td data-label="Perfil"><select class="select acc-perfil" data-email="${esc(u.email)}" ${me||u.dono?'disabled':''} aria-label="Perfil de ${esc(u.email)}">${Object.entries(PERFIL_TXT).map(([k,l])=>`<option value="${k}" ${u.perfil===k?'selected':''}>${l}</option>`).join('')}</select></td>
-  <td data-label="Situação"><span class="acc-status ${u.ativo?'on':'off'}">${u.ativo?'Ativo':'Bloqueado'}</span></td>
-  <td data-label="Ações" class="acc-row-actions">${me||u.dono?'':`<button class="btn btn-sm" data-action="acc-usuario-ativo" data-email="${esc(u.email)}" data-on="${u.ativo?'0':'1'}">${u.ativo?'Bloquear':'Reativar'}</button>`}${u.dono&&!me?'':`<button class="btn btn-sm" data-action="acc-senha" data-email="${esc(u.email)}">Trocar senha</button>`}</td></tr>`}).join('');
+ const rows=emp.usuarios.map(u=>{const me=u.email===eu;return `<div class="acc-user ${u.ativo?'':'row-off'}"><div class="acc-u-id"><b>${esc(u.nome||u.email.split('@')[0])}</b>${u.dono?' <span class="pill">dono da plataforma</span>':''}${me?' <span class="pill">você</span>':''}<small class="muted-small">${esc(u.email)}</small></div>
+  <div class="acc-u-perfil"><select class="select acc-perfil" data-email="${esc(u.email)}" ${me||u.dono?'disabled':''} aria-label="Perfil de ${esc(u.email)}">${Object.entries(PERFIL_TXT).map(([k,l])=>`<option value="${k}" ${u.perfil===k?'selected':''}>${l}</option>`).join('')}</select></div>
+  <div class="acc-u-sit"><span class="acc-status ${u.ativo?'on':'off'}">${u.ativo?'Ativo':'Bloqueado'}</span></div>
+  <div class="acc-row-actions">${me||u.dono?'':`<button class="btn btn-sm" data-action="acc-usuario-ativo" data-email="${esc(u.email)}" data-on="${u.ativo?'0':'1'}" ${!u.ativo&&accCheio(emp)?'disabled title="Limite de acessos atingido"':''}>${u.ativo?'Bloquear':'Reativar'}</button>`}${u.dono&&!me?'':`<button class="btn btn-sm" data-action="acc-senha" data-email="${esc(u.email)}">Trocar senha</button>`}</div></div>`}).join('');
  return `${sel}<div class="acc-grid"><section class="card"><h3 class="card-title">Novo usuário${dono?' em '+esc(emp.nome):''}</h3>
+  <p class="acc-uso ${accCheio(emp)?'acc-cheio':''}">${accUsoTxt(emp)}</p>
+  ${accCheio(emp)?`<div class="notice">Limite de acessos atingido. ${dono?'Aumente o limite em Empresas → Editar dados e limite, ou bloqueie':'Bloqueie'} um usuário para liberar uma vaga${dono?'':', ou peça à FACSIM para ampliar o limite'}.</div>`:''}
   <form id="accUserForm" class="acc-form"><input type="hidden" name="empresa" value="${esc(emp.id)}">
   <div class="field"><label for="accNome">Nome</label><input class="input" id="accNome" name="nome" maxlength="80" autocomplete="off"></div>
   <div class="field"><label for="accEmail">E-mail de login</label><input class="input" id="accEmail" name="email" type="email" required autocomplete="off"></div>
   <div class="field"><label for="accPerfil">Perfil</label><select class="select" id="accPerfil" name="perfil">${Object.entries(PERFIL_TXT).map(([k,l])=>`<option value="${k}" ${k==='editor'?'selected':''}>${l} — ${PERFIL_DESC[k]}</option>`).join('')}</select></div>
   <div class="field"><label for="accSenha">Senha inicial</label><div class="acc-pass"><input class="input" id="accSenha" name="senha" type="text" minlength="8" required autocomplete="new-password" value="${senhaForte()}"><button type="button" class="btn btn-sm" data-action="acc-gerar-senha">Gerar outra</button></div><small class="muted-small">Mínimo de 8 caracteres. Passe a senha para a pessoa por um canal seguro.</small></div>
-  <button type="submit" class="btn btn-primary" ${accBusy?'disabled':''}>Criar login</button></form></section>
+  <button type="submit" class="btn btn-primary" ${accBusy||accCheio(emp)?'disabled':''}>Criar login</button></form></section>
   <section class="card"><div class="acc-head"><h3 class="card-title">Usuários de ${esc(emp.nome)}</h3><span class="muted-small">${fNum(emp.usuarios.length)} cadastrado(s)</span></div>
-  ${emp.usuarios.length?`<div class="table-wrap"><table class="table table-cards acc-table"><thead><tr><th>Usuário</th><th>Perfil</th><th>Situação</th><th></th></tr></thead><tbody>${rows}</tbody></table></div>`:'<p class="muted">Nenhum usuário ainda. Cadastre o primeiro administrador ao lado.</p>'}
+  ${emp.usuarios.length?`<div class="acc-users">${rows}</div>`:'<p class="muted">Nenhum usuário ainda. Cadastre o primeiro administrador ao lado.</p>'}
   <div class="notice acc-note"><b>Perfis:</b> ${Object.entries(PERFIL_TXT).map(([k,l])=>`${l} — ${PERFIL_DESC[k].toLowerCase()}`).join(' · ')}.</div></section></div>`;
 }
 async function accRun(fn,msg){
@@ -199,7 +205,7 @@ function accCriarUsuario(form){
 }
 function accCriarEmpresa(form){
  const fd=new FormData(form),nome=String(fd.get('nome')||'').trim();if(!nome)return;
- accRun(async()=>{const r=await window.GUT_API.empresaSave({nome,documento:String(fd.get('documento')||'').trim()});accEmpresa=r.id;sub.acessos='usuarios';return r;},'Empresa '+nome+' criada. Agora cadastre o administrador dela.');
+ accRun(async()=>{const r=await window.GUT_API.empresaSave({nome,documento:String(fd.get('documento')||'').trim(),limite:String(fd.get('limite')||'').trim()});accEmpresa=r.id;sub.acessos='usuarios';return r;},'Empresa '+nome+' criada. Agora cadastre o administrador dela.');
 }
 function accClick(action,el){
  switch(action){
@@ -213,7 +219,7 @@ function accClick(action,el){
    if(!on&&!confirmar(`Bloquear o acesso de ${e?.nome}? Os usuários dela deixam de entrar, mas nenhum dado é apagado.`))return true;
    accRun(()=>window.GUT_API.empresaSave({id:el.dataset.id,ativo:on}),on?'Empresa reativada.':'Acesso da empresa bloqueado.');return true;}
   case 'acc-renomear':{const e=accData.empresas.find(x=>x.id===el.dataset.id);
-   showModal('Renomear empresa',esc(e?.nome||''),`<input type="hidden" name="id" value="${esc(el.dataset.id)}"><div class="field"><label for="accRen">Nome</label><input class="input" id="accRen" name="nome" required value="${esc(e?.nome||'')}"></div><div class="field"><label for="accRenDoc">CNPJ</label><input class="input" id="accRenDoc" name="documento" value="${esc(e?.documento||'')}"></div>`,'Salvar','acc_empresa');return true;}
+   showModal('Editar empresa',esc(e?.nome||''),`<input type="hidden" name="id" value="${esc(el.dataset.id)}"><div class="field"><label for="accRen">Nome</label><input class="input" id="accRen" name="nome" required value="${esc(e?.nome||'')}"></div><div class="field"><label for="accRenDoc">CNPJ</label><input class="input" id="accRenDoc" name="documento" value="${esc(e?.documento||'')}"></div><div class="field"><label for="accRenLim">Limite de acessos ativos</label><input class="input" id="accRenLim" name="limite" type="number" min="1" step="1" placeholder="Sem limite" value="${e?.limite?esc(e.limite):''}"><small class="muted-small">Hoje em uso: ${fNum(accAtivos(e||{usuarios:[]}))}. Em branco = sem limite.</small></div>`,'Salvar','acc_empresa');return true;}
   case 'acc-usuario-ativo':{const on=el.dataset.on==='1';
    if(!on&&!confirmar(`Bloquear ${el.dataset.email}? A pessoa não consegue mais entrar até ser reativada.`))return true;
    accRun(()=>window.GUT_API.acessoSave({email:el.dataset.email,ativo:on}),on?'Usuário reativado.':'Usuário bloqueado.');return true;}
@@ -1130,7 +1136,7 @@ async function handleSubmit(ev){
  const button=form.querySelector('[type="submit"]');
  if(formType==='acc_empresa'||formType==='acc_senha'){
   closeModal();
-  if(formType==='acc_empresa')accRun(()=>window.GUT_API.empresaSave({id:v('id'),nome:v('nome'),documento:v('documento')}),'Empresa atualizada.');
+  if(formType==='acc_empresa')accRun(()=>window.GUT_API.empresaSave({id:v('id'),nome:v('nome'),documento:v('documento'),limite:v('limite')}),'Empresa atualizada.');
   else{if(v('senha').length<8){toast('A senha precisa ter pelo menos 8 caracteres.');return;}accRun(()=>window.GUT_API.acessoFn({acao:'senha',email:v('email'),senha:v('senha')}),'Senha trocada. Passe a nova senha para a pessoa.');}
   return;
  }

@@ -45,6 +45,10 @@ Deno.serve(async (req) => {
       if (!permitidas.has(empresa)) return json({ error: "Sem permissão para cadastrar nesta empresa." }, 403);
       if (!senha) return json({ error: "Defina uma senha inicial." }, 400);
       if (atual && String(atual.empresa_id) !== empresa) return json({ error: "Este e-mail já tem acesso em outra empresa." }, 409);
+      // limite de acessos definido pela FACSIM (o banco também confere, isto evita criar a conta à toa)
+      const emp = (escopo?.empresas ?? []).find((e: { id: string }) => String(e.id) === empresa);
+      if (emp?.limite && Number(emp.ativos ?? 0) >= Number(emp.limite) && !(atual && String(atual.empresa_id) === empresa))
+        return json({ error: `Limite de ${emp.limite} acesso(s) desta empresa atingido. Bloqueie um usuário ou peça para a FACSIM ampliar o limite.` }, 409);
 
       let novo = true;
       const { error: cErr } = await admin.auth.admin.createUser({ email, password: senha, email_confirm: true, user_metadata: { nome } });
