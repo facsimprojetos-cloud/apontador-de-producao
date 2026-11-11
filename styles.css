@@ -732,3 +732,48 @@ body:not(.is-admin) .admin-only{display:none!important}
 .tv-full .tv-brand .tv-fx img{width:auto;height:clamp(36px,4.8vh,56px)}
 .tv-full .tv-brand .tv-fx b{font-size:clamp(22px,2.2vw,38px)}
 @media(max-width:560px){.tv-brand .tv-fx img{width:40px}.tv-brand .tv-fx b{font-size:22px}}
+
+/* ===== Gestão de acessos ===== */
+.acc-grid{display:grid;grid-template-columns:minmax(280px,380px) minmax(0,1fr);gap:18px;align-items:start}
+.acc-form{display:flex;flex-direction:column;gap:12px;margin-top:12px}
+.acc-pass{display:flex;gap:8px}.acc-pass .input{flex:1;min-width:0;font-family:ui-monospace,Menlo,Consolas,monospace}
+.acc-list{display:flex;flex-direction:column;gap:12px}
+.acc-emp{padding:16px 18px}.acc-emp.is-off{opacity:.75}
+.acc-emp-top{display:flex;justify-content:space-between;gap:12px;align-items:flex-start}
+.acc-emp h3{margin:0;font-size:17px;color:var(--navy)}
+.acc-emp small{color:#6d7f92;font-size:12px}
+.acc-nums{display:flex;gap:18px;flex-wrap:wrap;margin:12px 0;font-size:13px;color:#4e6276}.acc-nums b{color:var(--navy)}
+.acc-actions,.acc-row-actions{display:flex;gap:8px;flex-wrap:wrap}
+.acc-status{display:inline-block;padding:3px 10px;border-radius:20px;font-size:11px;font-weight:800;letter-spacing:.3px}
+.acc-status.on{background:#e3f6ee;color:#11704f}.acc-status.off{background:#fde8e8;color:#a42828}
+.acc-head{display:flex;justify-content:space-between;align-items:baseline;gap:10px;margin-bottom:10px}
+.acc-table .select{min-width:140px}
+.acc-table tr.row-off td{color:#8a98a5}
+.acc-emp-sel{max-width:360px;margin-bottom:16px}
+.acc-note{margin-top:14px;font-size:12px}
+.pill{display:inline-block;padding:2px 8px;border-radius:20px;background:#eef3f7;color:#4e6276;font-size:10.5px;font-weight:800;vertical-align:middle}
+.btn-danger-soft{color:#a42828;border-color:#f1c7c7}
+@media(max-width:940px){.acc-grid{grid-template-columns:minmax(0,1fr)}}
+.acc-grid>.card{padding:20px 22px}
+.acc-table td{vertical-align:middle}
+.acc-row-actions{justify-content:flex-end}
+@media(min-width:941px){.acc-table .acc-row-actions{flex-direction:column;align-items:stretch}}
+
+/* ===== Importar planilha ===== */
+.imp-steps{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:16px;margin-bottom:16px}
+.imp-card{padding:20px 22px;position:relative}
+.imp-n{position:absolute;top:16px;right:18px;width:28px;height:28px;border-radius:50%;background:#e3f6ee;color:#11704f;font-weight:900;display:grid;place-items:center}
+.imp-btns{display:flex;flex-direction:column;gap:8px;margin-top:12px}
+.imp-drop{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;margin-top:12px;padding:20px 12px;border:2px dashed #b9c8d6;border-radius:12px;background:#f7fafc;cursor:pointer;text-align:center}
+.imp-drop:hover,.imp-drop.is-over{border-color:#128669;background:#eefaf5}
+.imp-drop.is-busy{opacity:.7;cursor:progress}
+.imp-drop input{position:absolute;width:1px;height:1px;opacity:0}
+.imp-drop b{color:var(--navy);font-size:14px;word-break:break-all}.imp-drop small{color:#6d7f92;font-size:12px}
+.imp-card .btn-primary[disabled]{opacity:.5}
+.imp-nums{display:flex;flex-wrap:wrap;gap:12px;margin:12px 0}
+.imp-nums div{background:#f2f7f5;border-radius:10px;padding:10px 14px;min-width:120px}
+.imp-nums b{display:block;font-size:24px;color:#11704f}.imp-nums span{font-size:12px;color:#4e6276}
+.imp-avisos{margin-top:12px;padding:12px 14px;border-radius:10px;background:#fff7e8;border:1px solid #f1d9a8;font-size:13px;color:#7a5414}
+.imp-avisos ul{margin:8px 0 0 18px;padding:0;max-height:260px;overflow:auto}
+.imp-avisos li{margin:2px 0}
+@media(max-width:940px){.imp-steps{grid-template-columns:minmax(0,1fr)}}

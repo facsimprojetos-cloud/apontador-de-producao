@@ -25,6 +25,21 @@
     async preview(payload) { return unwrap(await client.rpc('apontador_previa',{p_dados:payload})); },
     async bonus(mes) { return unwrap(await client.rpc('apontador_bonificacao',{p_mes:mes})); },
     async bonusSave(type, payload) { return unwrap(await client.rpc('apontador_bonificacao_salvar',{p_tipo:type,p_dados:payload})); },
-    async ausencia(type, payload) { return unwrap(await client.rpc('apontador_ausencia_salvar',{p_tipo:type,p_dados:payload})); }
+    async ausencia(type, payload) { return unwrap(await client.rpc('apontador_ausencia_salvar',{p_tipo:type,p_dados:payload})); },
+    async acessos() { return unwrap(await client.rpc('apontador_acessos_listar',{})); },
+    async empresaSave(payload) { return unwrap(await client.rpc('apontador_empresa_salvar',{p_dados:payload})); },
+    async acessoSave(payload) { return unwrap(await client.rpc('apontador_acesso_salvar',{p_dados:payload})); },
+    async importar(payload) { return unwrap(await client.rpc('apontador_importar',{p_dados:payload})); },
+    /* criação de login e troca de senha: Edge Function (a chave secreta fica só no servidor) */
+    async acessoFn(body) {
+      const { data, error } = await client.functions.invoke('apontador-acessos', { body });
+      if (error) {
+        let msg = error.message;
+        try { const j = await error.context?.json?.(); if (j?.error) msg = j.error; } catch (_) {}
+        throw new Error(msg || 'Falha ao falar com o servidor de acessos.');
+      }
+      if (data?.error) throw new Error(data.error);
+      return data;
+    }
   };
 })();

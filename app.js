@@ -1,7 +1,7 @@
 /* FACSIM Apontador — interface conectada ao Supabase Auth e funções RPC protegidas por RLS. */
 (() => {
 'use strict';
-const NAMES = {tv:'Painel para TV',bonificacao:'Bonificação',lancamentos:'Apontamentos',funcionarios:'Funcionários',estrutura:'Estrutura da fábrica',produtos:'Produtos e operações',niveis:'Níveis e tempos',config:'Configurações'};
+const NAMES = {tv:'Painel para TV',bonificacao:'Bonificação',lancamentos:'Apontamentos',funcionarios:'Funcionários',estrutura:'Estrutura da fábrica',produtos:'Produtos e operações',niveis:'Níveis e tempos',config:'Configurações',acessos:'Gestão de acessos',importar:'Importar planilha'};
 /* Sub-abas exibidas no cabeçalho de cada página. */
 const SUBS = {
  lancamentos:[['novo','Apontar'],['historico','Histórico'],['ausencias','Ausências'],['horarios','Horários e jornada']],
@@ -10,7 +10,7 @@ const SUBS = {
  estrutura:[['setores','Setores e grupos'],['maquinas','Máquinas'],['funcoes','Funções']],
  niveis:[['tempos','Por funcionário'],['niveis','Níveis']]
 };
-const sub = {bonificacao:'mes',produtos:'produtos',lancamentos:'novo',estrutura:'setores',niveis:'tempos'};
+const sub = {acessos:'usuarios',bonificacao:'mes',produtos:'produtos',lancamentos:'novo',estrutura:'setores',niveis:'tempos'};
 const $ = s => document.querySelector(s);
 const byId = (collection,id) => (data[collection]||[]).find(x=>String(x.id)===String(id));
 const esc = value => String(value??'').replace(/[&<>"']/g, s=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[s]));
@@ -54,7 +54,7 @@ function title(text,subtitle,right=''){return `<div class="page-head"><div><div 
 function subtabs(){const list=SUBS[page];if(!list)return '';return `<nav class="subtabs" role="tablist" aria-label="Seções de ${esc(NAMES[page])}">${list.map(([k,l])=>`<button type="button" role="tab" class="subtab ${sub[page]===k?'active':''}" data-sub="${k}" aria-selected="${sub[page]===k}">${l}</button>`).join('')}</nav>`}
 const btnNew=(what,label)=>`<button class="btn btn-primary" data-action="${what}" data-edit>＋ ${label}</button>`;
 const td=(label,content,cls='')=>`<td data-label="${esc(label)}"${cls?` class="${cls}"`:''}>${content}</td>`;
-function pageMarkup(){switch(page){case 'tv':return window.GUT_TV?window.GUT_TV.template(data):'<p>Painel de TV indisponível. Recarregue a página.</p>';case 'lancamentos':return lancamentos();case 'funcionarios':return funcionarios();case 'estrutura':return estrutura();case 'produtos':return produtos();case 'niveis':return niveis();case 'config':return config();case 'bonificacao':return bonificacao();default:return lancamentos()}}
+function pageMarkup(){switch(page){case 'tv':return window.GUT_TV?window.GUT_TV.template(data):'<p>Painel de TV indisponível. Recarregue a página.</p>';case 'lancamentos':return lancamentos();case 'funcionarios':return funcionarios();case 'estrutura':return estrutura();case 'produtos':return produtos();case 'niveis':return niveis();case 'config':return config();case 'bonificacao':return bonificacao();case 'acessos':return acessos();case 'importar':return importar();default:return lancamentos()}}
 
 function renderLogin(message=''){
  window.GUT_TV?.stop();document.body.classList.remove('tv-page');
@@ -63,7 +63,7 @@ function renderLogin(message=''){
  $main.innerHTML = '<div class="login-layout"><section class="card login-card">' +
  '<div class="fx-brand fx-login"><img class="fx-mark" src="facsim-mark.svg" alt="" /><span class="fx-word"><b>FACSIM</b><small>APONTADOR DE PRODUÇÃO</small></span></div>' +
  '<h1 class="page-title">Acesse o sistema</h1>' +
- '<p class="page-subtitle">Entre com o e-mail e a senha cadastrados no Supabase Auth. Os dados ficam protegidos e sincronizados.</p>' +
+ '<p class="page-subtitle">Entre com o e-mail e a senha fornecidos pelo administrador da sua empresa.</p>' +
  (message ? '<div class="login-error" role="alert">'+esc(message)+'</div>' : '') +
  '<form id="loginForm" class="login-form">' +
  '<div class="field"><label for="loginEmail">E-mail</label><input class="input" id="loginEmail" name="email" type="email" autocomplete="username" required /></div>' +
@@ -116,6 +116,8 @@ function render(){
  document.body.classList.toggle('is-admin',data.perfil==='admin');
  $main.innerHTML=pageMarkup();
  $('#breadcrumb').textContent=NAMES[page]||'Apontamentos';
+ const bc=$('#bcEmpresa');if(bc)bc.textContent=data.empresa?.nome||'FACSIM';
+ document.body.classList.toggle('is-dono',!!data.donoPlataforma);
  document.querySelectorAll('[data-page]').forEach(btn=>btn.classList.toggle('active',btn.dataset.page===page));
  $('#footerDate').textContent='• '+new Date().getFullYear();
  if(page==='lancamentos'&&sub.lancamentos==='novo')afterEntryRender();
@@ -131,6 +133,203 @@ function goTo(p,s){page=p;if(s)sub[p]=s;if(window.location){if(p==='tv')window.l
 
 function tableApontamentos(rows){return `<div class="table-wrap"><table class="table table-cards"><thead><tr><th>Data</th><th>Funcionário</th><th>Setor / Grupo</th><th>Produto / Processo</th><th>Período</th><th>Meta</th><th>Realizado</th><th>Eficiência</th></tr></thead><tbody>${rows.length?rows.map(l=>{const person=byId('funcionarios',l.funcionario),product=byId('produtos',l.produto),proc=byId('processos',l.processo),eff=l.metaSnapshot?l.realizado*100/l.metaSnapshot:null;return `<tr>${td('Data',esc(fDate(l.data)))}${td('Funcionário',esc(person?.nome||l.funcionario),'strong card-title')}${td('Setor / Grupo',`<strong>${esc(l.setorNomeHistorico||byId('setores',l.setor)?.nome||'—')}</strong><small class="cell-sub">${esc(l.grupoNomeHistorico||byId('grupos',l.grupo)?.nome||'Sem grupo')}</small>`)}${td('Produto / Processo',`<b>${esc(product?.nome||l.produto)}</b><small class="cell-sub">${esc(proc?.nome||l.processo)}${isFinished(l)?' · <span class="final-flag">FINAL</span>':''}</small>`,'card-wide')}${td('Período',`${esc(l.inicio)}–${esc(l.fim)}`,'num')}${td('Meta',fNum(l.metaSnapshot),'num')}${td('Realizado',fNum(l.realizado),'strong num')}${td('Eficiência',effPill(eff),'num')}</tr>`}).join(''):`<tr><td colspan="8" class="empty-row">Nenhum lançamento no filtro selecionado.</td></tr>`}</tbody></table></div>`}
 function selectOpts(collection,sel='',all=false,label='Todos'){const ar=data[collection]||[];return `${all?`<option value="">${label}</option>`:''}${ar.map(o=>`<option value="${esc(o.id)}" ${String(o.id)===String(sel)?'selected':''}>${esc(o.nome)}</option>`).join('')}`}
+
+/* ===================== GESTÃO DE ACESSOS ===================== */
+let accData=null,accLoading=false,accErr='',accEmpresa='',accBusy=false;
+const PERFIL_TXT={admin:'Administrador',editor:'Editor',leitor:'Leitor'};
+const PERFIL_DESC={admin:'Tudo, inclusive bonificação, salários e usuários da empresa',editor:'Cadastra e aponta produção',leitor:'Só visualiza'};
+async function loadAcessos(force){
+ if(accLoading||(accData&&!force))return;
+ accLoading=true;accErr='';
+ try{accData=await window.GUT_API.acessos();if(!accEmpresa||!accData.empresas.some(e=>e.id===accEmpresa))accEmpresa=accData.minhaEmpresa||accData.empresas[0]?.id||'';}
+ catch(e){accErr=e.message||String(e);}
+ accLoading=false;if(page==='acessos')render();
+}
+function senhaForte(){const c='ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnpqrstuvwxyz23456789';let s='';const r=new Uint32Array(10);(window.crypto||{}).getRandomValues?.(r);for(let i=0;i<10;i++)s+=c[(r[i]||Math.floor(Math.random()*1e9))%c.length];return s+'!'+(r[0]%90+10)}
+function acessos(){
+ const head=title('Gestão de acessos','Empresas, usuários e perfis de acesso ao sistema.');
+ if(data.perfil!=='admin'&&!data.donoPlataforma)return head+'<div class="notice">Somente administradores gerenciam acessos.</div>';
+ if(!accData){loadAcessos();return head+`<div class="card"><p class="muted">${accErr?esc(accErr):'Carregando acessos…'}</p>${accErr?'<button class="btn" data-action="acc-recarregar">Tentar de novo</button>':''}</div>`;}
+ const dono=accData.dono,emps=accData.empresas||[];
+ const s=dono?(sub.acessos||'usuarios'):'usuarios';
+ const tabs=dono?`<nav class="subtabs" role="tablist" aria-label="Seções de acessos">${[['usuarios','Usuários'],['empresas','Empresas']].map(([k,l])=>`<button type="button" role="tab" class="subtab ${s===k?'active':''}" data-sub="${k}" aria-selected="${s===k}">${l}</button>`).join('')}</nav>`:'';
+ return head+tabs+(s==='empresas'?accEmpresasView(emps):accUsuariosView(emps,dono));
+}
+function accEmpresasView(emps){
+ return `<div class="acc-grid"><section class="card"><h3 class="card-title">Nova empresa</h3><p class="muted-small">A empresa nasce zerada, só com as regras padrão (faixas de bonificação, níveis, horários e jornada). Depois cadastre o administrador dela em Usuários.</p>
+  <form id="accEmpresaForm" class="acc-form"><div class="field"><label for="accEmpNome">Nome da empresa</label><input class="input" id="accEmpNome" name="nome" required maxlength="120" autocomplete="organization"></div>
+  <div class="field"><label for="accEmpDoc">CNPJ (opcional)</label><input class="input" id="accEmpDoc" name="documento" maxlength="20" inputmode="numeric"></div>
+  <button type="submit" class="btn btn-primary">Criar empresa</button></form></section>
+  <section class="acc-list">${emps.map(e=>`<article class="card acc-emp ${e.ativo?'':'is-off'}"><div class="acc-emp-top"><div><h3>${esc(e.nome)}${e.id===accData.minhaEmpresa?' <span class="pill">sua empresa</span>':''}</h3><small>${e.documento?esc(e.documento)+' · ':''}desde ${esc(fDate(e.criadaEm))}</small></div>
+   <span class="acc-status ${e.ativo?'on':'off'}">${e.ativo?'Ativa':'Bloqueada'}</span></div>
+   <div class="acc-nums"><span><b>${fNum(e.usuarios.length)}</b> usuário(s)</span><span><b>${fNum(e.funcionarios)}</b> funcionário(s)</span><span><b>${fNum(e.lancamentos)}</b> apontamento(s)</span></div>
+   <div class="acc-actions"><button class="btn btn-sm" data-action="acc-ver-usuarios" data-id="${esc(e.id)}">Usuários</button><button class="btn btn-sm" data-action="acc-renomear" data-id="${esc(e.id)}">Renomear</button>
+   ${e.id===accData.minhaEmpresa?'':`<button class="btn btn-sm ${e.ativo?'btn-danger-soft':''}" data-action="acc-empresa-ativo" data-id="${esc(e.id)}" data-on="${e.ativo?'0':'1'}">${e.ativo?'Bloquear acesso':'Reativar'}</button>`}</div></article>`).join('')}</section></div>`;
+}
+function accUsuariosView(emps,dono){
+ const emp=emps.find(e=>e.id===accEmpresa)||emps[0];if(!emp)return '<div class="notice">Nenhuma empresa encontrada.</div>';
+ const eu=String(authorizedEmail||'').toLowerCase();
+ const sel=dono?`<div class="field acc-emp-sel"><label for="accEmpSel">Empresa</label><select class="select" id="accEmpSel">${emps.map(e=>`<option value="${esc(e.id)}" ${e.id===emp.id?'selected':''}>${esc(e.nome)}${e.ativo?'':' (bloqueada)'}</option>`).join('')}</select></div>`:'';
+ const rows=emp.usuarios.map(u=>{const me=u.email===eu;return `<tr class="${u.ativo?'':'row-off'}"><td data-label="Usuário"><b>${esc(u.nome||u.email.split('@')[0])}</b>${u.dono?' <span class="pill">dono da plataforma</span>':''}${me?' <span class="pill">você</span>':''}<br><small class="muted-small">${esc(u.email)}</small></td>
+  <td data-label="Perfil"><select class="select acc-perfil" data-email="${esc(u.email)}" ${me||u.dono?'disabled':''} aria-label="Perfil de ${esc(u.email)}">${Object.entries(PERFIL_TXT).map(([k,l])=>`<option value="${k}" ${u.perfil===k?'selected':''}>${l}</option>`).join('')}</select></td>
+  <td data-label="Situação"><span class="acc-status ${u.ativo?'on':'off'}">${u.ativo?'Ativo':'Bloqueado'}</span></td>
+  <td data-label="Ações" class="acc-row-actions">${me||u.dono?'':`<button class="btn btn-sm" data-action="acc-usuario-ativo" data-email="${esc(u.email)}" data-on="${u.ativo?'0':'1'}">${u.ativo?'Bloquear':'Reativar'}</button>`}${u.dono&&!me?'':`<button class="btn btn-sm" data-action="acc-senha" data-email="${esc(u.email)}">Trocar senha</button>`}</td></tr>`}).join('');
+ return `${sel}<div class="acc-grid"><section class="card"><h3 class="card-title">Novo usuário${dono?' em '+esc(emp.nome):''}</h3>
+  <form id="accUserForm" class="acc-form"><input type="hidden" name="empresa" value="${esc(emp.id)}">
+  <div class="field"><label for="accNome">Nome</label><input class="input" id="accNome" name="nome" maxlength="80" autocomplete="off"></div>
+  <div class="field"><label for="accEmail">E-mail de login</label><input class="input" id="accEmail" name="email" type="email" required autocomplete="off"></div>
+  <div class="field"><label for="accPerfil">Perfil</label><select class="select" id="accPerfil" name="perfil">${Object.entries(PERFIL_TXT).map(([k,l])=>`<option value="${k}" ${k==='editor'?'selected':''}>${l} — ${PERFIL_DESC[k]}</option>`).join('')}</select></div>
+  <div class="field"><label for="accSenha">Senha inicial</label><div class="acc-pass"><input class="input" id="accSenha" name="senha" type="text" minlength="8" required autocomplete="new-password" value="${senhaForte()}"><button type="button" class="btn btn-sm" data-action="acc-gerar-senha">Gerar outra</button></div><small class="muted-small">Mínimo de 8 caracteres. Passe a senha para a pessoa por um canal seguro.</small></div>
+  <button type="submit" class="btn btn-primary" ${accBusy?'disabled':''}>Criar login</button></form></section>
+  <section class="card"><div class="acc-head"><h3 class="card-title">Usuários de ${esc(emp.nome)}</h3><span class="muted-small">${fNum(emp.usuarios.length)} cadastrado(s)</span></div>
+  ${emp.usuarios.length?`<div class="table-wrap"><table class="table table-cards acc-table"><thead><tr><th>Usuário</th><th>Perfil</th><th>Situação</th><th></th></tr></thead><tbody>${rows}</tbody></table></div>`:'<p class="muted">Nenhum usuário ainda. Cadastre o primeiro administrador ao lado.</p>'}
+  <div class="notice acc-note"><b>Perfis:</b> ${Object.entries(PERFIL_TXT).map(([k,l])=>`${l} — ${PERFIL_DESC[k].toLowerCase()}`).join(' · ')}.</div></section></div>`;
+}
+async function accRun(fn,msg){
+ if(accBusy)return;accBusy=true;
+ try{const r=await fn();toast(r?.aviso||msg);await loadAcessos(true);}
+ catch(e){toast(e.message||String(e));}
+ finally{accBusy=false;if(page==='acessos')render();}
+}
+function accCriarUsuario(form){
+ const fd=new FormData(form),v=k=>String(fd.get(k)||'').trim();
+ if(v('senha').length<8){toast('A senha precisa ter pelo menos 8 caracteres.');return;}
+ const payload={acao:'criar',empresa:v('empresa'),nome:v('nome'),email:v('email').toLowerCase(),perfil:v('perfil'),senha:v('senha')};
+ accRun(()=>window.GUT_API.acessoFn(payload),'Login criado. Passe o e-mail e a senha inicial para '+(payload.nome||payload.email)+'.');
+}
+function accCriarEmpresa(form){
+ const fd=new FormData(form),nome=String(fd.get('nome')||'').trim();if(!nome)return;
+ accRun(async()=>{const r=await window.GUT_API.empresaSave({nome,documento:String(fd.get('documento')||'').trim()});accEmpresa=r.id;sub.acessos='usuarios';return r;},'Empresa '+nome+' criada. Agora cadastre o administrador dela.');
+}
+function accClick(action,el){
+ switch(action){
+  case 'imp-baixar-dados':impBaixar(true);return true;
+  case 'imp-baixar-modelo':impBaixar(false);return true;
+  case 'imp-gravar':impGravar();return true;
+  case 'acc-recarregar':accData=null;accErr='';loadAcessos(true);render();return true;
+  case 'acc-gerar-senha':{const i=$('#accSenha');if(i)i.value=senhaForte();return true;}
+  case 'acc-ver-usuarios':accEmpresa=el.dataset.id;sub.acessos='usuarios';render();return true;
+  case 'acc-empresa-ativo':{const on=el.dataset.on==='1',e=accData.empresas.find(x=>x.id===el.dataset.id);
+   if(!on&&!confirmar(`Bloquear o acesso de ${e?.nome}? Os usuários dela deixam de entrar, mas nenhum dado é apagado.`))return true;
+   accRun(()=>window.GUT_API.empresaSave({id:el.dataset.id,ativo:on}),on?'Empresa reativada.':'Acesso da empresa bloqueado.');return true;}
+  case 'acc-renomear':{const e=accData.empresas.find(x=>x.id===el.dataset.id);
+   showModal('Renomear empresa',esc(e?.nome||''),`<input type="hidden" name="id" value="${esc(el.dataset.id)}"><div class="field"><label for="accRen">Nome</label><input class="input" id="accRen" name="nome" required value="${esc(e?.nome||'')}"></div><div class="field"><label for="accRenDoc">CNPJ</label><input class="input" id="accRenDoc" name="documento" value="${esc(e?.documento||'')}"></div>`,'Salvar','acc_empresa');return true;}
+  case 'acc-usuario-ativo':{const on=el.dataset.on==='1';
+   if(!on&&!confirmar(`Bloquear ${el.dataset.email}? A pessoa não consegue mais entrar até ser reativada.`))return true;
+   accRun(()=>window.GUT_API.acessoSave({email:el.dataset.email,ativo:on}),on?'Usuário reativado.':'Usuário bloqueado.');return true;}
+  case 'acc-senha':
+   showModal('Trocar senha',esc(el.dataset.email),`<input type="hidden" name="email" value="${esc(el.dataset.email)}"><div class="field"><label for="accNova">Nova senha</label><input class="input" id="accNova" name="senha" type="text" minlength="8" required autocomplete="new-password" value="${senhaForte()}"></div><p class="muted-small">A senha antiga deixa de valer na hora. Passe a nova por um canal seguro.</p>`,'Trocar senha','acc_senha');return true;
+ }
+ return false;
+}
+function confirmar(msg){try{return window.confirm(msg)}catch(_){return true}}
+
+/* ===================== IMPORTAR PLANILHA ===================== */
+let impState={arquivo:'',dados:null,previa:null,resultado:null,busy:false,erro:''};
+const IMP_ABAS=[
+ {aba:'Setores',chave:'setores',cols:[['setor','Setor']],larg:[30]},
+ {aba:'Grupos',chave:'grupos',cols:[['setor','Setor'],['grupo','Grupo'],['codigo','Código']],larg:[26,26,14]},
+ {aba:'Operações',chave:'operacoes',cols:[['operacao','Operação'],['codigo','Código']],larg:[34,14]},
+ {aba:'Produtos',chave:'produtos',cols:[['produto','Produto'],['codigo','Código']],larg:[40,14]},
+ {aba:'Roteiro',chave:'roteiro',cols:[['produto','Produto (nome ou código)'],['etapa','Etapa'],['operacao','Operação (nome ou código)'],['tempo','Tempo padrão (segundos)'],['final','Operação final (Sim/Não)']],larg:[34,8,32,22,22]},
+ {aba:'Funcionários',chave:'funcionarios',cols:[['nome','Nome'],['matricula','Matrícula'],['setor','Setor'],['grupo','Grupo'],['admissao','Admissão (dd/mm/aaaa)']],larg:[34,14,24,24,20]},
+ {aba:'Operações por funcionário',chave:'habilidades',cols:[['funcionario','Funcionário (nome ou matrícula)'],['produto','Produto (nome ou código)'],['operacao','Operação (nome ou código)']],larg:[34,34,32]}
+];
+const IMP_ROTULO={setores:'setores',grupos:'grupos',operacoes:'operações',produtos:'produtos',roteiro:'etapas de roteiro',finais:'operações finais',funcionarios:'funcionários',habilidades:'operações por funcionário'};
+function impLinhasAtuais(chave){
+ const nm=(c,id)=>byId(c,id)?.nome||'';
+ switch(chave){
+  case 'setores':return (data.setores||[]).map(s=>[s.nome]);
+  case 'grupos':return (data.grupos||[]).map(g=>[nm('setores',g.setor),g.nome,g.codigo||'']);
+  case 'operacoes':return (data.processos||[]).map(p=>[p.nome,p.codigo||'']);
+  case 'produtos':return (data.produtos||[]).map(p=>[p.nome,p.codigo||'']);
+  case 'roteiro':return (data.roteiro||[]).map(r=>[nm('produtos',r.produto),Number(r.etapa)||'',nm('processos',r.processo),Number(r.tempo)||'',r.final?'Sim':'']);
+  case 'funcionarios':return (data.funcionarios||[]).map(f=>[f.nome,f.matricula||'',nm('setores',f.setor),nm('grupos',f.grupo),f.admissao?fDate(f.admissao):'']);
+  case 'habilidades':{const out=[];(data.funcionarios||[]).forEach(f=>(f.operacoes||[]).forEach(rid=>{const r=byId('roteiro',rid);if(r)out.push([f.matricula||f.nome,nm('produtos',r.produto),nm('processos',r.processo)]);}));return out;}
+ }
+ return [];
+}
+function impBaixar(comDados){
+ if(!window.GUT_XLSX){toast('Gerador de planilha não carregou. Recarregue a página.');return;}
+ const exemplo={setores:[['Costura'],['Acabamento']],grupos:[['Costura','Célula 1','C1']],operacoes:[['Fechar ombro','OP01'],['Embalar','OP09']],produtos:[['Camiseta básica','CAM01']],
+  roteiro:[['Camiseta básica',1,'Fechar ombro',40,''],['Camiseta básica',2,'Embalar',25,'Sim']],funcionarios:[['Maria da Silva','001','Costura','Célula 1','10/03/2025']],habilidades:[['001','Camiseta básica','Fechar ombro']]};
+ const inst=[['Como preencher'],
+  ['1. Preencha as abas na ordem: Setores, Grupos, Operações, Produtos, Roteiro, Funcionários, Operações por funcionário.'],
+  ['2. Não mude os nomes das abas nem a primeira linha (cabeçalho). Uma informação por linha.'],
+  ['3. Roteiro: cada linha é uma etapa do produto, com o tempo padrão em segundos por peça. Marque "Sim" na última operação (peça pronta).'],
+  ['4. Funcionários: a matrícula é opcional, mas evita confusão entre nomes iguais.'],
+  ['5. Operações por funcionário: diga o que cada pessoa sabe fazer. Isso alimenta os tempos individuais e as sugestões do painel de gargalos.'],
+  ['6. A importação só ACRESCENTA o que ainda não existe. Nada já cadastrado é alterado ou apagado.'],
+  ['7. Antes de gravar, o sistema mostra uma prévia com o que será criado e os avisos por linha.'],
+  [''],[comDados?'Esta planilha já vem com os cadastros atuais da empresa '+(data.empresa?.nome||'')+'. Acrescente as linhas novas e importe de volta.':'Modelo em branco com exemplos. Apague os exemplos antes de importar.']];
+ const sheets=[{name:'Instruções',rows:inst,widths:[120],freeze:false},...IMP_ABAS.map(a=>({name:a.aba,widths:a.larg,rows:[a.cols.map(c=>c[1]),...(comDados?impLinhasAtuais(a.chave):exemplo[a.chave])]}))];
+ const blob=window.GUT_XLSX.write(sheets),url=URL.createObjectURL(blob),a=document.createElement('a');
+ const nome=(data.empresa?.nome||'empresa').normalize('NFD').replace(/[̀-ͯ]/g,'').replace(/[^A-Za-z0-9]+/g,'-').toLowerCase();
+ a.href=url;a.download=comDados?`cadastros-${nome}-${new Date().toISOString().slice(0,10)}.xlsx`:'modelo-cadastro-facsim.xlsx';document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),4000);
+ toast(comDados?'Planilha com os cadastros atuais baixada.':'Modelo em branco baixado.');
+}
+const impNorm=s=>String(s??'').normalize('NFD').replace(/[̀-ͯ]/g,'').toLowerCase().replace(/[^a-z0-9]/g,'');
+function impValor(v,campo){
+ if(v===null||v===undefined)return '';
+ if(campo==='admissao'){
+  if(typeof v==='number'&&v>20000&&v<80000){const d=new Date(Math.round((v-25569)*864e5));return d.toISOString().slice(0,10);}
+  const m=/^(\d{1,2})[\/.-](\d{1,2})[\/.-](\d{2,4})$/.exec(String(v).trim());if(m){const y=m[3].length===2?'20'+m[3]:m[3];return `${y}-${m[2].padStart(2,'0')}-${m[1].padStart(2,'0')}`;}
+  return /^\d{4}-\d{2}-\d{2}/.test(String(v))?String(v).slice(0,10):'';
+ }
+ if(typeof v==='number')return String(+v.toFixed(4));
+ return String(v).trim();
+}
+async function impLerArquivo(file){
+ impState={arquivo:file.name,dados:null,previa:null,resultado:null,busy:true,erro:''};render();
+ try{
+  if(!/\.xlsx$/i.test(file.name))throw new Error('Envie o arquivo no formato .xlsx (no Excel: Salvar como → Pasta de Trabalho do Excel).');
+  if(file.size>8*1024*1024)throw new Error('Arquivo muito grande (máximo 8 MB).');
+  const abas=await window.GUT_XLSX.read(await file.arrayBuffer());
+  const porNome={};Object.keys(abas).forEach(k=>porNome[impNorm(k)]=abas[k]);
+  const dados={},faltando=[];
+  for(const a of IMP_ABAS){
+   const rows=porNome[impNorm(a.aba)];if(!rows){faltando.push(a.aba);dados[a.chave]=[];continue;}
+   const head=(rows[0]||[]).map(impNorm);
+   const idx=a.cols.map(([k,l])=>{const want=impNorm(l),short=impNorm(l.split('(')[0]);let i=head.indexOf(want);if(i<0)i=head.findIndex(h=>h&&h.startsWith(short));return i;});
+   dados[a.chave]=rows.slice(1).map((r,i)=>{const o={linha:i+2};a.cols.forEach(([k],j)=>{o[k]=idx[j]>=0?impValor(r[idx[j]],k):'';});return o;})
+    .filter(o=>a.cols.some(([k])=>o[k]!==''));
+  }
+  if(IMP_ABAS.every(a=>!dados[a.chave].length))throw new Error('Não encontrei dados nas abas do modelo. Use a planilha baixada aqui, sem renomear as abas.');
+  impState.dados=dados;impState.faltando=faltando;
+  impState.previa=await window.GUT_API.importar({...dados,simular:true});
+ }catch(e){impState.erro=e.message||String(e);}
+ impState.busy=false;render();
+}
+async function impGravar(){
+ if(!impState.dados||impState.busy)return;
+ impState.busy=true;render();
+ try{impState.resultado=await window.GUT_API.importar(impState.dados);impState.previa=null;await loadData();toast('Importação concluída.');}
+ catch(e){impState.erro=e.message||String(e);}
+ impState.busy=false;render();
+}
+function impResumo(r,titulo){
+ const c=r.contagem||{},chaves=Object.keys(IMP_ROTULO),novos=chaves.filter(k=>c[k]),exist=chaves.filter(k=>c[k+'_existentes']);
+ return `<section class="card imp-card"><h3 class="card-title">${titulo}</h3>
+  ${novos.length?`<div class="imp-nums">${novos.map(k=>`<div><b>${fNum(c[k])}</b><span>${IMP_ROTULO[k]}</span></div>`).join('')}</div>`:'<p class="muted">Nada novo para cadastrar.</p>'}
+  ${exist.length?`<p class="muted-small">Já existiam e foram mantidos como estão: ${exist.map(k=>fNum(c[k+'_existentes'])+' '+IMP_ROTULO[k]).join(' · ')}.</p>`:''}
+  ${(r.avisos||[]).length?`<div class="imp-avisos"><b>${fNum(r.avisos.length)} aviso(s) — essas linhas ${r.simulado?'não serão':'não foram'} importadas:</b><ul>${r.avisos.slice(0,60).map(a=>`<li>${esc(a)}</li>`).join('')}</ul>${r.avisos.length>60?'<small>…e mais '+(r.avisos.length-60)+'.</small>':''}</div>`:''}</section>`;
+}
+function importar(){
+ const head=title('Importar planilha','Cadastro em massa para começar a usar o sistema: estrutura, operações, produtos, roteiros e funcionários.');
+ if(data.perfil!=='admin')return head+'<div class="notice">Somente administradores importam planilhas.</div>';
+ const s=impState;
+ return head+`<div class="imp-steps">
+  <section class="card imp-card"><span class="imp-n">1</span><h3 class="card-title">Baixe a planilha</h3><p class="muted-small">Use a planilha com os cadastros atuais para acrescentar linhas, ou o modelo em branco com exemplos.</p>
+   <div class="imp-btns"><button class="btn btn-primary" data-action="imp-baixar-dados">Planilha com os dados atuais</button><button class="btn" data-action="imp-baixar-modelo">Modelo em branco</button></div></section>
+  <section class="card imp-card"><span class="imp-n">2</span><h3 class="card-title">Preencha e envie</h3><p class="muted-small">Abas: ${IMP_ABAS.map(a=>esc(a.aba)).join(', ')}. Formato .xlsx.</p>
+   <label class="imp-drop ${s.busy?'is-busy':''}" for="impFile"><input type="file" id="impFile" accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" ${s.busy?'disabled':''}><b>${s.busy?'Processando…':s.arquivo?esc(s.arquivo):'Escolher arquivo .xlsx'}</b><small>${s.arquivo&&!s.busy?'Clique para escolher outro':'ou arraste para cá'}</small></label></section>
+  <section class="card imp-card"><span class="imp-n">3</span><h3 class="card-title">Confira e grave</h3><p class="muted-small">A prévia mostra o que será criado. Só acrescenta o que falta: nada existente é alterado ou apagado.</p>
+   <button class="btn btn-primary" data-action="imp-gravar" ${s.previa&&!s.busy?'':'disabled'}>Gravar no sistema</button></section></div>
+  ${s.erro?`<div class="login-error" role="alert">${esc(s.erro)}</div>`:''}
+  ${s.faltando?.length&&s.previa?`<div class="notice">Abas não encontradas no arquivo (ignoradas): ${s.faltando.map(esc).join(', ')}.</div>`:''}
+  ${s.previa?impResumo(s.previa,'Prévia da importação'):''}
+  ${s.resultado?impResumo(s.resultado,'Importação concluída'):''}`;
+}
 
 /* ===================== APONTAMENTOS ===================== */
 function lancamentos(){
@@ -929,6 +1128,12 @@ async function handleSubmit(ev){
  const form=ev.target,formType=form.dataset.type,fd=new FormData(form);
  const v=k=>String(fd.get(k)||'').trim();
  const button=form.querySelector('[type="submit"]');
+ if(formType==='acc_empresa'||formType==='acc_senha'){
+  closeModal();
+  if(formType==='acc_empresa')accRun(()=>window.GUT_API.empresaSave({id:v('id'),nome:v('nome'),documento:v('documento')}),'Empresa atualizada.');
+  else{if(v('senha').length<8){toast('A senha precisa ter pelo menos 8 caracteres.');return;}accRun(()=>window.GUT_API.acessoFn({acao:'senha',email:v('email'),senha:v('senha')}),'Senha trocada. Passe a nova senha para a pessoa.');}
+  return;
+ }
  if(button){button.disabled=true;button.textContent='Gravando no Supabase...'}
  try{
    let payload,msg='Registro salvo com sucesso no Supabase.';
@@ -1027,7 +1232,7 @@ function action(name,el){
  case 'salvar-nivel-salario':{const v=$('#nsal-'+id)?.value;if(v!==''&&!(Number(v)>=0)){toast('Informe um salário válido.');break;}bonusSaveAndReload('nivel_salario',{nivel:id,salario:v===''?null:Number(v)},v===''?'Salário do nível removido.':'Salário básico do nível salvo.');break;}
  case 'salvar-salario':{const v=$('#sal-'+id)?.value;if(v===''||!(Number(v)>=0)){toast('Informe um salário válido.');break;}bonusSaveAndReload('salario',{funcionario:id,salario:Number(v),desde:bonusMes+'-01',nivel:$('#snv-'+id)?.value||null},'Salário salvo a partir de '+mesLabel(bonusMes)+'.');break;}
  case 'falta-excluir':if(el.dataset.confirm!=='1'){el.dataset.confirm='1';el.textContent='Confirmar exclusão';setTimeout(()=>{if(el.isConnected){el.dataset.confirm='';el.textContent='Excluir'}},4000);break;}bonusSaveAndReload('falta_excluir',{id},'Falta excluída.');break;
- default:break;
+ default:accClick(name,el);break;
  }
 }
 document.addEventListener('click',ev=>{
@@ -1051,6 +1256,9 @@ document.addEventListener('click',ev=>{
 });
 document.addEventListener('toggle',ev=>{if(ev.target?.id==='filterBox')filtersOpen=ev.target.open},true);
 document.addEventListener('change',ev=>{const t=ev.target;
+ if(t.id==='impFile'&&t.files?.[0]){impLerArquivo(t.files[0]);return;}
+ if(t.id==='accEmpSel'){accEmpresa=t.value;render();return;}
+ if(t.classList?.contains('acc-perfil')){accRun(()=>window.GUT_API.acessoSave({email:t.dataset.email,perfil:t.value}),'Perfil alterado para '+PERFIL_TXT[t.value]+'.');return;}
  if(t.classList?.contains('sal-nivel')){const ns=(bonusData?.niveisSalario||[]).find(x=>String(x.nivel)===t.value);const inp=$('#sal-'+t.dataset.func);if(ns&&inp){inp.value=ns.salario;inp.classList.add('flash');setTimeout(()=>inp.classList.remove('flash'),700);}return;}
  if(t.id==='filterInicio'||t.id==='dashInicio'){filters.inicio=t.value;render();}
  if(t.id==='filterFim'||t.id==='dashFim'){filters.fim=t.value;render();}
@@ -1086,9 +1294,12 @@ document.addEventListener('input',ev=>{
  if(page==='bonificacao'&&sub.bonificacao==='regras'&&rulesInput(ev.target))return;
  if(ev.target.id==='opsSearch'){const q=ev.target.value.trim().toLowerCase();document.querySelectorAll('#modalForm .op-group').forEach(g=>{let any=false;g.querySelectorAll('.op-item').forEach(it=>{const ok=!q||it.dataset.text.includes(q);it.classList.toggle('hidden',!ok);any=any||ok});g.classList.toggle('hidden',!any);if(q)g.open=any;})}
 });
-document.addEventListener('submit',ev=>{const id=ev.target.getAttribute('id'); /* getAttribute: um campo chamado "id" sobrescreve form.id */if(id==='modalForm')handleSubmit(ev);else if(id==='loginForm')handleLogin(ev);else if(id==='entryForm')submitEntry(ev);else if(id==='slotForm')submitSlot(ev);else if(id==='linkForm')submitLink(ev);else if(id==='faltaForm'){ev.preventDefault();const fd=new FormData(ev.target);bonusSaveAndReload('falta',{funcionario:fd.get('funcionario'),data:fd.get('data'),observacao:fd.get('observacao')},'Falta registrada.');}});
+document.addEventListener('submit',ev=>{const id=ev.target.getAttribute('id');if(id==='accUserForm'||id==='accEmpresaForm'){ev.preventDefault();if(id==='accUserForm')accCriarUsuario(ev.target);else accCriarEmpresa(ev.target);return;} /* getAttribute: um campo chamado "id" sobrescreve form.id */if(id==='modalForm')handleSubmit(ev);else if(id==='loginForm')handleLogin(ev);else if(id==='entryForm')submitEntry(ev);else if(id==='slotForm')submitSlot(ev);else if(id==='linkForm')submitLink(ev);else if(id==='faltaForm'){ev.preventDefault();const fd=new FormData(ev.target);bonusSaveAndReload('falta',{funcionario:fd.get('funcionario'),data:fd.get('data'),observacao:fd.get('observacao')},'Falta registrada.');}});
 window.addEventListener?.('hashchange',()=>{const target=window.location?.hash==='#tv'?'tv':'lancamentos';if(target==='tv'&&page!=='tv'){page='tv';render();}else if(target==='lancamentos'&&page==='tv'){page='lancamentos';render();}});
 $('#overlay').addEventListener('click',closeModal);
+document.addEventListener('dragover',ev=>{const z=ev.target.closest?.('.imp-drop');if(z){ev.preventDefault();z.classList.add('is-over');}});
+document.addEventListener('dragleave',ev=>{ev.target.closest?.('.imp-drop')?.classList.remove('is-over');});
+document.addEventListener('drop',ev=>{const z=ev.target.closest?.('.imp-drop');if(!z)return;ev.preventDefault();z.classList.remove('is-over');const f=ev.dataTransfer?.files?.[0];if(f&&!impState.busy)impLerArquivo(f);});
 $('#openMenu').addEventListener('click',()=>$('#sidebar').classList.add('open'));
 /* menu lateral recolhível (computador): lembra a escolha neste navegador */
 function setNavCollapsed(on){document.body.classList.toggle('nav-collapsed',on);const b=$('#toggleSidebar');if(b){b.textContent=on?'»':'«';const t=on?'Expandir menu':'Recolher menu';b.title=t;b.setAttribute('aria-label',t);}try{localStorage.setItem('gut_nav_collapsed',on?'1':'0')}catch(_){}}

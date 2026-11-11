@@ -8,7 +8,7 @@
   <title>FACSIM | Apontador de Produção</title>
   <link rel="icon" type="image/svg+xml" href="facsim-mark.svg" />
   <link rel="apple-touch-icon" href="facsim-mark.svg" />
-  <link rel="stylesheet" href="styles.css?v=20261110-5" />
+  <link rel="stylesheet" href="styles.css?v=20261111-1" />
 </head>
 <body>
   <div class="app-shell">
@@ -29,13 +29,13 @@
       </nav>
       <div class="sidebar-spacer"></div>
       <div class="sidebar-label">AMBIENTE</div>
-      <nav class="nav nav-bottom"><button class="nav-link" data-page="config"><span class="nav-ico">⚙</span><span>Configurações</span></button></nav>
+      <nav class="nav nav-bottom"><button class="nav-link admin-only" data-page="acessos"><span class="nav-ico">⚿</span><span>Gestão de acessos</span></button><button class="nav-link admin-only" data-page="importar"><span class="nav-ico">⇪</span><span>Importar planilha</span></button><button class="nav-link" data-page="config"><span class="nav-ico">⚙</span><span>Configurações</span></button></nav>
       <div class="sidebar-status"><span class="live-dot"></span><div><b>Supabase conectado</b><small>Cadastros e apontamentos sincronizados</small></div></div>
       <div class="sidebar-footer">FACSIM • Tecnologia para o chão de fábrica</div>
     </aside>
     <div class="main">
       <header class="topbar">
-        <div class="topbar-left"><button id="openMenu" class="icon-button mobile-menu" aria-label="Abrir menu">☰</button><button id="toggleSidebar" type="button" class="icon-button desktop-collapse" aria-label="Recolher menu" title="Recolher menu">«</button><div class="breadcrumb">FACSIM / <strong id="breadcrumb">Apontamentos</strong></div></div>
+        <div class="topbar-left"><button id="openMenu" class="icon-button mobile-menu" aria-label="Abrir menu">☰</button><button id="toggleSidebar" type="button" class="icon-button desktop-collapse" aria-label="Recolher menu" title="Recolher menu">«</button><div class="breadcrumb"><span id="bcEmpresa">FACSIM</span> / <strong id="breadcrumb">Apontamentos</strong></div></div>
         <div class="topbar-right"><span class="env-chip"><span class="live-dot"></span> SUPABASE</span><div class="topbar-divider"></div><button type="button" class="btn btn-ghost" data-action="sair" title="Encerrar sessão">Sair</button><div class="avatar" title="Ambiente conectado ao Supabase">F</div></div>
       </header>
       <main id="content" class="content" aria-live="polite"></main>
@@ -46,8 +46,9 @@
   <div id="modal" class="modal-wrap hidden" role="presentation"></div>
   <div id="toast" class="toast" role="status" aria-live="polite"></div>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.117.1" defer></script>
-  <script src="supabase-bridge.js?v=20261110-5" defer></script>
-  <script src="tv-dashboard.js?v=20261110-5" defer></script>
-  <script src="app.js?v=20261110-5" defer></script>
+  <script src="xlsx-lite.js?v=20261111-1"></script>
+  <script src="supabase-bridge.js?v=20261111-1" defer></script>
+  <script src="tv-dashboard.js?v=20261111-1" defer></script>
+  <script src="app.js?v=20261111-1" defer></script>
 </body>
 </html>

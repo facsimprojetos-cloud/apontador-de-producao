@@ -57,3 +57,11 @@ Regras importantes:
 - Para projetos de grande volume, a função atual que devolve todos os dados em JSON precisará ser substituída por consultas paginadas.
 - Revisões de tempo são manuais. Não há política salarial automática.
 - Edições de registros existentes, exclusões, configuração de novos níveis e gestão de acessos pela interface ainda não foram implementadas.
+
+## Multiempresa e gestão de acessos
+
+- Cada login pertence a uma empresa (`public.apontador_acessos.empresa_id`). Todas as tabelas do schema têm `empresa_id` e uma política RLS restritiva `empresa_isolamento`: ninguém lê ou grava dados de outra empresa.
+- **Gestão de acessos** (menu Ambiente): o dono da plataforma cria empresas, bloqueia/reativa e cadastra usuários de qualquer empresa; o administrador de cada empresa gerencia só os usuários dela.
+- Criar login e trocar senha usam a Edge Function `apontador-acessos` (a chave service-role fica só no servidor da Supabase).
+- Empresa nova nasce zerada, com as regras padrão copiadas da FACSIM (faixas de bonificação, níveis, horários e jornada).
+- **Importar planilha** (menu Ambiente): baixa um .xlsx com os cadastros atuais ou modelo em branco; a importação mostra prévia e só acrescenta o que falta (função `apontador_importar`).
