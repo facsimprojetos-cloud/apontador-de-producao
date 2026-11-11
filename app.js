@@ -71,6 +71,25 @@ function renderLogin(message=''){
  '<button type="submit" class="btn btn-primary">Entrar com segurança</button>' +
  '</form><p class="login-help">Primeiro acesso? Um administrador precisa criar seu usuário em <strong>Supabase → Authentication → Users</strong> e autorizá-lo neste aplicativo.</p></section></div>';
 }
+/* ---------- sessão única por login ---------- */
+let pingTimer=null;
+function dispositivo(){const u=navigator.userAgent||'';const so=/Windows/.test(u)?'Windows':/Android/.test(u)?'Android':/iPhone|iPad/.test(u)?'iPhone/iPad':/Mac OS/.test(u)?'Mac':/Linux/.test(u)?'Linux':'Outro';const nav=/Edg\//.test(u)?'Edge':/OPR\//.test(u)?'Opera':/Chrome\//.test(u)?'Chrome':/Firefox\//.test(u)?'Firefox':/Safari\//.test(u)?'Safari':'Navegador';return so+' · '+nav;}
+const semFuncao=e=>/could not find the function|function .* does not exist|PGRST202/i.test(e?.message||'');
+async function garantirSessao(){
+ let r;
+ try{r=await window.GUT_API.sessaoIniciar(dispositivo());}
+ catch(e){if(semFuncao(e))return true;throw e;}
+ if(r&&r.ok===false){try{await window.GUT_API.logout()}catch(_){}authenticated=false;renderLogin(r.mensagem||'Este acesso já está sendo utilizado em outro dispositivo.');return false;}
+ clearInterval(pingTimer);
+ pingTimer=setInterval(async()=>{if(!authenticated)return;try{const ok=await window.GUT_API.sessaoPing();if(ok===false)derrubado();}catch(e){/* falha de rede: tenta de novo no próximo minuto */}},60000);
+ return true;
+}
+async function derrubado(){
+ clearInterval(pingTimer);pingTimer=null;
+ try{await window.GUT_API.logout()}catch(_){}
+ authenticated=false;authorizedEmail='';bonusData=null;accData=null;data=EMPTY();
+ renderLogin('Seu acesso foi encerrado: este login foi liberado pelo administrador ou está em uso em outro dispositivo.');
+}
 async function loadData(){
  if(!window.GUT_API)throw Error(window.GUT_API_ERROR||'Não foi possível carregar a biblioteca de autenticação.');
  const response=await window.GUT_API.load();
@@ -83,7 +102,7 @@ async function boot(){
  if(!window.GUT_API){renderLogin(window.GUT_API_ERROR||'Falha no carregamento do Supabase.');return}
  try{
   const session=await window.GUT_API.session();
-  if(session){authorizedEmail=session.user?.email||'';await loadData()}
+  if(session){authorizedEmail=session.user?.email||'';if(await garantirSessao())await loadData()}
   else renderLogin();
  }catch(err){renderLogin('Não foi possível abrir o banco: '+(err.message||String(err)))}
 }
@@ -96,12 +115,16 @@ async function handleLogin(ev){
   const password=String(new FormData(form).get('password')||'');
   const session=await window.GUT_API.login(email,password);
   authorizedEmail=session.user?.email||email;
+  if(!(await garantirSessao()))return;
   await loadData();
   toast('Conectado ao Supabase. Dados atualizados.');
  }catch(err){renderLogin(err.message||'Não foi possível autenticar. Confira as credenciais e autorização.')}
 }
 async function logout(){
+ clearInterval(pingTimer);pingTimer=null;
+ try{if(window.GUT_API)await window.GUT_API.sessaoEncerrar()}catch(_){}
  try{if(window.GUT_API)await window.GUT_API.logout()}catch(_){}
+ accData=null;
  authenticated=false;authorizedEmail='';bonusData=null;rulesDraft=null;rulesDirty=false;
  data=EMPTY();
  renderLogin();
@@ -174,10 +197,10 @@ function accUsuariosView(emps,dono){
  const emp=emps.find(e=>e.id===accEmpresa)||emps[0];if(!emp)return '<div class="notice">Nenhuma empresa encontrada.</div>';
  const eu=String(authorizedEmail||'').toLowerCase();
  const sel=dono?`<div class="field acc-emp-sel"><label for="accEmpSel">Empresa</label><select class="select" id="accEmpSel">${emps.map(e=>`<option value="${esc(e.id)}" ${e.id===emp.id?'selected':''}>${esc(e.nome)}${e.ativo?'':' (bloqueada)'}</option>`).join('')}</select></div>`:'';
- const rows=emp.usuarios.map(u=>{const me=u.email===eu;return `<div class="acc-user ${u.ativo?'':'row-off'}"><div class="acc-u-id"><b>${esc(u.nome||u.email.split('@')[0])}</b>${u.dono?' <span class="pill">dono da plataforma</span>':''}${me?' <span class="pill">você</span>':''}<small class="muted-small">${esc(u.email)}</small></div>
+ const rows=emp.usuarios.map(u=>{const me=u.email===eu;return `<div class="acc-user ${u.ativo?'':'row-off'}"><div class="acc-u-id"><b>${esc(u.nome||u.email.split('@')[0])}</b>${u.dono?' <span class="pill">dono da plataforma</span>':''}${me?' <span class="pill">você</span>':''}<small class="muted-small">${esc(u.email)}</small>${u.online?`<small class="acc-online">● conectado agora${u.dispositivo?' · '+esc(u.dispositivo):''}</small>`:''}</div>
   <div class="acc-u-perfil"><select class="select acc-perfil" data-email="${esc(u.email)}" ${me||u.dono?'disabled':''} aria-label="Perfil de ${esc(u.email)}">${Object.entries(PERFIL_TXT).map(([k,l])=>`<option value="${k}" ${u.perfil===k?'selected':''}>${l}</option>`).join('')}</select></div>
   <div class="acc-u-sit"><span class="acc-status ${u.ativo?'on':'off'}">${u.ativo?'Ativo':'Bloqueado'}</span></div>
-  <div class="acc-row-actions">${me||u.dono?'':`<button class="btn btn-sm" data-action="acc-usuario-ativo" data-email="${esc(u.email)}" data-on="${u.ativo?'0':'1'}" ${!u.ativo&&accCheio(emp)?'disabled title="Limite de acessos atingido"':''}>${u.ativo?'Bloquear':'Reativar'}</button>`}${u.dono&&!me?'':`<button class="btn btn-sm" data-action="acc-senha" data-email="${esc(u.email)}">Trocar senha</button>`}</div></div>`}).join('');
+  <div class="acc-row-actions">${me||u.dono?'':`<button class="btn btn-sm" data-action="acc-usuario-ativo" data-email="${esc(u.email)}" data-on="${u.ativo?'0':'1'}" ${!u.ativo&&accCheio(emp)?'disabled title="Limite de acessos atingido"':''}>${u.ativo?'Bloquear':'Reativar'}</button>`}${u.online&&!me?`<button class="btn btn-sm" data-action="acc-liberar" data-email="${esc(u.email)}" title="Derruba a sessão em uso para a pessoa poder entrar em outra máquina">Liberar sessão</button>`:''}${u.dono&&!me?'':`<button class="btn btn-sm" data-action="acc-senha" data-email="${esc(u.email)}">Trocar senha</button>`}</div></div>`}).join('');
  return `${sel}<div class="acc-grid"><section class="card"><h3 class="card-title">Novo usuário${dono?' em '+esc(emp.nome):''}</h3>
   <p class="acc-uso ${accCheio(emp)?'acc-cheio':''}">${accUsoTxt(emp)}</p>
   ${accCheio(emp)?`<div class="notice">Limite de acessos atingido. ${dono?'Aumente o limite em Empresas → Editar dados e limite, ou bloqueie':'Bloqueie'} um usuário para liberar uma vaga${dono?'':', ou peça à FACSIM para ampliar o limite'}.</div>`:''}
@@ -189,7 +212,7 @@ function accUsuariosView(emps,dono){
   <button type="submit" class="btn btn-primary" ${accBusy||accCheio(emp)?'disabled':''}>Criar login</button></form></section>
   <section class="card"><div class="acc-head"><h3 class="card-title">Usuários de ${esc(emp.nome)}</h3><span class="muted-small">${fNum(emp.usuarios.length)} cadastrado(s)</span></div>
   ${emp.usuarios.length?`<div class="acc-users">${rows}</div>`:'<p class="muted">Nenhum usuário ainda. Cadastre o primeiro administrador ao lado.</p>'}
-  <div class="notice acc-note"><b>Perfis:</b> ${Object.entries(PERFIL_TXT).map(([k,l])=>`${l} — ${PERFIL_DESC[k].toLowerCase()}`).join(' · ')}.</div></section></div>`;
+  <div class="notice acc-note"><b>Perfis:</b> ${Object.entries(PERFIL_TXT).map(([k,l])=>`${l} — ${PERFIL_DESC[k].toLowerCase()}`).join(' · ')}. Cada login funciona em um dispositivo por vez: se já estiver em uso, a segunda entrada é recusada.</div></section></div>`;
 }
 async function accRun(fn,msg){
  if(accBusy)return;accBusy=true;
@@ -223,6 +246,9 @@ function accClick(action,el){
   case 'acc-usuario-ativo':{const on=el.dataset.on==='1';
    if(!on&&!confirmar(`Bloquear ${el.dataset.email}? A pessoa não consegue mais entrar até ser reativada.`))return true;
    accRun(()=>window.GUT_API.acessoSave({email:el.dataset.email,ativo:on}),on?'Usuário reativado.':'Usuário bloqueado.');return true;}
+  case 'acc-liberar':
+   if(!confirmar(`Liberar a sessão de ${el.dataset.email}? Quem estiver usando esse login será desconectado em até 1 minuto.`))return true;
+   accRun(()=>window.GUT_API.acessoSave({email:el.dataset.email,liberarSessao:true}),'Sessão liberada. A pessoa já pode entrar em outro dispositivo.');return true;
   case 'acc-senha':
    showModal('Trocar senha',esc(el.dataset.email),`<input type="hidden" name="email" value="${esc(el.dataset.email)}"><div class="field"><label for="accNova">Nova senha</label><input class="input" id="accNova" name="senha" type="text" minlength="8" required autocomplete="new-password" value="${senhaForte()}"></div><p class="muted-small">A senha antiga deixa de valer na hora. Passe a nova por um canal seguro.</p>`,'Trocar senha','acc_senha');return true;
  }

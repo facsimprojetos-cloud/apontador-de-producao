@@ -792,3 +792,4 @@ body:not(.is-admin) .admin-only{display:none!important}
 .acc-u-perfil .select{width:100%}
 .acc-user .acc-row-actions{flex-direction:row;justify-content:flex-end}
 @media(max-width:1180px){.acc-user{grid-template-columns:minmax(0,1fr) 150px;}.acc-user .acc-row-actions{justify-content:flex-start}}
+.acc-online{display:block;color:#11704f;font-weight:700;font-size:11px;margin-top:2px}

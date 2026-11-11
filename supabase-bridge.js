@@ -26,6 +26,10 @@
     async bonus(mes) { return unwrap(await client.rpc('apontador_bonificacao',{p_mes:mes})); },
     async bonusSave(type, payload) { return unwrap(await client.rpc('apontador_bonificacao_salvar',{p_tipo:type,p_dados:payload})); },
     async ausencia(type, payload) { return unwrap(await client.rpc('apontador_ausencia_salvar',{p_tipo:type,p_dados:payload})); },
+    /* sessão única por login: a primeira máquina fica, a segunda é recusada */
+    async sessaoIniciar(info) { return unwrap(await client.rpc('apontador_sessao_iniciar',{p_info:info||null})); },
+    async sessaoPing() { return unwrap(await client.rpc('apontador_sessao_ping',{})); },
+    async sessaoEncerrar() { return unwrap(await client.rpc('apontador_sessao_encerrar',{})); },
     async acessos() { return unwrap(await client.rpc('apontador_acessos_listar',{})); },
     async empresaSave(payload) { return unwrap(await client.rpc('apontador_empresa_salvar',{p_dados:payload})); },
     async acessoSave(payload) { return unwrap(await client.rpc('apontador_acesso_salvar',{p_dados:payload})); },
