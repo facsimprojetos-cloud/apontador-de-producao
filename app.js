@@ -232,6 +232,7 @@ function accCriarEmpresa(form){
 }
 function accClick(action,el){
  switch(action){
+  case 'focar-vinculo':{const f=$('#linkProc');if(f){f.scrollIntoView({behavior:'smooth',block:'center'});f.focus();}return true;}
   case 'imp-baixar-dados':impBaixar(true);return true;
   case 'imp-baixar-modelo':impBaixar(false);return true;
   case 'imp-gravar':impGravar();return true;
@@ -706,6 +707,7 @@ function estrutura(){
  (machines.length?machines.map(m=>'<tr>'+td('Máquina',esc(m.nome),'strong card-title')+td('Código',esc(m.codigo||'—'))+td('Tipo',esc(m.tipo||'—'))+td('Setor',esc(byId('setores',m.setor)?.nome||'Sem setor específico'))+td('Operadores',String(data.funcionarios.filter(f=>(f.maquinas||[]).includes(m.id)).length))+'</tr>').join(''):'<tr><td colspan="5" class="empty-row">Nenhuma máquina cadastrada.</td></tr>')+
  '</tbody></table></div></section>';
  if(sub.estrutura==='funcoes')return head+'<section class="card card-pad"><h3 class="section-title">Funções e competências</h3><p class="section-sub" style="margin-bottom:14px">Habilidades disponíveis para seleção no cadastro dos funcionários.</p>'+
+ '<div class="notice" style="margin-bottom:14px"><b>Função não é operação.</b> Função é a competência da pessoa (ex.: costureira, revisora). As <b>operações</b> com tempo por peça ficam em <b>Produtos e operações → Tempos por produto</b>, e lá também dá para transformar uma função destas em operação.</div>'+
  '<div class="taglist">'+((data.funcoes||[]).map(f=>'<span class="tag">'+esc(f.nome)+'</span>').join('')||'<span class="muted-small">Nenhuma função cadastrada.</span>')+'</div></section>';
  return head+'<div class="notice hide-mobile"><strong>Hierarquia:</strong> cada funcionário tem um setor principal e pode integrar um grupo desse setor. Os lançamentos preservam o setor e grupo do momento da produção, mesmo após transferências.</div>'+
  '<div class="data-grid">'+(sectors.length?sectors.map(sec=>{
@@ -719,7 +721,7 @@ function estrutura(){
 }
 /* ===================== PRODUTOS ===================== */
 function produtos(){
- const tb={produtos:btnNew('novo-produto','Novo produto'),operacoes:btnNew('novo-processo','Nova operação'),tempos:btnNew('novo-processo','Nova operação')}[sub.produtos];
+ const tb={produtos:btnNew('novo-produto','Novo produto'),operacoes:btnNew('novo-processo','Nova operação'),tempos:btnNew('focar-vinculo','Vincular operação ao produto')}[sub.produtos];
  const head=title('Produtos e operações','Cadastre produtos e operações e vincule cada operação ao produto com seu tempo padrão.',tb)+subtabs();
  if(sub.produtos==='operacoes')return head+operacoesLista();
  if(sub.produtos==='tempos')return head+temposPorProduto();
@@ -746,20 +748,39 @@ function temposPorProduto(){
  return '<div class="card controls-panel"><label class="inline-date rot-pick">Produto <select class="select" id="rotProduto">'+data.produtos.map(x=>'<option value="'+esc(x.id)+'" '+(x.id===p.id?'selected':'')+'>'+esc(x.nome)+'</option>').join('')+'</select></label>'+
  '<div class="stats-row"><span><b>'+rot.length+'</b> operações</span><span><b>'+fNum(total,1)+' s</b> por peça ('+fNum(total/60,1)+' min)</span></div></div>'+
  '<section class="card"><div class="section-head"><div><h3 class="section-title">'+esc(p.nome)+' — operações e tempo padrão</h3><p class="section-sub">O tempo padrão vale para todos os funcionários até você definir um tempo individual em Níveis e tempos.</p></div><button class="btn btn-sm" data-edit data-action="marcar-final" data-id="'+esc(p.id)+'">✓ Operação final</button></div>'+
+ linkFormHtml(p,free)+
  '<div class="table-wrap"><table class="table table-cards"><thead><tr><th>Operação</th><th>Tempo padrão</th><th>Peças/hora</th><th>Funcionários</th><th></th></tr></thead><tbody>'+
  (rot.length?rot.map(r=>'<tr>'+td('Operação',esc(r.etapa||'—')+'. '+esc(byId('processos',r.processo)?.nome||'')+(r.final?' <span class="final-flag">FINAL</span>':''),'strong card-title')+td('Tempo padrão',fNum(r.tempo,1)+' s','strong num')+td('Peças/hora',fNum(3600/r.tempo,1),'num')+td('Funcionários',String(data.funcionarios.filter(f=>(f.operacoes||[]).includes(r.id)).length),'num')+td('Ação','<button class="text-btn" data-edit data-action="editar-tempo-padrao" data-id="'+esc(r.id)+'">Alterar tempo</button>','num')+'</tr>').join('')
   :'<tr><td colspan="5" class="empty-row">Nenhuma operação vinculada a este produto.</td></tr>')+'</tbody></table></div>'+
- '<form id="linkForm" class="link-form" data-edit><input type="hidden" name="produto" value="'+esc(p.id)+'"><b>Vincular operação</b>'+
- (free.length?'<select class="select" name="processo" required>'+free.map(o=>'<option value="'+esc(o.id)+'">'+esc(o.nome)+'</option>').join('')+'</select><label class="inline-date">Tempo (s/peça) <input class="input" type="number" name="tempo" min="0.001" step="0.001" required placeholder="ex.: 45"></label><button class="btn btn-primary" type="submit">＋ Vincular</button>'
-  :'<span class="muted-small">Todas as operações já estão neste produto. Cadastre uma “Nova operação” para vincular.</span>')+
- '</form></section>';
+ '</section>';
+}
+function linkFormHtml(p,free){
+ // funções da Estrutura que ainda não existem como operação também aparecem: escolher uma cria a operação com o mesmo nome
+ const nomesOp=new Set((data.processos||[]).map(o=>String(o.nome||'').trim().toLowerCase()));
+ const funcs=(data.funcoes||[]).filter(f=>!nomesOp.has(String(f.nome||'').trim().toLowerCase()));
+ const opts=(free.length?'<optgroup label="Operações cadastradas">'+free.map(o=>'<option value="'+esc(o.id)+'">'+esc(o.nome)+(o.codigo?' ('+esc(o.codigo)+')':'')+'</option>').join('')+'</optgroup>':'')+
+  (funcs.length?'<optgroup label="Funções da Estrutura (vira operação)">'+funcs.map(f=>'<option value="f:'+esc(f.id)+'">'+esc(f.nome)+'</option>').join('')+'</optgroup>':'')+
+  '<option value="novo">＋ Nova operação (digitar o nome)…</option>';
+ return '<form id="linkForm" class="link-form" data-edit><input type="hidden" name="produto" value="'+esc(p.id)+'">'+
+  '<div class="field"><label for="linkProc">Operação</label><select class="select" id="linkProc" name="processo" required>'+(free.length||funcs.length?'':'<option value="" disabled selected>Nenhuma operação cadastrada ainda</option>')+opts+'</select></div>'+
+  '<div class="field link-novo" hidden><label for="linkNovoNome">Nome da nova operação</label><input class="input" id="linkNovoNome" name="novoNome" maxlength="120" placeholder="ex.: Unir ombro"></div>'+
+  '<div class="field"><label for="linkTempo">Tempo padrão (segundos por peça)</label><input class="input" type="number" id="linkTempo" name="tempo" min="0.001" step="0.001" required placeholder="ex.: 45"></div>'+
+  '<button class="btn btn-primary" type="submit">＋ Vincular ao produto</button></form>';
 }
 async function submitLink(ev){
  ev.preventDefault();
  const fd=new FormData(ev.target),produto=String(fd.get('produto')||''),processo=String(fd.get('processo')||''),tempo=Number(fd.get('tempo'));
  try{
   if(!produto||!processo||!(tempo>0))throw Error('Escolha a operação e informe um tempo positivo.');
-  await window.GUT_API.save('linkprocess',{produto,processo,tempo});
+  let proc=processo;
+  if(processo==='novo'||processo.startsWith('f:')){
+   const fun=processo.startsWith('f:')?byId('funcoes',processo.slice(2)):null;
+   const nome=fun?fun.nome:String(fd.get('novoNome')||'').trim();
+   if(!nome)throw Error('Digite o nome da nova operação.');
+   const existente=(data.processos||[]).find(o=>String(o.nome).trim().toLowerCase()===nome.toLowerCase());
+   proc=existente?existente.id:(await window.GUT_API.save('process',{nome,funcao:fun?fun.id:''})).id;
+  }
+  await window.GUT_API.save('linkprocess',{produto,processo:proc,tempo});
   rotProd=produto;await loadData();toast('Operação vinculada ao produto.');
  }catch(err){toast('Não foi possível salvar: '+(err.message||String(err)))}
 }
@@ -1288,6 +1309,7 @@ document.addEventListener('click',ev=>{
 });
 document.addEventListener('toggle',ev=>{if(ev.target?.id==='filterBox')filtersOpen=ev.target.open},true);
 document.addEventListener('change',ev=>{const t=ev.target;
+ if(t.id==='linkProc'){const box=document.querySelector('.link-novo');if(box){box.hidden=t.value!=='novo';const i=box.querySelector('input');i.required=t.value==='novo';if(t.value==='novo')i.focus();}return;}
  if(t.id==='impFile'&&t.files?.[0]){impLerArquivo(t.files[0]);return;}
  if(t.id==='accEmpSel'){accEmpresa=t.value;render();return;}
  if(t.classList?.contains('acc-perfil')){accRun(()=>window.GUT_API.acessoSave({email:t.dataset.email,perfil:t.value}),'Perfil alterado para '+PERFIL_TXT[t.value]+'.');return;}

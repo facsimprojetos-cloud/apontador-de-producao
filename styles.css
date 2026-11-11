@@ -793,3 +793,10 @@ body:not(.is-admin) .admin-only{display:none!important}
 .acc-user .acc-row-actions{flex-direction:row;justify-content:flex-end}
 @media(max-width:1180px){.acc-user{grid-template-columns:minmax(0,1fr) 150px;}.acc-user .acc-row-actions{justify-content:flex-start}}
 .acc-online{display:block;color:#11704f;font-weight:700;font-size:11px;margin-top:2px}
+/* vincular operação: no topo do produto, em destaque */
+.link-form{display:grid;grid-template-columns:minmax(220px,1.4fr) minmax(200px,1fr) minmax(160px,.8fr) auto;align-items:end;gap:12px;padding:16px 22px;margin:0 0 4px;background:#f4faf7;border-top:1px solid #e1efe8;border-bottom:1px solid #e1efe8}
+.link-form .field{margin:0;min-width:0}
+.link-form .select{width:100%}
+.link-form .link-novo[hidden]{display:none}
+@media(max-width:940px){.link-form{grid-template-columns:minmax(0,1fr)}}
+.link-form .field .select,.link-form .field .input{flex:0 0 auto;height:auto}
