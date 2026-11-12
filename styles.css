@@ -1044,3 +1044,6 @@ body:not(.is-admin) .admin-only{display:none!important}
 .tv-content-grid.no-rank{grid-template-columns:minmax(0,1fr)!important}
 .tv-content-grid.no-rank .tv-ranking-box{display:none!important}
 .tv-gd{display:inline-block;margin-left:6px;padding:1px 7px;border-radius:6px;background:#2b2140;border:1.5px solid #a78bfa;color:#e3d7ff;font-size:.72em;font-weight:900;letter-spacing:.4px;vertical-align:middle;white-space:nowrap}
+.tv-scroll-btn{background:#101216;border:1.5px dashed #4a505c;color:#aab3c2;border-radius:10px;padding:9px 14px;font:inherit;font-size:clamp(10px,.75vw,13px);font-weight:900;letter-spacing:.6px;cursor:pointer;white-space:nowrap}
+.tv-scroll-btn.on{border-style:solid;border-color:#2ee883;color:#7ff5b4;background:#0f2a1c}
+.tv-full .tv-scroll-btn{padding:6px 10px}

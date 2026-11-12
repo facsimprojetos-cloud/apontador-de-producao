@@ -118,9 +118,10 @@ function updateClock(){
 const PANELS=[[1,'PRODUÇÃO','bars'],[2,'PROCESSOS','gear'],[3,'GARGALOS','alert'],[4,'PEÇAS PRONTAS','box'],[5,'TENDÊNCIAS','trend']];
 const PANEL_FN={2:()=>panelProcessos(),3:()=>panelGargalos(),4:()=>panelProntas(),5:()=>panelTendencias()};
 const CFG_KEY='gut_tv_cfg';
-const cfg={panel:1,rotate:false,secs:30,metric:'pecas',panels:[1,2,3,4,5],v:2,p1:{nivel:false,agrupar:false,semRanking:false}};
+const cfg={panel:1,rotate:false,secs:30,metric:'pecas',panels:[1,2,3,4,5],v:2,p1:{nivel:false,agrupar:false,semRanking:false},scroll:{1:true,2:true,3:true,4:true,5:true}};
 try{Object.assign(cfg,JSON.parse(localStorage.getItem(CFG_KEY)||'{}'))}catch(_){/* armazenamento indisponível */}
 if(cfg.v!==2){cfg.v=2;cfg.panels=[1,2,3,4,5];if(cfg.panel===3)cfg.panel=4;}
+if(!cfg.scroll||typeof cfg.scroll!=='object')cfg.scroll={1:true,2:true,3:true,4:true,5:true};
 if(!cfg.p1||typeof cfg.p1!=='object')cfg.p1={nivel:false,agrupar:false,semRanking:false};
 if(!Array.isArray(cfg.panels)||!cfg.panels.length)cfg.panels=[1,2,3,4,5];
 if(!PANELS_OK(cfg.panel))cfg.panel=1;
@@ -364,13 +365,15 @@ function panelGargalos(){
    :'<div class="tvg-empty tvg-empty-big">Sem apontamentos no período. Ajuste os filtros.</div>'}
  </section><aside class="tvg-box tvg-side"><div class="tv-panel-header"><div><b>SUGESTÕES DE MOVIMENTAÇÃO</b><small>Quem sabe fazer o gargalo e está em operação com sobra</small></div></div><div class="tvg-sug-list">${sugestoes(stats,rows)}</div></aside></div>`;
 }
-function panelTabs(){return `<div class="tv-panels">${PANELS.map(([n,l,ic])=>`<button type="button" class="tv-panel-tab${cfg.panel===n?' on':''}${cfg.panels.includes(n)?'':' off-rot'}" data-tv-panel="${n}">${ico(ic)}${n}. ${l}</button>`).join('')}</div>
+function scrollBtnTxt(){return '↕ ROLAGEM '+(cfg.scroll[cfg.panel]?'LIGADA':'DESLIGADA')}
+function panelTabs(){return `<div class="tv-panels">${PANELS.map(([n,l,ic])=>`<button type="button" class="tv-panel-tab${cfg.panel===n?' on':''}${cfg.panels.includes(n)?'':' off-rot'}" data-tv-panel="${n}">${ico(ic)}${n}. ${l}</button>`).join('')}<button type="button" id="tvScrollBtn" class="tv-scroll-btn${cfg.scroll[cfg.panel]?' on':''}" data-tv-scroll title="Rola sozinho as listas desta tela, de cima para baixo e de volta">${scrollBtnTxt()}</button></div>
  <div class="tv-rot-ctrl"><label class="tv-rotate"><input type="checkbox" id="tvRotOn" ${cfg.rotate?'checked':''}> RODÍZIO</label><label class="tv-rotate">A CADA <input type="number" id="tvRotSecs" min="10" max="600" step="5" value="${cfg.secs}"> S</label>
  <span class="tv-rot-pick" title="Telas que entram no rodízio">NO RODÍZIO ${PANELS.map(([n])=>`<label><input type="checkbox" data-rot-panel="${n}" ${cfg.panels.includes(n)?'checked':''}>${n}</label>`).join('')}</span></div>`}
 function applyPanel(){
  const ws=document.getElementById('tvWorkspace');if(!ws)return;
  ws.dataset.panel=String(cfg.panel);
  document.querySelectorAll('[data-tv-panel]').forEach(b=>b.classList.toggle('on',Number(b.dataset.tvPanel)===cfg.panel));
+ const sb=document.getElementById('tvScrollBtn');if(sb){sb.classList.toggle('on',!!cfg.scroll[cfg.panel]);sb.textContent=scrollBtnTxt();}
  const name=document.getElementById('tvPanelName');if(name)name.textContent=(PANELS.find(p=>p[0]===cfg.panel)||[])[1]||'';
  const dots=document.getElementById('tvDots');if(dots)dots.innerHTML=PANELS.filter(([n])=>cfg.panels.includes(n)||n===cfg.panel).map(([n])=>`<i class="${n===cfg.panel?'on':''}"></i>`).join('');
 }
@@ -402,7 +405,9 @@ function updateUi(){
  const rc=document.getElementById('tvRankCount');if(rc)rc.textContent=new Set(rows.map(l=>l.funcionario)).size+' pessoa(s)';
  const fs=document.getElementById('tvFilterSummary');if(fs)fs.textContent=filterSummary();
  if(sync)sync.textContent=lastError?lastError:lastUpdated?'Atualizado às '+lastUpdated.toLocaleTimeString('pt-BR'):'Sincronizando com o Supabase';
+ guardarRolagem();
  for(const n of [2,3,4,5]){const el=document.getElementById('tvP'+n);if(el)el.innerHTML=cfg.panel===n?PANEL_FN[n]():'';}
+ restaurarRolagem();
  updateClock();
  requestAnimationFrame(fitKpis);
 }
@@ -459,16 +464,27 @@ async function refresh(){
   updateUi();
  }finally{busy=false}
 }
-let scrollTimer=null,scrollDir=1,scrollPause=0,scrollHold=false;
+let scrollTimer=null;
+/* rolagem automática de todas as listas da tela atual (liga/desliga por tela) */
+const SCROLL_SEL='.tv-table-scroll,#tvRanking,.nx-hbars,.nx-scroll .nx-box-b,.tvg-sug-list';
+const scrollState=new Map(); // chave -> {dir,pause,top}
+let scrollHoverEl=null;
+const scrollKey=(el,i)=>cfg.panel+':'+i;
+function scrollEls(){const p=document.querySelector('#tvWorkspace .tv-p'+cfg.panel);return p?[...p.querySelectorAll(SCROLL_SEL)]:[];}
+function guardarRolagem(){scrollEls().forEach((el,i)=>{const st=scrollState.get(scrollKey(el,i));if(st)st.top=el.scrollTop;});}
+function restaurarRolagem(){scrollEls().forEach((el,i)=>{const st=scrollState.get(scrollKey(el,i));if(st&&st.top)el.scrollTop=st.top;});}
 function autoScrollTick(){
- const box=document.getElementById('tvRanking');
- if(!box||scrollHold)return;
- const max=box.scrollHeight-box.clientHeight;
- if(max<=2){box.scrollTop=0;return;}
- if(scrollPause>0){scrollPause--;return;}
- box.scrollTop=Math.max(0,Math.min(max,box.scrollTop+scrollDir));
- if(scrollDir>0&&box.scrollTop>=max-1){scrollDir=-1;scrollPause=80;}       // ~4 s parado no fim
- else if(scrollDir<0&&box.scrollTop<=0){scrollDir=1;scrollPause=80;}       // ~4 s parado no topo
+ if(!active||!cfg.scroll?.[cfg.panel])return;
+ scrollEls().forEach((el,i)=>{
+  if(el===scrollHoverEl||el.contains(scrollHoverEl))return;
+  const k=scrollKey(el,i);let st=scrollState.get(k);if(!st){st={dir:1,pause:60,top:0};scrollState.set(k,st);}
+  const max=el.scrollHeight-el.clientHeight;
+  if(max<=2){return;}
+  if(st.pause>0){st.pause--;return;}
+  el.scrollTop=Math.max(0,Math.min(max,el.scrollTop+st.dir));st.top=el.scrollTop;
+  if(st.dir>0&&el.scrollTop>=max-1){st.dir=-1;st.pause=80;}      // ~4 s parado no fim
+  else if(st.dir<0&&el.scrollTop<=0){st.dir=1;st.pause=80;}       // ~4 s parado no topo
+ });
 }
 function setFull(on){
  const el=document.getElementById('tvWorkspace');if(!el)return;
@@ -484,7 +500,7 @@ function start(opts){
  updateUi();
  timer=setInterval(refresh,15000);
  clockTimer=setInterval(updateClock,1000);
- scrollDir=1;scrollPause=60;scrollTimer=setInterval(autoScrollTick,50);
+ scrollTimer=setInterval(autoScrollTick,50);
  applyPanel();setRotation();
 }
 function stop(){
@@ -514,6 +530,7 @@ document.addEventListener('change',ev=>{
  if(ev.target?.id?.startsWith('tv'))setFilter(ev.target);
 });
 document.addEventListener('click',ev=>{
+ if(ev.target.closest('[data-tv-scroll]')&&active){cfg.scroll[cfg.panel]=!cfg.scroll[cfg.panel];saveCfg();applyPanel();if(!cfg.scroll[cfg.panel])scrollEls().forEach(el=>el.scrollTop=0);return;}
  const ob=ev.target.closest('[data-tv-opt]');
  if(ob&&active){const k=ob.dataset.tvOpt;cfg.p1[k]=!cfg.p1[k];saveCfg();updateUi();return;}
  const pb=ev.target.closest('[data-tv-panel],[data-tv-metric]');
@@ -545,8 +562,8 @@ document.addEventListener('click',ev=>{
  }
 });
 document.addEventListener('fullscreenchange',()=>{if(active&&!document.fullscreenElement)setFull(false);});
-document.addEventListener('pointerover',ev=>{if(ev.target.closest?.('#tvRanking'))scrollHold=true;});
-document.addEventListener('pointerout',ev=>{if(ev.target.closest?.('#tvRanking')&&!ev.relatedTarget?.closest?.('#tvRanking'))scrollHold=false;});
+document.addEventListener('pointerover',ev=>{scrollHoverEl=ev.target.closest?.(SCROLL_SEL)||null;});
+document.addEventListener('pointerout',ev=>{if(!ev.relatedTarget?.closest?.(SCROLL_SEL))scrollHoverEl=null;});
 document.addEventListener('keydown',ev=>{if(active&&ev.key==='Escape'){if(document.fullscreenElement)document.exitFullscreen?.();setFull(false);}});
 document.addEventListener('visibilitychange',()=>{if(active&&document.visibilityState==='visible')refresh();});
 window.GUT_TV={template,start,stop,refresh,updateUi};
