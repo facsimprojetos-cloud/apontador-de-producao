@@ -234,12 +234,14 @@ function lineChart(pts,o={}){
  const area=path+` L${x(pts.length-1).toFixed(1)} ${H-B} L${x(0).toFixed(1)} ${H-B} Z`;
  const fmtv=o.fmt||(v=>fmt(v,1));
  const step=Math.ceil(pts.length/14);
+ const esp=pts.length>1?(W-L-R)/(pts.length-1)*step:W,maxCh=Math.max(4,Math.floor(esp/10));
+ const corta=t=>{t=String(t);return t.length>maxCh?t.slice(0,maxCh-1)+'…':t};
  return `<svg class="nx-svg" viewBox="0 0 ${W} ${H}" preserveAspectRatio="xMidYMid meet" role="img" aria-label="${escapeHtml(o.aria||'Gráfico')}">
  <defs><linearGradient id="nxArea${o.id||''}" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#22d3ee" stop-opacity=".35"/><stop offset="1" stop-color="#22d3ee" stop-opacity="0"/></linearGradient></defs>
  ${ticks.map(t=>`<line x1="${L}" x2="${W-R}" y1="${y(t)}" y2="${y(t)}" class="nx-grid"/><text x="${L-10}" y="${y(t)+5}" class="nx-axis" text-anchor="end">${fmtv(t)}</text>`).join('')}
  ${o.ref!=null&&o.ref>mn&&o.ref<mx?`<line x1="${L}" x2="${W-R}" y1="${y(o.ref)}" y2="${y(o.ref)}" class="nx-ref"/><text x="${W-R}" y="${y(o.ref)-7}" class="nx-ref-t" text-anchor="end">${escapeHtml(o.refLabel||'')}</text>`:''}
  <path d="${area}" fill="url(#nxArea${o.id||''})"/><path d="${path}" class="nx-line"/>
- ${pts.map((p,i)=>{const t=p.tone||'cyan',cy=y(p.value),lab=fmtv(p.value),w=Math.max(46,lab.length*12+16),ly=cy-16<T?cy+30:cy-16,tx=Math.min(W-R-w/2+20,Math.max(L+w/2-10,x(i)));return `<circle cx="${x(i)}" cy="${cy}" r="7" class="nx-dot nx-dot-${t}"/>`+((i%step===0||t==='red'||i===pts.length-1)?`<g class="nx-tag nx-tag-${t}"><rect x="${tx-w/2}" y="${ly-20}" width="${w}" height="26" rx="6"/><text x="${tx}" y="${ly-2}" text-anchor="middle">${lab}</text></g>`:'')+(i%step===0||i===pts.length-1?`<text x="${x(i)}" y="${H-14}" class="nx-axis nx-axis-x" text-anchor="middle">${escapeHtml(p.label)}</text>`:'')}).join('')}
+ ${pts.map((p,i)=>{const t=p.tone||'cyan',cy=y(p.value),lab=fmtv(p.value),w=Math.max(46,lab.length*12+16),ly=cy-16<T?cy+30:cy-16,tx=Math.min(W-R-w/2+20,Math.max(L+w/2-10,x(i)));return `<circle cx="${x(i)}" cy="${cy}" r="7" class="nx-dot nx-dot-${t}"/>`+((i%step===0||t==='red'||i===pts.length-1)?`<g class="nx-tag nx-tag-${t}"><rect x="${tx-w/2}" y="${ly-20}" width="${w}" height="26" rx="6"/><text x="${tx}" y="${ly-2}" text-anchor="middle">${lab}</text></g>`:'')+(i%step===0||i===pts.length-1?`<text x="${x(i)}" y="${H-14}" class="nx-axis nx-axis-x" text-anchor="middle"><title>${escapeHtml(p.full||p.label)}</title>${escapeHtml(corta(p.label))}</text>`:'')}).join('')}
  </svg>`;
 }
 /* barras agrupadas (ex.: prontas × meta) */
@@ -278,15 +280,15 @@ function panelProcessos(){
   ${lenta!==g?`<div class="nx-alert nx-alert-yellow">${ico('clock')}<div><small>MAIOR TEMPO POR PEÇA</small><b>${escapeHtml(lenta.nome)}</b></div><div class="nx-alert-v"><b>${fmt(lenta.ciclo,2)} min/peça</b><span>${p1(lenta.eff)} de eficiência</span></div></div>`:''}
   <div class="nx-alert nx-alert-amber">${ico('wrench')}<div><small>INTERVENÇÃO SUGERIDA</small><b>${escapeHtml(g.nome)}</b></div><div class="nx-alert-v"><span>Aumentar capacidade ou realocar pessoas — veja a tela Gargalos.</span></div></div>`;
  return `<section class="nx-kpis">
-  ${nk('layers','OPERAÇÕES<br>APONTADAS',fmt(st.length),'yellow')}
+  ${nk('layers','OPERAÇÕES APONTADAS',fmt(st.length),'yellow')}
   ${nk('trophy','MELHOR EFICIÊNCIA',p1(melhor.eff),'green','',melhor.nome)}
   ${nk('clock','TEMPO MÉDIO',`${fmt(tMedio,2)}<em>min/pç</em>`,'cyan','por operação')}
   ${nk('alert','GARGALO',`${fmt(g.ciclo,2)}<em>min/pç</em>`,'red','',g.nome)}
-  ${nk('bolt','EFICIÊNCIA<br>MÉDIA',p1(all.eff),tone(all.eff))}</section>
+  ${nk('bolt','EFICIÊNCIA MÉDIA',p1(all.eff),tone(all.eff))}</section>
  <div class="nx-grid2">${box('bars','DESEMPENHO POR OPERAÇÃO','Peças por hora trabalhada e eficiência',`<div class="nx-hbars">${bars}</div>`)}
-  ${box('clock','TEMPO REAL POR PEÇA','Minutos por peça · '+(filters.produto?'na ordem do roteiro':'por operação'),lineChart(ordem.map(o=>({label:o.nome.length>14?o.nome.slice(0,13)+'…':o.nome,value:o.ciclo,tone:o===lenta?'red':'cyan'})),{fmt:v=>fmt(v,2),floor:0,id:'c',aria:'Tempo por peça por operação'}))}
+  ${box('clock','TEMPO REAL POR PEÇA','Minutos por peça · '+(filters.produto?'na ordem do roteiro':'por operação'),lineChart(ordem.map(o=>({label:o.nome,full:o.nome,value:o.ciclo,tone:o===lenta?'red':'cyan'})),{fmt:v=>fmt(v,2),floor:0,id:'c',aria:'Tempo por peça por operação'}))}
   ${box('layers','OPERAÇÕES — DETALHAMENTO','',tabela,'nx-scroll')}
-  ${box('alert','GARGALOS E ALERTAS','',`<div class="nx-alerts">${alertas}</div>`)}</div>`;
+  ${box('alert','GARGALOS E ALERTAS','',`<div class="nx-alerts">${alertas}</div>`,'nx-scroll')}</div>`;
 }
 
 /* ---------- Tela 4: PEÇAS PRONTAS ---------- */
@@ -311,14 +313,14 @@ function panelProntas(){
  const rank=[...comFinal].filter(x=>x.f.meta).sort((a,b)=>b.f.eff-a.f.eff).slice(0,6).map((x,i)=>`<div class="nx-rank nx-rank-${tone(x.f.eff)}"><span>${i+1}º</span><b>${escapeHtml(x.p.nome)}</b><em>${p1(x.f.eff)}</em></div>`).join('');
  const auto=comFinal.filter(x=>x.metaAuto!=null).slice(0,3).map(x=>`<div class="nx-auto-row"><b>${escapeHtml(x.p.nome)}</b><span>${fmt(x.min/60,1)} h × ${p1(x.ri.bal)} ÷ ${fmt(x.ri.segundos/60,2)} min</span><em>${fmt(x.metaAuto)} pç</em></div>`).join('');
  return `<section class="nx-kpis">
-  ${nk('box','PEÇAS<br>PRONTAS',fmt(fin.feito),'yellow')}
-  ${nk('meta','META DE<br>PRONTAS',fmt(fin.meta),'green')}
+  ${nk('box','PEÇAS PRONTAS',fmt(fin.feito),'yellow')}
+  ${nk('meta','META DE PRONTAS',fmt(fin.meta),'green')}
   ${nk('scale','SALDO',(saldo>0?'+':'')+fmt(saldo),saldo<0?'red':'cyan')}
-  ${nk('bolt','EFICIÊNCIA<br>COLETIVA',p1(fin.eff),tone(fin.eff),'peça pronta')}
-  ${nk('trend','PRODUTOS<br>NA META',`${fmt(comFinal.filter(x=>x.f.eff>=100).length)}<em>/${fmt(comFinal.length)}</em>`,'green')}</section>
+  ${nk('bolt','EFICIÊNCIA COLETIVA',p1(fin.eff),tone(fin.eff),'peça pronta')}
+  ${nk('trend','PRODUTOS NA META',`${fmt(comFinal.filter(x=>x.f.eff>=100).length)}<em>/${fmt(comFinal.length)}</em>`,'green')}</section>
  <div class="nx-grid-prontas">${box('box','PRODUÇÃO FINAL POR PRODUTO',`${fmt(prods.length)} produto(s)`,prods.length?`<table class="nx-table nx-table-big"><thead><tr><th>PRODUTO</th><th>PRONTAS</th><th>META</th><th>SALDO</th><th>TEMPO PADRÃO</th><th>BALANCEAMENTO</th><th>EFICIÊNCIA</th></tr></thead><tbody>${linhas}</tbody><tfoot>${total}</tfoot></table>`:empty('Sem produção no período.'),'nx-scroll nx-span-rows')}
   ${box('bars','PRONTAS POR PRODUTO',legend('Prontas','Meta'),groupBars(comFinal.slice(0,8).map(x=>({label:x.p.nome,a:x.f.feito,b:x.f.meta})),{aria:'Prontas e meta por produto',redWhenBelow:true}))}
-  <div class="nx-pair">${box('gear','META AUTOMÁTICA DA PEÇA','',`<p class="nx-auto-txt">Meta calculada pelo <em>tempo trabalhado</em> no produto, o <em>balanceamento</em> do roteiro e o <em>tempo padrão</em> da peça.</p><div class="nx-formula">${ico('calendar')}<b>META =</b><div><span>Tempo trabalhado × Balanceamento</span><span>Tempo padrão da peça</span></div></div>${auto||empty('Cadastre os tempos do roteiro.')}`)}
+  <div class="nx-pair">${box('gear','META AUTOMÁTICA DA PEÇA','',`<p class="nx-auto-txt">Meta calculada pelo <em>tempo trabalhado</em> no produto, o <em>balanceamento</em> do roteiro e o <em>tempo padrão</em> da peça.</p><div class="nx-formula">${ico('calendar')}<b>META =</b><div><span>Tempo trabalhado × Balanceamento</span><span>Tempo padrão da peça</span></div></div>${auto||empty('Cadastre os tempos do roteiro.')}`,'nx-scroll')}
   ${box('trophy','RANKING DOS PRODUTOS','',rank||empty('Sem produtos com operação final.'),'nx-scroll')}</div></div>`;
 }
 
@@ -334,9 +336,9 @@ function panelTendencias(){
  const finD=[...new Set(flow.filter(isFinished).map(l=>l.data))].sort().map(d=>{const s=sums(flow.filter(l=>l.data===d&&isFinished(l)));return {label:shortDate(d),a:s.feito,b:s.meta}});
  const sDia=sums(doDia),sPer=sums(rows),melhor=[...ptsD].sort((a,b)=>b.value-a.value)[0];
  return `<section class="nx-kpis nx-kpis4">
-  ${nk('bolt','EFICIÊNCIA<br>DO DIA',p1(sDia.eff),tone(sDia.eff),dateLabel(dia))}
-  ${nk('trend','EFICIÊNCIA<br>NO PERÍODO',p1(sPer.eff),tone(sPer.eff),dias.length+' dia(s)')}
-  ${nk('box','PRONTAS<br>NO DIA',fmt(sums(flow.filter(l=>l.data===dia&&isFinished(l))).feito),'yellow')}
+  ${nk('bolt','EFICIÊNCIA DO DIA',p1(sDia.eff),tone(sDia.eff),dateLabel(dia))}
+  ${nk('trend','EFICIÊNCIA NO PERÍODO',p1(sPer.eff),tone(sPer.eff),dias.length+' dia(s)')}
+  ${nk('box','PRONTAS NO DIA',fmt(sums(flow.filter(l=>l.data===dia&&isFinished(l))).feito),'yellow')}
   ${nk('trophy','MELHOR DIA',melhor?p1(melhor.value):'—','green','',melhor?melhor.label:'')}</section>
  <div class="nx-grid2">${box('clock','EFICIÊNCIA HORA A HORA',dateLabel(dia),lineChart(ptsH,{ref:100,refLabel:'META 100%',fmt:v=>fmt(v,1)+'%',floor:0,id:'h',aria:'Eficiência por hora'}))}
   ${box('trend','EFICIÊNCIA ACUMULADA NO DIA',dateLabel(dia),lineChart(ptsAcc,{ref:100,refLabel:'META 100%',fmt:v=>fmt(v,1)+'%',floor:0,id:'a',aria:'Eficiência acumulada no dia'}))}
@@ -422,6 +424,8 @@ function fitKpis(){
  });
 }
 window.addEventListener('resize',()=>{if(active)requestAnimationFrame(fitKpis);});
+try{document.fonts?.ready?.then(()=>{if(active)fitKpis();});document.fonts?.addEventListener?.('loadingdone',()=>{if(active)fitKpis();});}catch(_){}
+try{const ro=new ResizeObserver(()=>{if(active)requestAnimationFrame(fitKpis);});document.addEventListener('DOMContentLoaded',()=>{});window.__fxRO=ro;}catch(_){}
 function template(incoming){
  data=incoming;active=true;
  const rows=rowsFor();
@@ -501,6 +505,7 @@ function start(opts){
  timer=setInterval(refresh,15000);
  clockTimer=setInterval(updateClock,1000);
  scrollTimer=setInterval(autoScrollTick,50);
+ try{const ws=document.getElementById('tvWorkspace');if(ws&&window.__fxRO)window.__fxRO.observe(ws);}catch(_){}
  applyPanel();setRotation();
 }
 function stop(){
