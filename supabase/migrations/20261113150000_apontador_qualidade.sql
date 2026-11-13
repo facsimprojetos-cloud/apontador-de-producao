@@ -135,3 +135,6 @@ BEGIN
 END $$;
 REVOKE ALL ON FUNCTION public.apontador_qualidade_salvar(text, jsonb) FROM public, anon;
 GRANT EXECUTE ON FUNCTION public.apontador_qualidade_salvar(text, jsonb) TO authenticated;
+
+-- authenticated só tinha UPDATE nas colunas etapa_final e tempo_padrao_segundos
+GRANT UPDATE (inspecao_qualidade) ON "APONTADOR DE PRODUÇÃO".produto_processos TO authenticated;
