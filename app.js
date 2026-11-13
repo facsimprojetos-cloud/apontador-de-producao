@@ -406,10 +406,24 @@ function defeitosLista(){
  <div class="table-wrap"><table class="table table-cards"><thead><tr><th>Defeito</th><th>Peças registradas</th><th>Situação</th><th></th></tr></thead><tbody>${ds.length?ds.map(d=>`<tr class="${d.ativo===false?'row-off':''}">${td('Defeito',esc(d.nome),'strong card-title')}${td('Peças registradas',fNum(uso[d.id]||0),'num')}${td('Situação',d.ativo===false?'<span class="pill">Inativo</span>':'<span class="pill green">Ativo</span>')}${td('Ação',`<button class="text-btn" data-edit data-action="def-renomear" data-id="${esc(d.id)}">Renomear</button> <button class="text-btn" data-edit data-action="def-ativo" data-id="${esc(d.id)}">${d.ativo===false?'Reativar':'Desativar'}</button>`,'num')}</tr>`).join(''):'<tr><td colspan="4" class="empty-row">Nenhum defeito cadastrado.</td></tr>'}</tbody></table></div></section>`;
 }
 async function qualRun(fn,msg){try{await fn();await loadData();toast(msg);}catch(e){toast('Não foi possível salvar: '+(e.message||String(e)));}}
+function qualPontos(prodId){
+ const p=byId('produtos',prodId),rot=routeOf(prodId);
+ if(!rot.length){toast('Vincule as operações ao produto primeiro (Operações e tempos).');return;}
+ const body=`<input type="hidden" name="produto" value="${esc(prodId)}"><p class="q-intro">Marque em quais operações <b>deste produto</b> o apontamento abre o formulário de qualidade. Pode ser a última (revisão, embalagem) ou qualquer uma no meio, como o travete. Cada produto tem a sua marcação.</p>
+  <div class="q-pontos">${rot.map(r=>`<label class="q-ponto"><input type="checkbox" name="r_${esc(r.id)}" ${r.qualidade?'checked':''}><span><b>${esc(r.etapa||'')}. ${esc(byId('processos',r.processo)?.nome||'')}</b>${r.final?' <span class="final-flag">FINAL</span>':''}</span></label>`).join('')}</div>`;
+ showModal('Pontos de inspeção de qualidade',esc(p?.nome||''),body,'Salvar pontos','qual_pontos');
+}
+async function qualPontosSalvar(form){
+ const fd=new FormData(form),rot=routeOf(String(fd.get('produto')));
+ const mud=rot.filter(r=>!!fd.get('r_'+r.id)!==!!r.qualidade);
+ for(const r of mud)await window.GUT_API.qualidade('inspecao',{roteiro:r.id,ativo:!!fd.get('r_'+r.id)});
+ return mud.length;
+}
 function qualClick(name,el){
  const id=el?.dataset?.id;
  switch(name){
   case 'qual-abrir':qualAbrir(id,false);return true;
+  case 'qual-pontos':qualPontos(id);return true;
   case 'qual-excluir':if(!confirmar('Excluir a inspeção de qualidade deste apontamento? O apontamento continua.'))return true;closeModal();qualRun(()=>window.GUT_API.qualidade('registro_excluir',{lancamento:id}),'Inspeção excluída.');return true;
   case 'qual-inspecao':{const r=byId('roteiro',id);qualRun(()=>window.GUT_API.qualidade('inspecao',{roteiro:id,ativo:!r?.qualidade}),r?.qualidade?'Operação deixou de ser ponto de inspeção.':'Operação marcada como ponto de inspeção de qualidade.');return true;}
   case 'def-ativo':{const d=byId('defeitos',id);qualRun(()=>window.GUT_API.qualidade('defeito',{id,ativo:d?.ativo===false}),d?.ativo===false?'Defeito reativado.':'Defeito desativado (o histórico continua).');return true;}
@@ -787,7 +801,8 @@ function produtos(){
   return '<article class="card product-card"><div class="taglist" style="margin-bottom:10px">'+(p.codigo?'<span class="pill blue">'+esc(p.codigo)+'</span>':'')+'<span class="pill grey">'+rot.length+' operações</span>'+(rot.length?'<span class="pill grey">'+fNum(total/60,1)+' min/peça</span>':'')+'</div>'+
    '<h3>'+esc(p.nome)+'</h3><p>'+esc(p.descricao||'')+'</p>'+
    '<div class="product-final-status '+(final?'is-set':'')+'"><span>✓ PEÇAS PRONTAS</span><strong>'+(final?esc(byId('processos',final.processo)?.nome||''):'Operação final não definida')+'</strong></div>'+
-   '<div class="product-actions"><button class="btn btn-primary" data-action="ver-tempos" data-id="'+esc(p.id)+'">Operações e tempos →</button><button class="btn" data-edit data-action="marcar-final" data-id="'+esc(p.id)+'">✓ Operação final</button></div></article>';
+   (()=>{const q=rot.filter(r=>r.qualidade);return '<div class="product-final-status q-status '+(q.length?'is-set':'')+'"><span>🔍 QUALIDADE</span><strong>'+(q.length?q.map(r=>esc(byId('processos',r.processo)?.nome||'')).join(', '):'Sem ponto de inspeção')+'</strong></div>';})()+
+   '<div class="product-actions"><button class="btn btn-primary" data-action="ver-tempos" data-id="'+esc(p.id)+'">Operações e tempos →</button><button class="btn" data-edit data-action="marcar-final" data-id="'+esc(p.id)+'">✓ Operação final</button><button class="btn" data-edit data-action="qual-pontos" data-id="'+esc(p.id)+'">🔍 Pontos de qualidade</button></div></article>';
  }).join('')+'</div>':'<div class="card placeholder"><h3>Nenhum produto cadastrado</h3><p>Comece em “Novo produto”.</p></div>');
 }
 function operacoesLista(){
@@ -1238,6 +1253,12 @@ async function handleSubmit(ev){
  const form=ev.target,formType=form.dataset.type,fd=new FormData(form);
  const v=k=>String(fd.get(k)||'').trim();
  const button=form.querySelector('[type="submit"]');
+ if(formType==='qual_pontos'){
+  if(button){button.disabled=true;button.textContent='Gravando...'}
+  try{const n=await qualPontosSalvar(form);closeModal();await loadData();toast(n?'Pontos de qualidade atualizados ('+n+' alteração(ões)).':'Nada mudou.');}
+  catch(e){toast('Não foi possível salvar: '+(e.message||String(e)));if(button){button.disabled=false;button.textContent='Salvar pontos'}}
+  return;
+ }
  if(formType==='qualidade'||formType==='defeito_ren'){
   if(button){button.disabled=true;button.textContent='Gravando...'}
   try{if(formType==='qualidade'){await qualSalvar(form);closeModal();await loadData();toast('Inspeção de qualidade registrada.');}
