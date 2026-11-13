@@ -33,7 +33,12 @@ function options(arr,sel,allLabel){
 }
 function kpiHtml(rows){
  const total=sums(rows);
- if(typeof nk==='function')return nk('meta','META',fmt(total.meta),'yellow','peças previstas')+nk('bars','REALIZADO',fmt(total.feito),'green','peças apontadas')+nk('box','PRONTAS',fmt(total.prontas),'cyan','operação final')+nk('scale','SALDO',(total.saldo>0?'+':'')+fmt(total.saldo),total.saldo<0?'red':'green','realizado − meta')+nk('bolt','EFICIÊNCIA',p1(total.eff),tone(total.eff),'realizado / meta');
+ const fin=sums(rows.filter(isFinished));
+ if(typeof nk==='function')return nk('meta','OPERAÇÕES PREVISTAS',fmt(total.meta),'yellow','meta somada de todas as operações')+
+  nk('bars','OPERAÇÕES REALIZADAS',fmt(total.feito),total.saldo<0?'red':'green',(total.saldo>0?'+':'')+fmt(total.saldo)+' em relação à meta')+
+  nk('box','PEÇAS PRONTAS PREVISTAS',fmt(fin.meta),'yellow','meta da operação final')+
+  nk('box','PEÇAS PRONTAS REALIZADAS',fmt(fin.feito),fin.feito<fin.meta?'red':'cyan',(fin.feito-fin.meta>0?'+':'')+fmt(fin.feito-fin.meta)+' em relação à meta')+
+  nk('bolt','EFICIÊNCIA',p1(total.eff),tone(total.eff),'operações realizadas ÷ previstas');
  const readySet=data.roteiro.filter(r=>r.final===true).length;
  return '<article class="tv-kpi"><small>META</small><strong>'+fmt(total.meta)+'</strong><span>peças previstas no período</span></article>'+
  '<article class="tv-kpi"><small>REALIZADO</small><strong>'+fmt(total.feito)+'</strong><span>peças apontadas</span></article>'+

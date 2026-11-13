@@ -40,7 +40,7 @@ const opLabel=r=>`${byId('produtos',r.produto)?.nome||'Produto'} · ${byId('proc
 const nivelNome=id=>byId('niveis',id)?.nome||('Nível '+id);
 const routeOf=produto=>data.roteiro.filter(r=>r.produto===produto).sort((a,b)=>(a.etapa||0)-(b.etapa||0));
 function getTime(funcionario,produto,processo){const t=timeItem(funcionario,produto,processo),r=routeItem(produto,processo);if(!r)return null;return {segundos:Number(t?.segundos??r.tempo),nivel:t?.nivel??null,fonte:t?'individual':'padrão',vinculo:t?.id??null}}
-const EMPTY=()=>({setores:[],grupos:[],maquinas:[],funcoes:[],funcionarios:[],produtos:[],processos:[],roteiro:[],niveis:[],tempos:[],horarios:[],jornada:[],ausencias:[],lancamentos:[],defeitos:[],qualidade:[],defeitosProduto:[]});
+const EMPTY=()=>({setores:[],grupos:[],maquinas:[],funcoes:[],funcionarios:[],produtos:[],processos:[],roteiro:[],niveis:[],tempos:[],horarios:[],jornada:[],ausencias:[],lancamentos:[],defeitos:[],qualidade:[]});
 let data=EMPTY();
 let authenticated=false;
 let authorizedEmail='';
@@ -366,6 +366,7 @@ function importar(){
 
 /* ===================== QUALIDADE ===================== */
 let abrirQualidadeDepois=null;
+const temDefsProduto=()=>Array.isArray(data.defeitosProduto); // só aparece depois que o banco tiver a tabela
 const defsProduto=pid=>(data.defeitosProduto||[]).filter(x=>String(x.produto)===String(pid)).map(x=>String(x.defeito));
 const ehInspecao=l=>!!byId('roteiro',l?.roteiro)?.qualidade;
 const qualDe=id=>(data.qualidade||[]).find(q=>String(q.lancamento)===String(id));
@@ -416,10 +417,10 @@ function qualPontos(prodId){
  if(!rot.length){toast('Vincule as operações ao produto primeiro (Operações e tempos).');return;}
  const body=`<input type="hidden" name="produto" value="${esc(prodId)}"><p class="q-intro">Marque em quais operações <b>deste produto</b> o apontamento abre o formulário de qualidade. Pode ser a última (revisão, embalagem) ou qualquer uma no meio, como o travete. Cada produto tem a sua marcação.</p>
   <div class="q-pontos">${rot.map(r=>`<label class="q-ponto"><input type="checkbox" name="r_${esc(r.id)}" ${r.qualidade?'checked':''}><span><b>${esc(r.etapa||'')}. ${esc(byId('processos',r.processo)?.nome||'')}</b>${r.final?' <span class="final-flag">FINAL</span>':''}</span></label>`).join('')}</div>
-  <h4 class="q-sub">Defeitos característicos deste produto</h4>
+  ${temDefsProduto()?`<h4 class="q-sub">Defeitos característicos deste produto</h4>
   <p class="muted-small" style="margin:0 0 8px">Marque os defeitos que aparecem no formulário deste produto. Sem nenhum marcado, aparecem todos os defeitos ativos.</p>
   <div class="q-defs q-defs-check" id="qDefsCheck">${(data.defeitos||[]).filter(d=>d.ativo!==false).map(d=>`<label class="q-ponto"><input type="checkbox" name="d_${esc(d.id)}" ${defsProduto(prodId).includes(String(d.id))?'checked':''}><span>${esc(d.nome)}</span></label>`).join('')}</div>
-  <div class="q-def-tools"><span class="q-add"><input class="input" id="qNovoDef" maxlength="80" placeholder="Novo defeito…" aria-label="Nome do novo defeito"><button type="button" class="btn btn-sm" data-action="qual-novo-def" data-produto="${esc(prodId)}" data-qmodo="check">＋ Criar defeito</button></span></div>`;
+  <div class="q-def-tools"><span class="q-add"><input class="input" id="qNovoDef" maxlength="80" placeholder="Novo defeito…" aria-label="Nome do novo defeito"><button type="button" class="btn btn-sm" data-action="qual-novo-def" data-produto="${esc(prodId)}" data-qmodo="check">＋ Criar defeito</button></span></div>`:''}`;
  showModal('Qualidade do produto',esc(p?.nome||''),body,'Salvar','qual_pontos','modal-wide');
 }
 async function qualPontosSalvar(form){
@@ -427,7 +428,7 @@ async function qualPontosSalvar(form){
  const mud=rot.filter(r=>!!fd.get('r_'+r.id)!==!!r.qualidade);
  for(const r of mud)await window.GUT_API.qualidade('inspecao',{roteiro:r.id,ativo:!!fd.get('r_'+r.id)});
  const pid=String(fd.get('produto')),antes=defsProduto(pid).sort().join(','),marcados=(data.defeitos||[]).filter(d=>fd.get('d_'+d.id)).map(d=>String(d.id));
- if(marcados.sort().join(',')!==antes){await window.GUT_API.qualidade('produto_defeitos',{produto:pid,defeitos:marcados});return mud.length+1;}
+ if(temDefsProduto()&&marcados.sort().join(',')!==antes){await window.GUT_API.qualidade('produto_defeitos',{produto:pid,defeitos:marcados});return mud.length+1;}
  return mud.length;
 }
 function qualClick(name,el){
