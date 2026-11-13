@@ -25,6 +25,7 @@
     async preview(payload) { return unwrap(await client.rpc('apontador_previa',{p_dados:payload})); },
     async bonus(mes) { return unwrap(await client.rpc('apontador_bonificacao',{p_mes:mes})); },
     async bonusSave(type, payload) { return unwrap(await client.rpc('apontador_bonificacao_salvar',{p_tipo:type,p_dados:payload})); },
+    async qualidade(type, payload) { return unwrap(await client.rpc('apontador_qualidade_salvar',{p_tipo:type,p_dados:payload})); },
     async ausencia(type, payload) { return unwrap(await client.rpc('apontador_ausencia_salvar',{p_tipo:type,p_dados:payload})); },
     /* sessão única por login: a primeira máquina fica, a segunda é recusada */
     async sessaoIniciar(info) { return unwrap(await client.rpc('apontador_sessao_iniciar',{p_info:info||null})); },

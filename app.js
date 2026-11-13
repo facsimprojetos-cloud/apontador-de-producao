@@ -6,7 +6,7 @@ const NAMES = {tv:'Painel para TV',bonificacao:'Bonificação',lancamentos:'Apon
 const SUBS = {
  lancamentos:[['novo','Apontar'],['historico','Histórico'],['ausencias','Ausências'],['horarios','Horários e jornada']],
  bonificacao:[['mes','Fechamento do mês'],['faltas','Faltas'],['salarios','Salários'],['regras','Regras']],
- produtos:[['produtos','Produtos'],['operacoes','Operações'],['tempos','Tempos por produto']],
+ produtos:[['produtos','Produtos'],['operacoes','Operações'],['tempos','Tempos por produto'],['defeitos','Defeitos de qualidade']],
  estrutura:[['setores','Setores e grupos'],['maquinas','Máquinas'],['funcoes','Funções']],
  niveis:[['tempos','Por funcionário'],['niveis','Níveis']]
 };
@@ -40,7 +40,7 @@ const opLabel=r=>`${byId('produtos',r.produto)?.nome||'Produto'} · ${byId('proc
 const nivelNome=id=>byId('niveis',id)?.nome||('Nível '+id);
 const routeOf=produto=>data.roteiro.filter(r=>r.produto===produto).sort((a,b)=>(a.etapa||0)-(b.etapa||0));
 function getTime(funcionario,produto,processo){const t=timeItem(funcionario,produto,processo),r=routeItem(produto,processo);if(!r)return null;return {segundos:Number(t?.segundos??r.tempo),nivel:t?.nivel??null,fonte:t?'individual':'padrão',vinculo:t?.id??null}}
-const EMPTY=()=>({setores:[],grupos:[],maquinas:[],funcoes:[],funcionarios:[],produtos:[],processos:[],roteiro:[],niveis:[],tempos:[],horarios:[],jornada:[],ausencias:[],lancamentos:[]});
+const EMPTY=()=>({setores:[],grupos:[],maquinas:[],funcoes:[],funcionarios:[],produtos:[],processos:[],roteiro:[],niveis:[],tempos:[],horarios:[],jornada:[],ausencias:[],lancamentos:[],defeitos:[],qualidade:[]});
 let data=EMPTY();
 let authenticated=false;
 let authorizedEmail='';
@@ -154,7 +154,7 @@ function render(){
 }
 function goTo(p,s){page=p;if(s)sub[p]=s;if(window.location){if(p==='tv')window.location.hash='tv';else if(window.location.hash==='#tv')window.location.hash='';}render();window.scrollTo?.(0,0)}
 
-function tableApontamentos(rows){return `<div class="table-wrap"><table class="table table-cards"><thead><tr><th>Data</th><th>Funcionário</th><th>Setor / Grupo</th><th>Produto / Processo</th><th>Período</th><th>Meta</th><th>Realizado</th><th>Eficiência</th></tr></thead><tbody>${rows.length?rows.map(l=>{const person=byId('funcionarios',l.funcionario),product=byId('produtos',l.produto),proc=byId('processos',l.processo),eff=l.metaSnapshot?l.realizado*100/l.metaSnapshot:null;return `<tr>${td('Data',esc(fDate(l.data)))}${td('Funcionário',esc(person?.nome||l.funcionario),'strong card-title')}${td('Setor / Grupo',`<strong>${esc(l.setorNomeHistorico||byId('setores',l.setor)?.nome||'—')}</strong><small class="cell-sub">${esc(l.grupoNomeHistorico||byId('grupos',l.grupo)?.nome||'Sem grupo')}</small>`)}${td('Produto / Processo',`<b>${esc(product?.nome||l.produto)}</b><small class="cell-sub">${esc(proc?.nome||l.processo)}${isFinished(l)?' · <span class="final-flag">FINAL</span>':''}</small>`,'card-wide')}${td('Período',`${esc(l.inicio)}–${esc(l.fim)}`,'num')}${td('Meta',fNum(l.metaSnapshot),'num')}${td('Realizado',fNum(l.realizado),'strong num')}${td('Eficiência',effPill(eff),'num')}</tr>`}).join(''):`<tr><td colspan="8" class="empty-row">Nenhum lançamento no filtro selecionado.</td></tr>`}</tbody></table></div>`}
+function tableApontamentos(rows){return `<div class="table-wrap"><table class="table table-cards"><thead><tr><th>Data</th><th>Funcionário</th><th>Setor / Grupo</th><th>Produto / Processo</th><th>Período</th><th>Meta</th><th>Realizado</th><th>Eficiência</th></tr></thead><tbody>${rows.length?rows.map(l=>{const person=byId('funcionarios',l.funcionario),product=byId('produtos',l.produto),proc=byId('processos',l.processo),eff=l.metaSnapshot?l.realizado*100/l.metaSnapshot:null;return `<tr>${td('Data',esc(fDate(l.data)))}${td('Funcionário',esc(person?.nome||l.funcionario),'strong card-title')}${td('Setor / Grupo',`<strong>${esc(l.setorNomeHistorico||byId('setores',l.setor)?.nome||'—')}</strong><small class="cell-sub">${esc(l.grupoNomeHistorico||byId('grupos',l.grupo)?.nome||'Sem grupo')}</small>`)}${td('Produto / Processo',`<b>${esc(product?.nome||l.produto)}</b><small class="cell-sub">${esc(proc?.nome||l.processo)}${isFinished(l)?' · <span class="final-flag">FINAL</span>':''}</small>${qualBadge(l)}`,'card-wide')}${td('Período',`${esc(l.inicio)}–${esc(l.fim)}`,'num')}${td('Meta',fNum(l.metaSnapshot),'num')}${td('Realizado',fNum(l.realizado),'strong num')}${td('Eficiência',effPill(eff),'num')}</tr>`}).join(''):`<tr><td colspan="8" class="empty-row">Nenhum lançamento no filtro selecionado.</td></tr>`}</tbody></table></div>`}
 function selectOpts(collection,sel='',all=false,label='Todos'){const ar=data[collection]||[];return `${all?`<option value="">${label}</option>`:''}${ar.map(o=>`<option value="${esc(o.id)}" ${String(o.id)===String(sel)?'selected':''}>${esc(o.nome)}</option>`).join('')}`}
 
 /* ===================== GESTÃO DE ACESSOS ===================== */
@@ -364,6 +364,60 @@ function importar(){
   ${s.resultado?impResumo(s.resultado,'Importação concluída'):''}`;
 }
 
+/* ===================== QUALIDADE ===================== */
+let abrirQualidadeDepois=null;
+const ehInspecao=l=>!!byId('roteiro',l?.roteiro)?.qualidade;
+const qualDe=id=>(data.qualidade||[]).find(q=>String(q.lancamento)===String(id));
+const qualDefTot=q=>q?((q.defeitos||[]).reduce((n,d)=>n+Number(d.quantidade||0),0)||Number(q.defeituosas||0)):0;
+function qualBadge(l){
+ if(!ehInspecao(l))return '';
+ const q=qualDe(l.id);
+ if(q){const d=Number(q.defeituosas??qualDefTot(q))||0;return `<button type="button" class="q-badge ${d?'warn':'ok'}" data-action="qual-abrir" data-id="${esc(l.id)}" title="Ver ou editar a inspeção de qualidade">✓ Qualidade${d?' · '+fNum(d)+' c/ defeito':' · sem defeito'}</button>`;}
+ return `<button type="button" class="q-badge" data-edit data-action="qual-abrir" data-id="${esc(l.id)}" title="Registrar a inspeção de qualidade deste apontamento">＋ Qualidade</button>`;
+}
+function qualAbrir(lancId,novo){
+ const l=(data.lancamentos||[]).find(x=>String(x.id)===String(lancId));if(!l)return;
+ const q=qualDe(lancId)||{},porDef={};(q.defeitos||[]).forEach(d=>porDef[d.defeito]=d.quantidade);
+ const defs=(data.defeitos||[]).filter(d=>d.ativo!==false||porDef[d.id]);
+ const n=(name,label,val,help)=>`<div class="field"><label for="q_${name}">${label}</label><input class="input" type="number" min="0" step="1" inputmode="numeric" id="q_${name}" name="${name}" value="${val??''}" placeholder="—">${help?`<small class="muted-small">${help}</small>`:''}</div>`;
+ const body=`<input type="hidden" name="lancamento" value="${esc(l.id)}">
+  <p class="q-intro">${novo?'<b>Apontamento gravado.</b> ':''}Nenhum campo é obrigatório. Se não der tempo agora, clique em <b>Pular</b> e registre depois pelo Histórico.</p>
+  <div class="q-grid">${n('inspecionadas','Peças inspecionadas',q.inspecionadas??(novo?l.realizado:''),'Apontadas: '+fNum(l.realizado))}${n('defeituosas','Peças com defeito',q.defeituosas,'')}${n('retrabalho','Retrabalho',q.retrabalho,'voltaram para conserto')}${n('refugo','Refugo / perda',q.refugo,'não têm conserto')}</div>
+  <h4 class="q-sub">Tipos de defeito encontrados</h4>
+  ${defs.length?`<div class="q-defs">${defs.map(d=>`<label class="q-def"><span>${esc(d.nome)}</span><input class="input" type="number" min="0" step="1" inputmode="numeric" name="def_${esc(d.id)}" value="${porDef[d.id]??''}" placeholder="0" aria-label="Quantidade de ${esc(d.nome)}"></label>`).join('')}</div>`:'<p class="muted-small">Nenhum defeito cadastrado. Cadastre em Produtos e operações → Defeitos.</p>'}
+  <div class="field"><label for="q_obs">Observação</label><textarea class="input" id="q_obs" name="observacao" rows="2" maxlength="500">${esc(q.observacao||'')}</textarea></div>
+  ${q.id?`<button type="button" class="text-btn danger" data-action="qual-excluir" data-id="${esc(l.id)}">Excluir esta inspeção</button>`:''}`;
+ showModal('Inspeção de qualidade',`${esc(byId('processos',l.processo)?.nome||'')} · ${esc(byId('produtos',l.produto)?.nome||'')} · ${esc(first(byId('funcionarios',l.funcionario)?.nome||''))} · ${esc(fDate(l.data))} ${esc(l.inicio)}–${esc(l.fim)}`,body,'Salvar inspeção','qualidade','modal-wide');
+ const cancel=$('#modal .modal-footer [data-action="fechar-modal"]');if(cancel)cancel.textContent=novo?'Pular':'Cancelar';
+}
+async function qualSalvar(form){
+ const fd=new FormData(form),v=k=>String(fd.get(k)??'').trim();
+ const defeitos=(data.defeitos||[]).map(d=>({defeito:d.id,quantidade:v('def_'+d.id)})).filter(d=>d.quantidade!==''&&Number(d.quantidade)>0);
+ let def=v('defeituosas');
+ if(def===''&&defeitos.length)def=String(defeitos.reduce((n,d)=>n+Number(d.quantidade),0));
+ await window.GUT_API.qualidade('registro',{lancamento:v('lancamento'),inspecionadas:v('inspecionadas'),defeituosas:def,retrabalho:v('retrabalho'),refugo:v('refugo'),observacao:v('observacao'),defeitos});
+}
+/* cadastro de defeitos (Produtos e operações → Defeitos) */
+function defeitosLista(){
+ const ds=[...(data.defeitos||[])].sort((a,b)=>(b.ativo!==false)-(a.ativo!==false)||a.nome.localeCompare(b.nome));
+ const uso={};(data.qualidade||[]).forEach(q=>(q.defeitos||[]).forEach(d=>uso[d.defeito]=(uso[d.defeito]||0)+Number(d.quantidade||0)));
+ return `<section class="card"><div class="section-head"><div><h3 class="section-title">Defeitos de qualidade</h3><p class="section-sub">Lista que aparece no formulário de inspeção. Marque em <b>Tempos por produto</b> quais operações são ponto de inspeção.</p></div></div>
+ <form id="defeitoForm" class="link-form q-def-form" data-edit><div class="field"><label for="defNome">Novo defeito</label><input class="input" id="defNome" name="nome" maxlength="80" required placeholder="ex.: Costura solta"></div><button class="btn btn-primary" type="submit">＋ Adicionar</button></form>
+ <div class="table-wrap"><table class="table table-cards"><thead><tr><th>Defeito</th><th>Peças registradas</th><th>Situação</th><th></th></tr></thead><tbody>${ds.length?ds.map(d=>`<tr class="${d.ativo===false?'row-off':''}">${td('Defeito',esc(d.nome),'strong card-title')}${td('Peças registradas',fNum(uso[d.id]||0),'num')}${td('Situação',d.ativo===false?'<span class="pill">Inativo</span>':'<span class="pill green">Ativo</span>')}${td('Ação',`<button class="text-btn" data-edit data-action="def-renomear" data-id="${esc(d.id)}">Renomear</button> <button class="text-btn" data-edit data-action="def-ativo" data-id="${esc(d.id)}">${d.ativo===false?'Reativar':'Desativar'}</button>`,'num')}</tr>`).join(''):'<tr><td colspan="4" class="empty-row">Nenhum defeito cadastrado.</td></tr>'}</tbody></table></div></section>`;
+}
+async function qualRun(fn,msg){try{await fn();await loadData();toast(msg);}catch(e){toast('Não foi possível salvar: '+(e.message||String(e)));}}
+function qualClick(name,el){
+ const id=el?.dataset?.id;
+ switch(name){
+  case 'qual-abrir':qualAbrir(id,false);return true;
+  case 'qual-excluir':if(!confirmar('Excluir a inspeção de qualidade deste apontamento? O apontamento continua.'))return true;closeModal();qualRun(()=>window.GUT_API.qualidade('registro_excluir',{lancamento:id}),'Inspeção excluída.');return true;
+  case 'qual-inspecao':{const r=byId('roteiro',id);qualRun(()=>window.GUT_API.qualidade('inspecao',{roteiro:id,ativo:!r?.qualidade}),r?.qualidade?'Operação deixou de ser ponto de inspeção.':'Operação marcada como ponto de inspeção de qualidade.');return true;}
+  case 'def-ativo':{const d=byId('defeitos',id);qualRun(()=>window.GUT_API.qualidade('defeito',{id,ativo:d?.ativo===false}),d?.ativo===false?'Defeito reativado.':'Defeito desativado (o histórico continua).');return true;}
+  case 'def-renomear':{const d=byId('defeitos',id);showModal('Renomear defeito',esc(d?.nome||''),`<input type="hidden" name="id" value="${esc(id)}"><div class="field"><label for="defRen">Nome</label><input class="input" id="defRen" name="nome" required maxlength="80" value="${esc(d?.nome||'')}"></div>`,'Salvar','defeito_ren');return true;}
+ }
+ return false;
+}
+
 /* ===================== APONTAMENTOS ===================== */
 function lancamentos(){
  const head=title('Apontamentos','Registre produção e ausências e consulte o histórico.')+subtabs();
@@ -462,7 +516,7 @@ function dayList(){
  return `<div class="section-head"><div><h3 class="section-title">${esc(first(person?.nome)||'Funcionário')} · ${esc(fDate(entry.data))}</h3><p class="section-sub">${rows.length} apontamento(s) · ${fNum(t.realizado)} peças · ${pct(t.eff)}${minAus?' · ausente '+hhmm(minAus):''}</p></div></div>`+
  (itens.length?`<div class="day-list">${itens.map(it=>{
   if(it.k==='a'){const a=it.a;return `<div class="day-row aus-row"><span class="day-hour">${esc(a.inicio)}–${esc(a.fim)}</span><span class="day-op">${esc(AUS_LABEL[a.tipo]||'Ausência')}${a.motivo&&a.motivo!==AUS_LABEL[a.tipo]?' · '+esc(a.motivo):''}<small>${hhmm(a.minutos)} sem produção${a.tipo==='falta'?' · entrou nas faltas da bonificação':''}</small></span><span></span>${a.tipo==='coletiva'?'<span class="pill grey">coletiva</span>':`<button type="button" class="text-btn danger-btn" data-edit data-action="aus-excluir" data-id="${esc(a.id)}">Excluir</button>`}</div>`}
-  const l=it.l,eff=l.metaSnapshot?l.realizado*100/l.metaSnapshot:null;return `<div class="day-row"><span class="day-hour">${esc(l.inicio)}–${esc(l.fim)}</span><span class="day-op">${esc(byId('processos',l.processo)?.nome||'—')}<small>${esc(byId('produtos',l.produto)?.nome||'')}</small></span><span class="day-qty">${fNum(l.realizado)}<small>/ ${fNum(l.metaSnapshot)}</small></span>${effPill(eff)}</div>`}).join('')}</div>`
+  const l=it.l,eff=l.metaSnapshot?l.realizado*100/l.metaSnapshot:null;return `<div class="day-row"><span class="day-hour">${esc(l.inicio)}–${esc(l.fim)}</span><span class="day-op">${esc(byId('processos',l.processo)?.nome||'—')}<small>${esc(byId('produtos',l.produto)?.nome||'')}</small>${qualBadge(l)}</span><span class="day-qty">${fNum(l.realizado)}<small>/ ${fNum(l.metaSnapshot)}</small></span>${effPill(eff)}</div>`}).join('')}</div>`
  :'<p class="muted-small day-empty">Nenhum apontamento deste funcionário nesta data.</p>');
 }
 function funcOptions(){return '<option value="">Selecione o funcionário</option>'+activeEmployees().map(f=>`<option value="${esc(f.id)}" ${f.id===entry.funcionario?'selected':''}>${esc(f.nome)}</option>`).join('')}
@@ -573,7 +627,8 @@ async function submitEntry(ev){
    const total=Number(entry.realizado);
    if(entry.realizado===''||!Number.isInteger(total)||total<0)throw Error('Peças realizadas devem ser um número inteiro (0 ou mais).');
    if(button){button.disabled=true;button.textContent='Gravando...'}
-   await window.GUT_API.save('entry',{data:entry.data,funcionario:entry.funcionario,produto:entry.produto,processo:route.processo,roteiro:route.id,inicio:entry.inicio,fim:entry.fim,realizado:total});
+   const resEntry=await window.GUT_API.save('entry',{data:entry.data,funcionario:entry.funcionario,produto:entry.produto,processo:route.processo,roteiro:route.id,inicio:entry.inicio,fim:entry.fim,realizado:total});
+   if(route.qualidade&&resEntry?.id)abrirQualidadeDepois=resEntry.id;
    msg=`Apontamento registrado: ${first(byId('funcionarios',entry.funcionario)?.nome)} · ${hourLabel(entry.inicio,entry.fim)} · ${fNum(total)} peças.`;
   }else if(entry.modo==='ausencia'){
    entry.motivo=String($('#ausMotivo')?.value||'').trim();
@@ -600,6 +655,7 @@ async function submitEntry(ev){
   resetEntry();
   await loadData();
   toast(msg);
+  if(abrirQualidadeDepois){const lid=abrirQualidadeDepois;abrirQualidadeDepois=null;qualAbrir(lid,true);}
  }catch(err){
   toast('Não foi possível salvar: '+(err.message||String(err)));
   if(button&&button.isConnected){button.disabled=false;button.textContent=label0||'Registrar'}
@@ -721,10 +777,11 @@ function estrutura(){
 }
 /* ===================== PRODUTOS ===================== */
 function produtos(){
- const tb={produtos:btnNew('novo-produto','Novo produto'),operacoes:btnNew('novo-processo','Nova operação'),tempos:btnNew('focar-vinculo','Vincular operação ao produto')}[sub.produtos];
+ const tb={produtos:btnNew('novo-produto','Novo produto'),operacoes:btnNew('novo-processo','Nova operação'),tempos:btnNew('focar-vinculo','Vincular operação ao produto'),defeitos:''}[sub.produtos];
  const head=title('Produtos e operações','Cadastre produtos e operações e vincule cada operação ao produto com seu tempo padrão.',tb)+subtabs();
  if(sub.produtos==='operacoes')return head+operacoesLista();
  if(sub.produtos==='tempos')return head+temposPorProduto();
+ if(sub.produtos==='defeitos')return head+defeitosLista();
  return head+(data.produtos.length?'<div class="data-grid">'+data.produtos.map(p=>{
   const rot=routeOf(p.id),final=rot.find(r=>r.final===true),total=rot.reduce((n,r)=>n+Number(r.tempo||0),0);
   return '<article class="card product-card"><div class="taglist" style="margin-bottom:10px">'+(p.codigo?'<span class="pill blue">'+esc(p.codigo)+'</span>':'')+'<span class="pill grey">'+rot.length+' operações</span>'+(rot.length?'<span class="pill grey">'+fNum(total/60,1)+' min/peça</span>':'')+'</div>'+
@@ -749,9 +806,9 @@ function temposPorProduto(){
  '<div class="stats-row"><span><b>'+rot.length+'</b> operações</span><span><b>'+fNum(total,1)+' s</b> por peça ('+fNum(total/60,1)+' min)</span></div></div>'+
  '<section class="card"><div class="section-head"><div><h3 class="section-title">'+esc(p.nome)+' — operações e tempo padrão</h3><p class="section-sub">O tempo padrão vale para todos os funcionários até você definir um tempo individual em Níveis e tempos.</p></div><button class="btn btn-sm" data-edit data-action="marcar-final" data-id="'+esc(p.id)+'">✓ Operação final</button></div>'+
  linkFormHtml(p,free)+
- '<div class="table-wrap"><table class="table table-cards"><thead><tr><th>Operação</th><th>Tempo padrão</th><th>Peças/hora</th><th>Funcionários</th><th></th></tr></thead><tbody>'+
- (rot.length?rot.map(r=>'<tr>'+td('Operação',esc(r.etapa||'—')+'. '+esc(byId('processos',r.processo)?.nome||'')+(r.final?' <span class="final-flag">FINAL</span>':''),'strong card-title')+td('Tempo padrão',fNum(r.tempo,1)+' s','strong num')+td('Peças/hora',fNum(3600/r.tempo,1),'num')+td('Funcionários',String(data.funcionarios.filter(f=>(f.operacoes||[]).includes(r.id)).length),'num')+td('Ação','<button class="text-btn" data-edit data-action="editar-tempo-padrao" data-id="'+esc(r.id)+'">Alterar tempo</button>','num')+'</tr>').join('')
-  :'<tr><td colspan="5" class="empty-row">Nenhuma operação vinculada a este produto.</td></tr>')+'</tbody></table></div>'+
+ '<div class="table-wrap"><table class="table table-cards"><thead><tr><th>Operação</th><th>Tempo padrão</th><th>Peças/hora</th><th>Funcionários</th><th>Inspeção de qualidade</th><th></th></tr></thead><tbody>'+
+ (rot.length?rot.map(r=>'<tr>'+td('Operação',esc(r.etapa||'—')+'. '+esc(byId('processos',r.processo)?.nome||'')+(r.final?' <span class="final-flag">FINAL</span>':''),'strong card-title')+td('Tempo padrão',fNum(r.tempo,1)+' s','strong num')+td('Peças/hora',fNum(3600/r.tempo,1),'num')+td('Funcionários',String(data.funcionarios.filter(f=>(f.operacoes||[]).includes(r.id)).length),'num')+td('Inspeção de qualidade','<button class="q-toggle'+(r.qualidade?' on':'')+'" data-edit data-action="qual-inspecao" data-id="'+esc(r.id)+'" aria-pressed="'+(!!r.qualidade)+'" title="Ao apontar esta operação, abre o formulário de qualidade">'+(r.qualidade?'✓ Ponto de inspeção':'Não inspeciona')+'</button>')+td('Ação','<button class="text-btn" data-edit data-action="editar-tempo-padrao" data-id="'+esc(r.id)+'">Alterar tempo</button>','num')+'</tr>').join('')
+  :'<tr><td colspan="6" class="empty-row">Nenhuma operação vinculada a este produto.</td></tr>')+'</tbody></table></div>'+
  '</section>';
 }
 function linkFormHtml(p,free){
@@ -1181,6 +1238,13 @@ async function handleSubmit(ev){
  const form=ev.target,formType=form.dataset.type,fd=new FormData(form);
  const v=k=>String(fd.get(k)||'').trim();
  const button=form.querySelector('[type="submit"]');
+ if(formType==='qualidade'||formType==='defeito_ren'){
+  if(button){button.disabled=true;button.textContent='Gravando...'}
+  try{if(formType==='qualidade'){await qualSalvar(form);closeModal();await loadData();toast('Inspeção de qualidade registrada.');}
+   else{await window.GUT_API.qualidade('defeito',{id:v('id'),nome:v('nome')});closeModal();await loadData();toast('Defeito renomeado.');}}
+  catch(e){toast('Não foi possível salvar: '+(e.message||String(e)));if(button){button.disabled=false;button.textContent=form.dataset.submitLabel||'Salvar'}}
+  return;
+ }
  if(formType==='acc_empresa'||formType==='acc_senha'){
   closeModal();
   if(formType==='acc_empresa')accRun(()=>window.GUT_API.empresaSave({id:v('id'),nome:v('nome'),documento:v('documento'),limite:v('limite')}),'Empresa atualizada.');
@@ -1285,7 +1349,7 @@ function action(name,el){
  case 'salvar-nivel-salario':{const v=$('#nsal-'+id)?.value;if(v!==''&&!(Number(v)>=0)){toast('Informe um salário válido.');break;}bonusSaveAndReload('nivel_salario',{nivel:id,salario:v===''?null:Number(v)},v===''?'Salário do nível removido.':'Salário básico do nível salvo.');break;}
  case 'salvar-salario':{const v=$('#sal-'+id)?.value;if(v===''||!(Number(v)>=0)){toast('Informe um salário válido.');break;}bonusSaveAndReload('salario',{funcionario:id,salario:Number(v),desde:bonusMes+'-01',nivel:$('#snv-'+id)?.value||null},'Salário salvo a partir de '+mesLabel(bonusMes)+'.');break;}
  case 'falta-excluir':if(el.dataset.confirm!=='1'){el.dataset.confirm='1';el.textContent='Confirmar exclusão';setTimeout(()=>{if(el.isConnected){el.dataset.confirm='';el.textContent='Excluir'}},4000);break;}bonusSaveAndReload('falta_excluir',{id},'Falta excluída.');break;
- default:accClick(name,el);break;
+ default:if(!accClick(name,el))qualClick(name,el);break;
  }
 }
 document.addEventListener('click',ev=>{
@@ -1348,7 +1412,8 @@ document.addEventListener('input',ev=>{
  if(page==='bonificacao'&&sub.bonificacao==='regras'&&rulesInput(ev.target))return;
  if(ev.target.id==='opsSearch'){const q=ev.target.value.trim().toLowerCase();document.querySelectorAll('#modalForm .op-group').forEach(g=>{let any=false;g.querySelectorAll('.op-item').forEach(it=>{const ok=!q||it.dataset.text.includes(q);it.classList.toggle('hidden',!ok);any=any||ok});g.classList.toggle('hidden',!any);if(q)g.open=any;})}
 });
-document.addEventListener('submit',ev=>{const id=ev.target.getAttribute('id');if(id==='accUserForm'||id==='accEmpresaForm'){ev.preventDefault();if(id==='accUserForm')accCriarUsuario(ev.target);else accCriarEmpresa(ev.target);return;} /* getAttribute: um campo chamado "id" sobrescreve form.id */if(id==='modalForm')handleSubmit(ev);else if(id==='loginForm')handleLogin(ev);else if(id==='entryForm')submitEntry(ev);else if(id==='slotForm')submitSlot(ev);else if(id==='linkForm')submitLink(ev);else if(id==='faltaForm'){ev.preventDefault();const fd=new FormData(ev.target);bonusSaveAndReload('falta',{funcionario:fd.get('funcionario'),data:fd.get('data'),observacao:fd.get('observacao')},'Falta registrada.');}});
+document.addEventListener('submit',ev=>{const id=ev.target.getAttribute('id');if(id==='defeitoForm'){ev.preventDefault();const nome=String(new FormData(ev.target).get('nome')||'').trim();if(nome)qualRun(()=>window.GUT_API.qualidade('defeito',{nome}),'Defeito “'+nome+'” cadastrado.');return;}
+ if(id==='accUserForm'||id==='accEmpresaForm'){ev.preventDefault();if(id==='accUserForm')accCriarUsuario(ev.target);else accCriarEmpresa(ev.target);return;} /* getAttribute: um campo chamado "id" sobrescreve form.id */if(id==='modalForm')handleSubmit(ev);else if(id==='loginForm')handleLogin(ev);else if(id==='entryForm')submitEntry(ev);else if(id==='slotForm')submitSlot(ev);else if(id==='linkForm')submitLink(ev);else if(id==='faltaForm'){ev.preventDefault();const fd=new FormData(ev.target);bonusSaveAndReload('falta',{funcionario:fd.get('funcionario'),data:fd.get('data'),observacao:fd.get('observacao')},'Falta registrada.');}});
 window.addEventListener?.('hashchange',()=>{const target=window.location?.hash==='#tv'?'tv':'lancamentos';if(target==='tv'&&page!=='tv'){page='tv';render();}else if(target==='lancamentos'&&page==='tv'){page='lancamentos';render();}});
 $('#overlay').addEventListener('click',closeModal);
 document.addEventListener('dragover',ev=>{const z=ev.target.closest?.('.imp-drop');if(z){ev.preventDefault();z.classList.add('is-over');}});

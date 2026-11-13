@@ -115,17 +115,18 @@ function updateClock(){
  if(node)node.textContent=new Date().toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit',second:'2-digit'});
 }
 /* ===== Painéis 2 (gargalos) e 3 (peças prontas) e rodízio ===== */
-const PANELS=[[1,'PRODUÇÃO','bars'],[2,'PROCESSOS','gear'],[3,'GARGALOS','alert'],[4,'PEÇAS PRONTAS','box'],[5,'TENDÊNCIAS','trend']];
-const PANEL_FN={2:()=>panelProcessos(),3:()=>panelGargalos(),4:()=>panelProntas(),5:()=>panelTendencias()};
+const PANELS=[[1,'PRODUÇÃO','bars'],[2,'PROCESSOS','gear'],[3,'GARGALOS','alert'],[4,'PEÇAS PRONTAS','box'],[5,'TENDÊNCIAS','trend'],[6,'QUALIDADE','meta']];
+const PANEL_FN={2:()=>panelProcessos(),3:()=>panelGargalos(),4:()=>panelProntas(),5:()=>panelTendencias(),6:()=>panelQualidade()};
 const CFG_KEY='gut_tv_cfg';
-const cfg={panel:1,rotate:false,secs:30,metric:'pecas',panels:[1,2,3,4,5],v:2,p1:{nivel:false,agrupar:false,semRanking:false},scroll:{1:true,2:true,3:true,4:true,5:true}};
+const cfg={panel:1,rotate:false,secs:30,metric:'pecas',panels:[1,2,3,4,5,6],v:3,p1:{nivel:false,agrupar:false,semRanking:false},scroll:{1:true,2:true,3:true,4:true,5:true,6:true}};
 try{Object.assign(cfg,JSON.parse(localStorage.getItem(CFG_KEY)||'{}'))}catch(_){/* armazenamento indisponível */}
-if(cfg.v!==2){cfg.v=2;cfg.panels=[1,2,3,4,5];if(cfg.panel===3)cfg.panel=4;}
+if(cfg.v===2){cfg.v=3;if(Array.isArray(cfg.panels)&&!cfg.panels.includes(6))cfg.panels.push(6);if(cfg.scroll&&cfg.scroll[6]==null)cfg.scroll[6]=true;}
+if(cfg.v!==2&&cfg.v!==3){cfg.v=2;cfg.panels=[1,2,3,4,5,6];if(cfg.panel===3)cfg.panel=4;}
 if(!cfg.scroll||typeof cfg.scroll!=='object')cfg.scroll={1:true,2:true,3:true,4:true,5:true};
 if(!cfg.p1||typeof cfg.p1!=='object')cfg.p1={nivel:false,agrupar:false,semRanking:false};
-if(!Array.isArray(cfg.panels)||!cfg.panels.length)cfg.panels=[1,2,3,4,5];
+if(!Array.isArray(cfg.panels)||!cfg.panels.length)cfg.panels=[1,2,3,4,5,6];
 if(!PANELS_OK(cfg.panel))cfg.panel=1;
-function PANELS_OK(n){return [1,2,3,4,5].includes(Number(n))}
+function PANELS_OK(n){return [1,2,3,4,5,6].includes(Number(n))}
 const saveCfg=()=>{try{localStorage.setItem(CFG_KEY,JSON.stringify(cfg))}catch(_){}};
 let rotTimer=null,rotElapsed=0;
 const toMin=t=>{const [h,m]=String(t||'0:0').split(':').map(Number);return (h||0)*60+(m||0)};
@@ -324,6 +325,58 @@ function panelProntas(){
   ${box('trophy','RANKING DOS PRODUTOS','',rank||empty('Sem produtos com operação final.'),'nx-scroll')}</div></div>`;
 }
 
+
+/* ---------- Tela 6: QUALIDADE ---------- */
+function paretoChart(items){
+ if(!items.length)return empty('Nenhum defeito registrado no período.');
+ const W=1000,H=330,L=64,R=64,T=34,B=56,tot=items.reduce((n,i)=>n+i.value,0),mx=Math.max(1,...items.map(i=>i.value))*1.12;
+ const gw=(W-L-R)/items.length,bw=Math.min(90,gw*.62),y=v=>T+(1-v/mx)*(H-T-B),yp=p=>T+(1-p/100)*(H-T-B);
+ let acc=0;const pts=items.map((it,i)=>{acc+=it.value;return {x:L+gw*i+gw/2,p:100*acc/tot};});
+ const maxCh=Math.max(4,Math.floor(gw/10)),corta=t=>t.length>maxCh?t.slice(0,maxCh-1)+'…':t;
+ return `<svg class="nx-svg" viewBox="0 0 ${W} ${H}" preserveAspectRatio="xMidYMid meet" role="img" aria-label="Pareto de defeitos">
+ <defs><linearGradient id="nxPq" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#ff7b7f"/><stop offset="1" stop-color="#d83a40"/></linearGradient><linearGradient id="nxPq2" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#ffe066"/><stop offset="1" stop-color="#d9a91a"/></linearGradient></defs>
+ ${[0,25,50,75,100].map(t=>`<line x1="${L}" x2="${W-R}" y1="${yp(t)}" y2="${yp(t)}" class="nx-grid"/><text x="${W-R+8}" y="${yp(t)+5}" class="nx-axis">${t}%</text>`).join('')}
+ <line x1="${L}" x2="${W-R}" y1="${yp(80)}" y2="${yp(80)}" class="nx-ref"/><text x="${L+4}" y="${yp(80)-7}" class="nx-ref-t">80%</text>
+ ${items.map((it,i)=>{const cx=L+gw*i+gw/2;return `<rect x="${cx-bw/2}" y="${y(it.value)}" width="${bw}" height="${H-B-y(it.value)}" rx="5" fill="${pts[i].p<=80||i===0?'url(#nxPq)':'url(#nxPq2)'}"/><text x="${cx}" y="${y(it.value)-8}" class="nx-val" text-anchor="middle">${fmt(it.value)}</text><text x="${cx}" y="${H-30}" class="nx-axis nx-axis-x" text-anchor="middle"><title>${escapeHtml(it.label)}</title>${escapeHtml(corta(it.label))}</text>`}).join('')}
+ <path d="${pts.map((q,i)=>(i?'L':'M')+q.x.toFixed(1)+' '+yp(q.p).toFixed(1)).join(' ')}" class="nx-line"/>
+ ${pts.map(q=>`<circle cx="${q.x}" cy="${yp(q.p)}" r="6" class="nx-dot nx-dot-cyan"/>`).join('')}
+ <line x1="${L}" x2="${W-R}" y1="${H-B}" y2="${H-B}" class="nx-base"/></svg>`;
+}
+function panelQualidade(){
+ const rows=rowsFlow(),byL=new Map(rows.map(l=>[String(l.id),l]));
+ const regs=(data.qualidade||[]).map(q=>({q,l:byL.get(String(q.lancamento))})).filter(x=>x.l);
+ const pontos=(data.roteiro||[]).filter(r=>r.qualidade).length;
+ if(!pontos)return empty('Nenhuma operação marcada como ponto de inspeção. Marque em Produtos e operações → Tempos por produto → Inspeção de qualidade.');
+ const num=v=>Number(v)||0,defDe=q=>q.defeituosas!=null?num(q.defeituosas):(q.defeitos||[]).reduce((n,d)=>n+num(d.quantidade),0);
+ const insp=regs.reduce((n,x)=>n+(x.q.inspecionadas!=null?num(x.q.inspecionadas):num(x.l.realizado)),0);
+ const def=regs.reduce((n,x)=>n+defDe(x.q),0),ret=regs.reduce((n,x)=>n+num(x.q.retrabalho),0),ref=regs.reduce((n,x)=>n+num(x.q.refugo),0);
+ const idx=insp?100*def/insp:null,tq=v=>v==null?'cyan':v<=2?'green':v<=5?'yellow':'red';
+ const apont=rows.filter(l=>byId('roteiro',l.roteiro)?.qualidade),cobertura=apont.length?100*regs.length/apont.length:null;
+ // pareto
+ const porDef=new Map();regs.forEach(x=>(x.q.defeitos||[]).forEach(d=>porDef.set(d.defeito,(porDef.get(d.defeito)||0)+num(d.quantidade))));
+ const pareto=[...porDef.entries()].map(([id,v])=>({label:byId('defeitos',id)?.nome||'Defeito',value:v})).filter(i=>i.value>0).sort((a,b)=>b.value-a.value).slice(0,10);
+ // por dia
+ const dias=[...new Set(regs.map(x=>x.l.data))].sort();
+ const ptsD=dias.map(d=>{const r=regs.filter(x=>x.l.data===d),i=r.reduce((n,x)=>n+(x.q.inspecionadas!=null?num(x.q.inspecionadas):num(x.l.realizado)),0),f=r.reduce((n,x)=>n+defDe(x.q),0),v=i?100*f/i:0;return {label:shortDate(d),value:v,tone:v<=2?'green':v<=5?'cyan':'red'}});
+ // por ponto de inspeção (produto × operação)
+ const pp=new Map();regs.forEach(x=>{const k=x.l.produto+'|'+(x.l.roteiro||x.l.processo);let g=pp.get(k);if(!g){g={nome:(byId('processos',x.l.processo)?.nome||'')+' · '+(byId('produtos',x.l.produto)?.nome||''),insp:0,def:0};pp.set(k,g);}g.insp+=x.q.inspecionadas!=null?num(x.q.inspecionadas):num(x.l.realizado);g.def+=defDe(x.q);});
+ const pontosL=[...pp.values()].map(g=>({...g,idx:g.insp?100*g.def/g.insp:0})).sort((a,b)=>b.idx-a.idx);
+ const mxI=Math.max(1,...pontosL.map(g=>g.idx));
+ const barsP=pontosL.map((g,i)=>`<div class="nx-hrow"><span class="nx-hn">${i+1}</span><b class="nx-hname" title="${escapeHtml(g.nome)}">${escapeHtml(g.nome)}</b><div class="nx-htrack"><i class="nx-hbar nx-${tq(g.idx)==='yellow'?'yellow':tq(g.idx)}" style="width:${Math.max(3,g.idx/mxI*100)}%"></i></div><span class="nx-hval">${fmt(g.def)}</span><span class="nx-pill nx-${tq(g.idx)}">${fmt(g.idx,1)}%</span></div>`).join('');
+ // por produto
+ const pr=new Map();regs.forEach(x=>{let g=pr.get(x.l.produto);if(!g){g={nome:byId('produtos',x.l.produto)?.nome||'—',insp:0,def:0,ret:0,ref:0};pr.set(x.l.produto,g);}g.insp+=x.q.inspecionadas!=null?num(x.q.inspecionadas):num(x.l.realizado);g.def+=defDe(x.q);g.ret+=num(x.q.retrabalho);g.ref+=num(x.q.refugo);});
+ const tab=[...pr.values()].sort((a,b)=>b.insp-a.insp).map(g=>{const i=g.insp?100*g.def/g.insp:null;return `<tr class="nx-row-${tq(i)==='yellow'?'yellow':tq(i)}"><td><b>${escapeHtml(g.nome)}</b></td><td>${fmt(g.insp)}</td><td>${fmt(g.def)}</td><td><span class="nx-pill nx-${tq(i)}">${i==null?'—':fmt(i,1)+'%'}</span></td><td>${fmt(g.ret)}</td><td>${fmt(g.ref)}</td></tr>`}).join('');
+ return `<section class="nx-kpis">
+  ${nk('box','INSPECIONADAS',fmt(insp),'cyan',fmt(regs.length)+' inspeção(ões)')}
+  ${nk('alert','COM DEFEITO',fmt(def),def?'red':'green')}
+  ${nk('meta','ÍNDICE DE DEFEITO',idx==null?'—':fmt(idx,1)+'%',tq(idx),'defeito ÷ inspecionadas')}
+  ${nk('gear','RETRABALHO / REFUGO',`${fmt(ret)}<em>/ ${fmt(ref)}</em>`,'yellow')}
+  ${nk('layers','COBERTURA',cobertura==null?'—':p1(cobertura),cobertura==null?'cyan':cobertura>=90?'green':cobertura>=60?'yellow':'red','apontamentos inspecionados')}</section>
+ <div class="nx-grid2">${box('alert','PARETO DE DEFEITOS','Quantidade e % acumulado',paretoChart(pareto))}
+  ${box('trend','ÍNDICE DE DEFEITO POR DIA',filterSummary(),lineChart(ptsD,{fmt:v=>fmt(v,1)+'%',floor:0,id:'q',aria:'Índice de defeito por dia'}))}
+  ${box('layers','POR PONTO DE INSPEÇÃO','Peças com defeito e índice',pontosL.length?`<div class="nx-hbars">${barsP}</div>`:empty('Sem inspeções registradas no período.'))}
+  ${box('box','QUALIDADE POR PRODUTO','',tab?`<table class="nx-table"><thead><tr><th>PRODUTO</th><th>INSPEC.</th><th>DEFEITO</th><th>ÍNDICE</th><th>RETRAB.</th><th>REFUGO</th></tr></thead><tbody>${tab}</tbody></table>`:empty('Sem inspeções registradas no período.'),'nx-scroll')}</div>`;
+}
 /* ---------- Tela 5: TENDÊNCIAS ---------- */
 function panelTendencias(){
  const rows=rowsFor(),flow=rowsFlow(),dia=filters.fim||nowDate();
@@ -408,7 +461,7 @@ function updateUi(){
  const fs=document.getElementById('tvFilterSummary');if(fs)fs.textContent=filterSummary();
  if(sync)sync.textContent=lastError?lastError:lastUpdated?'Atualizado às '+lastUpdated.toLocaleTimeString('pt-BR'):'Sincronizando com o Supabase';
  guardarRolagem();
- for(const n of [2,3,4,5]){const el=document.getElementById('tvP'+n);if(el)el.innerHTML=cfg.panel===n?PANEL_FN[n]():'';}
+ for(const n of [2,3,4,5,6]){const el=document.getElementById('tvP'+n);if(el)el.innerHTML=cfg.panel===n?PANEL_FN[n]():'';}
  restaurarRolagem();
  updateClock();
  requestAnimationFrame(fitKpis);
@@ -450,7 +503,7 @@ function template(incoming){
  '<div class="tv-content-grid'+(cfg.p1.semRanking?' no-rank':'')+'" id="tvGrid1"><section class="tv-table-box"><div class="tv-panel-header"><div><b id="tvTblTitle">'+(cfg.p1.agrupar?'PRODUÇÃO POR OPERAÇÃO':'LANÇAMENTOS DE PRODUÇÃO')+'</b><small id="tvTblSub">'+(cfg.p1.agrupar?'Eficiência coletiva ponderada pelos lançamentos':'Indicadores por apontamento no intervalo selecionado')+'</small></div><span id="tvRowCount">'+fmt(rows.length)+' apontamento(s)</span></div><div id="tvOpts">'+optsHtml()+'</div>'+
  '<div class="tv-table-scroll"><table class="tv-data-table"><thead id="tvHead">'+headHtml()+'</thead><tbody id="tvRows">'+rowsHtml(rows)+'</tbody></table></div></section>'+
  '<aside class="tv-ranking-box"><div class="tv-panel-header"><div><b>FUNCIONÁRIOS</b><small>Eficiência acumulada no período</small></div><span id="tvRankCount"></span></div><div id="tvRanking" class="tv-ranking-scroll">'+rankings(rows)+'</div></aside></div></div>'+
- [2,3,4,5].map(n=>'<div class="tv-p tv-p'+n+'" id="tvP'+n+'">'+(cfg.panel===n?PANEL_FN[n]():'')+'</div>').join('')+
+ [2,3,4,5,6].map(n=>'<div class="tv-p tv-p'+n+'" id="tvP'+n+'">'+(cfg.panel===n?PANEL_FN[n]():'')+'</div>').join('')+
  '<footer class="tv-bottom"><span>FACSIM • GESTÃO INDUSTRIAL</span><span>Peça pronta = apontamento da operação final · Processos, Gargalos e Peças prontas usam o fluxo inteiro (ignoram filtro de funcionário e processo)</span><span id="tvLastSync">Sincronizando com o Supabase</span></footer></section>';
 }
 async function refresh(){

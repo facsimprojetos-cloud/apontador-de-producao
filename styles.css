@@ -605,7 +605,7 @@ body:not(.is-admin) .admin-only{display:none!important}
 
 /* ===== Painéis de TV: abas, rodízio, gargalos e peças prontas ===== */
 .tv-p{display:none;flex-direction:column;gap:15px;flex:1;min-height:0}
-.tv-workspace[data-panel="1"] .tv-p1,.tv-workspace[data-panel="2"] .tv-p2,.tv-workspace[data-panel="3"] .tv-p3,.tv-workspace[data-panel="4"] .tv-p4,.tv-workspace[data-panel="5"] .tv-p5{display:flex}
+.tv-workspace[data-panel="1"] .tv-p1,.tv-workspace[data-panel="2"] .tv-p2,.tv-workspace[data-panel="3"] .tv-p3,.tv-workspace[data-panel="4"] .tv-p4,.tv-workspace[data-panel="5"] .tv-p5,.tv-workspace[data-panel="6"] .tv-p6{display:flex}
 .tv-full .tv-p{gap:10px}
 .tv-panelbar{position:relative;display:flex;align-items:center;gap:10px;flex-wrap:wrap}
 .tv-panels{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
@@ -1077,3 +1077,20 @@ body:not(.is-admin) .admin-only{display:none!important}
 .tv-full .nx-chip:not(.nx-legend){display:none}
 .tv-full .nx-box-h{padding:8px 14px}
 .tv-full .tv-panel-header small{display:none}
+
+/* ===== Qualidade ===== */
+.q-badge{display:inline-flex;align-items:center;gap:4px;margin-top:6px;padding:3px 10px;border-radius:20px;border:1.5px dashed #9aa9b8;background:#fff;color:#4e6276;font:inherit;font-size:11px;font-weight:800;cursor:pointer;white-space:nowrap}
+.q-badge.ok{border-style:solid;border-color:#25ab84;color:#11704f;background:#e3f6ee}
+.q-badge.warn{border-style:solid;border-color:#e0a106;color:#8a5a00;background:#fff4d6}
+.day-op .q-badge{display:flex;width:max-content}
+.q-toggle{border:1.5px dashed #b9c8d6;background:#fff;color:#6d7f92;border-radius:20px;padding:5px 12px;font:inherit;font-size:12px;font-weight:800;cursor:pointer;white-space:nowrap}
+.q-toggle.on{border-style:solid;border-color:#7c5cd6;background:#f1ecff;color:#4b2fa8}
+.q-intro{margin:0 0 14px;color:#4e6276;font-size:13px}
+.q-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;margin-bottom:6px}
+.q-sub{margin:14px 0 8px;font-size:13px;color:var(--navy)}
+.q-defs{display:grid;grid-template-columns:repeat(auto-fill,minmax(190px,1fr));gap:8px;margin-bottom:12px}
+.q-def{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:6px 8px 6px 12px;border:1px solid var(--line);border-radius:10px;background:#f8fafc;font-size:13px;font-weight:700;color:#28394b}
+.q-def .input{width:80px;flex:0 0 80px;text-align:center}
+.text-btn.danger{color:#b42828}
+.q-def-form{grid-template-columns:minmax(220px,1fr) auto!important;margin:0 -22px 12px}
+@media(max-width:700px){.q-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
