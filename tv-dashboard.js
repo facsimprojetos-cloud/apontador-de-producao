@@ -419,7 +419,8 @@ function fitKpis(){
   const st=k.querySelector('strong'),tx=k.querySelector('.nx-kpi-txt');if(!st||!tx||!k.offsetWidth)return;
   st.style.fontSize='';const nm=k.querySelector('.nx-k-nome');if(nm)nm.style.fontSize='';
   let f=parseFloat(getComputedStyle(st).fontSize),i=0;
-  const estoura=()=>k.scrollWidth>k.clientWidth+1||tx.scrollWidth>tx.clientWidth+1||st.scrollWidth>st.clientWidth+1;
+  const cruza=()=>{const a=st.getBoundingClientRect(),b=tx.getBoundingClientRect();return a.left<b.right-1&&a.right>b.left+1&&a.top<b.bottom-1&&a.bottom>b.top+1;};
+  const estoura=()=>k.scrollWidth>k.clientWidth+1||tx.scrollWidth>tx.clientWidth+1||st.scrollWidth>st.clientWidth+1||cruza();
   while(estoura()&&f>11&&i++<40){f*=.93;st.style.fontSize=f+'px';if(nm&&i>12)nm.style.fontSize=Math.max(10,parseFloat(getComputedStyle(nm).fontSize)*.95)+'px';}
  });
 }
