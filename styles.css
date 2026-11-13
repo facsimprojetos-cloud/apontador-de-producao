@@ -1099,3 +1099,9 @@ body:not(.is-admin) .admin-only{display:none!important}
 .q-ponto{display:flex;align-items:center;gap:12px;padding:10px 14px;border:1px solid var(--line);border-radius:10px;background:#f8fafc;cursor:pointer}
 .q-ponto input{width:20px;height:20px;accent-color:#7c5cd6}
 .q-ponto:has(input:checked){border-color:#a78bfa;background:#f6f2ff}
+.q-filtrado .q-extra{display:none}
+.q-def-tools{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;margin:-4px 0 12px}
+.q-add{display:flex;gap:8px;align-items:center;margin-left:auto}.q-add .input{width:220px}
+.q-defs-check{grid-template-columns:repeat(auto-fill,minmax(200px,1fr))}
+.q-defs-check .q-ponto{padding:8px 12px}
+.q-status small{display:block;font-size:11px;color:#6b4fc9;margin-top:2px}
