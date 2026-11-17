@@ -1,0 +1,457 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>FacSim | Apontamento de produção e gestão à vista para confecções</title>
+<meta name="description" content="FacSim transforma o apontamento hora a hora da sua confecção em painéis de gestão à vista na TV da fábrica. Metas por operador, qualidade, faltas e bonificação. Método Cristiano Cardoso.">
+<meta property="og:title" content="FacSim | A produção da sua confecção na TV, hora a hora">
+<meta property="og:description" content="Apontamento de produção, metas individualizadas e gestão à vista. Desenvolvido com base no método Cristiano Cardoso.">
+<meta property="og:image" content="assets/og.jpg">
+<meta property="og:type" content="website">
+<meta name="theme-color" content="#0F2340">
+<meta name="robots" content="noindex">
+<link rel="icon" href="assets/logo.svg" type="image/svg+xml">
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,700&family=Manrope:wght@600;700;800&display=swap" rel="stylesheet">
+<style>
+:root{
+  --marinho:#0F2340; --marinho-2:#16305A; --verde:#128669; --verde-claro:#3DDC97;
+  --fundo:#F4F6F9; --tecido:#DDE3EA; --tinta:#1A2433; --suave:#5B6B80;
+  --sinal:#F2C94C; --alerta:#E5484D;
+  --r-s:10px; --r-m:18px; --r-l:28px;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html{scroll-behavior:smooth;-webkit-text-size-adjust:100%}
+body{font-family:'DM Sans',system-ui,sans-serif;font-size:18px;line-height:1.6;color:var(--tinta);background:var(--fundo);-webkit-font-smoothing:antialiased}
+img,video{display:block;max-width:100%}
+a{color:inherit}
+h1,h2,h3{font-family:Manrope,system-ui,sans-serif;line-height:1.08;letter-spacing:-.02em;color:var(--marinho)}
+h1{font-size:clamp(40px,6.2vw,76px);font-weight:800}
+h2{font-size:clamp(32px,4.2vw,52px);font-weight:800}
+h3{font-size:22px;font-weight:700;letter-spacing:-.01em;line-height:1.25}
+p{max-width:62ch}
+.wrap{width:min(1180px,100% - 48px);margin-inline:auto}
+section{padding:112px 0}
+.lead{font-size:21px;color:var(--suave);margin-top:20px}
+:focus-visible{outline:3px solid var(--sinal);outline-offset:3px;border-radius:6px}
+
+/* botões */
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:10px;min-height:56px;padding:0 28px;border-radius:999px;font-family:Manrope,system-ui,sans-serif;font-weight:800;font-size:17px;text-decoration:none;border:2px solid transparent;cursor:pointer;transition:background .15s,color .15s,border-color .15s}
+.btn-wa{background:var(--verde);color:#fff}
+.btn-wa:hover{background:#0e6f57}
+.btn-wa svg{width:22px;height:22px;flex:none}
+.btn-linha{border-color:rgba(255,255,255,.35);color:#fff}
+.btn-linha:hover{border-color:#fff}
+
+/* cabeçalho */
+.topo{position:sticky;top:0;z-index:20;background:rgba(15,35,64,.92);backdrop-filter:blur(10px);border-bottom:1px solid rgba(255,255,255,.08)}
+.topo .wrap{display:flex;align-items:center;justify-content:space-between;height:72px;gap:20px}
+.marca{display:flex;align-items:center;gap:12px;text-decoration:none;color:#fff;font-family:Manrope,system-ui,sans-serif;font-weight:800;font-size:22px;letter-spacing:.02em}
+.marca img{width:38px;height:38px}
+.topo nav{display:flex;gap:28px}
+.topo nav a{color:#C7D3E3;text-decoration:none;font-size:16px;font-weight:500}
+.topo nav a:hover{color:#fff}
+.topo .btn{min-height:44px;padding:0 20px;font-size:15px}
+
+/* hero */
+.hero{background:var(--marinho);color:#fff;padding:72px 0 0;overflow:hidden;position:relative}
+.hero::before{content:"";position:absolute;inset:0;background:radial-gradient(900px 500px at 75% 30%,rgba(18,134,105,.28),transparent 65%);pointer-events:none}
+.hero .wrap{position:relative;display:grid;grid-template-columns:1fr;gap:8px}
+.hero h1{color:#fff;max-width:15ch}
+.hero .lead{color:#C7D3E3;max-width:46ch}
+.hero .acoes{display:flex;flex-wrap:wrap;gap:14px;margin-top:36px}
+.parceria{display:flex;align-items:center;gap:14px;margin-top:40px;color:#C7D3E3;font-size:16px}
+.parceria strong{color:#fff;font-weight:700}
+.parceria .selo{width:46px;height:46px;border-radius:50%;background:var(--sinal);color:var(--marinho);display:grid;place-items:center;font-family:Manrope,system-ui,sans-serif;font-weight:800;font-size:17px;flex:none}
+/* a TV */
+.tv-cena{position:relative;padding-top:84px;margin-inline:auto;width:min(1080px,100%)}
+.tv-cabo{position:absolute;top:0;width:4px;height:88px;background:linear-gradient(#0a1729,#26364f)}
+.tv-cabo.e{left:22%}.tv-cabo.d{right:22%}
+.tv{position:relative;background:#06090f;border-radius:16px;padding:14px;box-shadow:0 40px 120px rgba(0,0,0,.55),0 0 0 1px rgba(255,255,255,.08),0 0 140px rgba(61,220,151,.18)}
+.tv-tela{position:relative;border-radius:6px;overflow:hidden;background:#0b0f16;aspect-ratio:16/9}
+.tv-tela img{width:100%;height:100%;object-fit:cover}
+.tv-tela::after{content:"";position:absolute;inset:0;background:linear-gradient(115deg,rgba(255,255,255,.08),transparent 30%)}
+.tv-led{position:absolute;bottom:5px;left:50%;width:6px;height:6px;margin-left:-3px;border-radius:50%;background:var(--verde-claro);box-shadow:0 0 8px var(--verde-claro)}
+.tv-legenda{text-align:center;color:#8EA0B8;font-size:15px;padding:22px 0 44px}
+.chao{height:80px;background:linear-gradient(180deg,rgba(255,255,255,.04),transparent);border-top:1px solid rgba(255,255,255,.06)}
+@media (prefers-reduced-motion:no-preference){
+  .tv-tela img{animation:liga 1.6s cubic-bezier(.2,.7,.2,1) .35s both}
+  .tv-tela::before{content:"";position:absolute;left:0;right:0;top:50%;height:2px;background:#fff;z-index:2;animation:linha .55s ease-out .2s both}
+  @keyframes liga{0%{opacity:0;transform:scaleY(.02);filter:brightness(3)}45%{opacity:1;transform:scaleY(1);filter:brightness(1.6)}100%{opacity:1;transform:none;filter:none}}
+  @keyframes linha{0%{opacity:0;transform:scaleX(0)}60%{opacity:1;transform:scaleX(1)}100%{opacity:0;transform:scaleX(1)}}
+}
+
+/* problema */
+.problema{background:#fff}
+.problema .grade{display:grid;grid-template-columns:1fr;gap:48px;margin-top:56px}
+.dor{border-top:3px solid var(--tecido);padding-top:22px}
+.dor h3{margin-bottom:10px}
+.dor p{color:var(--suave);font-size:17px}
+
+/* vídeo */
+.video{background:var(--marinho);color:#fff}
+.video .wrap{display:grid;grid-template-columns:1fr;gap:56px;align-items:center}
+.video h2{color:#fff}
+.video .lead{color:#C7D3E3}
+.celular{width:min(340px,100%);margin-inline:auto;border-radius:48px;background:#05080e;padding:12px;box-shadow:0 40px 100px rgba(0,0,0,.5),inset 0 0 0 2px rgba(255,255,255,.1)}
+.celular video{width:100%;aspect-ratio:9/16;border-radius:38px;background:#000;object-fit:cover}
+.lista-check{list-style:none;margin-top:28px;display:grid;gap:14px}
+.lista-check li{display:flex;gap:14px;color:#DCE5F0}
+.lista-check li::before{content:"";width:22px;height:22px;flex:none;margin-top:4px;border-radius:50%;background:var(--verde) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M6 12.5l4 4 8-9' stroke='%23fff' stroke-width='3' fill='none' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E") center/14px no-repeat}
+
+/* como funciona */
+.passos{display:grid;gap:96px;margin-top:72px}
+.passo{display:grid;grid-template-columns:1fr;gap:32px;align-items:center}
+.passo .num{font-family:Manrope,system-ui,sans-serif;font-weight:800;font-size:15px;color:var(--verde);display:flex;align-items:center;gap:12px;margin-bottom:14px}
+.passo .num b{width:40px;height:40px;border-radius:50%;border:2px solid var(--verde);display:grid;place-items:center;font-size:17px}
+.passo p{color:var(--suave);margin-top:14px}
+.print{border-radius:var(--r-m);overflow:hidden;background:#fff;box-shadow:0 1px 0 var(--tecido),0 24px 60px rgba(15,35,64,.14);border:1px solid var(--tecido)}
+.print img{width:100%;height:auto}
+.print.escuro{background:#0b0f16;border-color:#1c2636}
+.passo .cel{width:min(300px,100%);margin-inline:auto;border-radius:40px;background:#05080e;padding:10px;box-shadow:0 30px 70px rgba(15,35,64,.25)}
+.passo .cel img{border-radius:31px;width:100%;height:auto}
+
+/* metas */
+.metas{background:#fff}
+.metas .wrap{display:grid;grid-template-columns:1fr;gap:56px;align-items:center}
+.comparativo{display:grid;grid-template-columns:1fr 1fr;gap:18px}
+.op{background:var(--fundo);border-radius:var(--r-l);padding:28px 26px;border:1px solid var(--tecido)}
+.op h3{font-size:20px}
+.op .nivel{font-size:15px;color:var(--suave)}
+.barras{display:flex;align-items:flex-end;gap:14px;height:190px;margin:24px 0 10px;border-bottom:2px solid var(--tecido)}
+.barras div{flex:1;border-radius:8px 8px 0 0;position:relative}
+.barras span{position:absolute;top:-30px;left:0;right:0;text-align:center;font-family:Manrope,system-ui,sans-serif;font-weight:800;font-size:18px}
+.b-meta{background:var(--tecido)}
+.b-real{background:var(--verde)}
+.b-real span{color:var(--verde)}
+.leg{display:flex;justify-content:space-around;font-size:14px;color:var(--suave)}
+.efi{margin-top:18px;font-family:Manrope,system-ui,sans-serif;font-weight:800;font-size:44px;color:var(--marinho)}
+.efi small{display:block;font-family:'DM Sans',system-ui,sans-serif;font-weight:500;font-size:15px;color:var(--suave)}
+.ilustrativo{font-size:14px;color:var(--suave);margin-top:14px}
+
+/* recursos (abas) */
+.abas{display:flex;flex-wrap:wrap;gap:10px;margin-top:48px}
+.aba{font:inherit;font-family:Manrope,system-ui,sans-serif;font-weight:700;font-size:16px;padding:12px 20px;border-radius:999px;border:2px solid var(--tecido);background:#fff;color:var(--marinho);cursor:pointer}
+.aba[aria-selected="true"]{background:var(--marinho);border-color:var(--marinho);color:#fff}
+.painel-aba{display:grid;grid-template-columns:1fr;gap:36px;margin-top:36px;align-items:start}
+.painel-aba[hidden]{display:none}
+.painel-aba p{color:var(--suave)}
+.painel-aba h3{font-size:28px;margin-bottom:12px}
+
+/* método */
+.metodo{background:var(--marinho);color:#fff;position:relative;overflow:hidden}
+.metodo .wrap{display:grid;grid-template-columns:1fr;gap:48px}
+.metodo h2{color:#fff}
+.metodo p{color:#C7D3E3}
+.metodo .assinatura{border-left:4px solid var(--sinal);padding:6px 0 6px 24px}
+.metodo .assinatura strong{display:block;font-family:Manrope,system-ui,sans-serif;font-size:28px;color:#fff;letter-spacing:-.01em}
+.metodo .assinatura span{color:#8EA0B8;font-size:16px}
+.pilares{display:grid;gap:22px;margin-top:8px}
+.pilar{padding:24px 26px;border-radius:var(--r-m);background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.1)}
+.pilar h3{color:#fff;font-size:20px;margin-bottom:6px}
+.pilar p{font-size:16px}
+
+/* para quem */
+.quem .grade{display:grid;grid-template-columns:1fr;gap:20px;margin-top:48px}
+.quem .item{background:#fff;border-radius:var(--r-m);padding:28px;border:1px solid var(--tecido)}
+.quem .item p{color:var(--suave);font-size:17px;margin-top:8px}
+
+/* FAQ */
+.faq{background:#fff}
+.faq .wrap{max-width:860px}
+.faq details{border-bottom:1px solid var(--tecido)}
+.faq summary{list-style:none;cursor:pointer;display:flex;justify-content:space-between;align-items:center;gap:20px;padding:24px 0;font-family:Manrope,system-ui,sans-serif;font-weight:700;font-size:20px;color:var(--marinho)}
+.faq summary::-webkit-details-marker{display:none}
+.faq summary::after{content:"+";font-size:30px;font-weight:600;color:var(--verde);transition:transform .2s}
+.faq details[open] summary::after{transform:rotate(45deg)}
+.faq details p{padding:0 0 24px;color:var(--suave)}
+
+/* contato */
+.contato{background:var(--marinho);color:#fff}
+.contato .wrap{display:grid;grid-template-columns:1fr;gap:48px;align-items:start}
+.contato h2{color:#fff}
+.contato .lead{color:#C7D3E3}
+form{background:#fff;color:var(--tinta);border-radius:var(--r-l);padding:34px;display:grid;gap:18px}
+label{display:grid;gap:8px;font-weight:700;font-size:15px;color:var(--marinho)}
+input,select{font:inherit;font-size:17px;padding:14px 16px;border-radius:var(--r-s);border:2px solid var(--tecido);background:var(--fundo);color:var(--tinta);width:100%}
+input:focus,select:focus{outline:none;border-color:var(--verde);background:#fff}
+form .btn{width:100%;margin-top:6px}
+form small{color:var(--suave);font-size:14px;text-align:center}
+.erro{color:var(--alerta);font-size:15px;font-weight:700;min-height:1px}
+
+footer{background:#0A1830;color:#8EA0B8;padding:44px 0;font-size:15px}
+footer .wrap{display:flex;flex-wrap:wrap;justify-content:space-between;gap:20px;align-items:center}
+footer .marca{font-size:18px}
+.wa-flutuante{position:fixed;right:18px;bottom:18px;z-index:30;width:62px;height:62px;border-radius:50%;background:#25D366;display:grid;place-items:center;box-shadow:0 10px 30px rgba(0,0,0,.3)}
+.wa-flutuante svg{width:32px;height:32px}
+
+@media (min-width:900px){
+  .hero .wrap{grid-template-columns:1fr}
+  .problema .grade{grid-template-columns:repeat(3,1fr)}
+  .video .wrap{grid-template-columns:1.05fr .95fr}
+  .passo{grid-template-columns:.8fr 1.2fr;gap:64px}
+  .passo:nth-child(even){grid-template-columns:1.2fr .8fr}
+  .passo:nth-child(even) .txt{order:2}
+  .metas .wrap{grid-template-columns:.9fr 1.1fr}
+  .painel-aba{grid-template-columns:.75fr 1.25fr}
+  .metodo .wrap{grid-template-columns:1.1fr .9fr;align-items:center}
+  .quem .grade{grid-template-columns:repeat(3,1fr)}
+  .contato .wrap{grid-template-columns:1fr 1fr}
+}
+@media (max-width:899px){
+  .topo nav{display:none}
+  section{padding:80px 0}
+  .tv-cena{padding-top:70px}.tv-cabo{height:74px}
+  .tv{padding:8px;border-radius:10px}
+}
+@media (max-width:520px){
+  .topo .btn span{display:none}
+  .topo .btn{padding:0 14px}
+  .comparativo{grid-template-columns:1fr 1fr;gap:10px}
+  .op{padding:20px 16px}
+  .efi{font-size:34px}
+  form{padding:24px}
+}
+</style>
+</head>
+<body>
+
+<header class="topo">
+  <div class="wrap">
+    <a class="marca" href="#inicio"><img src="assets/logo.svg" alt="">FacSim</a>
+    <nav aria-label="Seções">
+      <a href="#como-funciona">Como funciona</a><a href="#recursos">Recursos</a><a href="#metodo">Método</a><a href="#duvidas">Dúvidas</a>
+    </nav>
+    <a class="btn btn-wa js-wa" href="#contato"><svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M12 2a10 10 0 0 0-8.6 15.1L2 22l5-1.3A10 10 0 1 0 12 2Zm0 18.2a8.2 8.2 0 0 1-4.2-1.2l-.3-.2-3 .8.8-2.9-.2-.3A8.2 8.2 0 1 1 12 20.2Zm4.5-6.1c-.2-.1-1.5-.7-1.7-.8s-.4-.1-.6.1-.7.8-.8 1-.3.2-.5.1a6.7 6.7 0 0 1-3.3-2.9c-.3-.4.3-.4.7-1.3.1-.2 0-.3 0-.4l-.8-1.8c-.2-.5-.4-.4-.6-.4h-.5a1 1 0 0 0-.7.3 3 3 0 0 0-.9 2.2 5.2 5.2 0 0 0 1.1 2.7 11.8 11.8 0 0 0 4.5 4c1.7.7 2.3.8 3.2.6a2.7 2.7 0 0 0 1.8-1.2 2.2 2.2 0 0 0 .1-1.3c0-.1-.2-.2-.5-.3Z"/></svg><span>Falar no WhatsApp</span></a>
+  </div>
+</header>
+
+<main id="inicio">
+<section class="hero">
+  <div class="wrap">
+    <div>
+      <h1>A produção da sua confecção na TV, hora a hora.</h1>
+      <p class="lead">O FacSim transforma o apontamento de cada operador em painéis de gestão à vista. A equipe acompanha a meta durante o dia e você corrige o rumo antes do expediente acabar.</p>
+      <div class="acoes">
+        <a class="btn btn-wa js-wa" href="#contato"><svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M12 2a10 10 0 0 0-8.6 15.1L2 22l5-1.3A10 10 0 1 0 12 2Zm4.5 12.1c-.2-.1-1.5-.7-1.7-.8s-.4-.1-.6.1-.7.8-.8 1-.3.2-.5.1a6.7 6.7 0 0 1-3.3-2.9c-.3-.4.3-.4.7-1.3.1-.2 0-.3 0-.4l-.8-1.8c-.2-.5-.4-.4-.6-.4h-.5a1 1 0 0 0-.7.3 3 3 0 0 0-.9 2.2 5.2 5.2 0 0 0 1.1 2.7 11.8 11.8 0 0 0 4.5 4c1.7.7 2.3.8 3.2.6a2.7 2.7 0 0 0 1.8-1.2 2.2 2.2 0 0 0 .1-1.3c0-.1-.2-.2-.5-.3Z"/></svg>Agendar uma demonstração</a>
+        <a class="btn btn-linha" href="#video">Ver o vídeo de 1 minuto</a>
+      </div>
+      <div class="parceria"><span class="selo">CC</span><span>Desenvolvido com base no método de <strong>Cristiano Cardoso</strong>, consultor de produtividade reconhecido em todo o Brasil.</span></div>
+    </div>
+    <div class="tv-cena">
+      <span class="tv-cabo e"></span><span class="tv-cabo d"></span>
+      <div class="tv"><div class="tv-tela"><img src="assets/tv-producao.jpg" width="1920" height="1080" alt="Painel de produção do FacSim na TV: operações previstas, realizadas, eficiência de 104,1% e ranking de funcionários"></div><span class="tv-led"></span></div>
+      <p class="tv-legenda">Painel real do FacSim exibido na TV da fábrica, com dados de demonstração.</p>
+    </div>
+  </div>
+  <div class="chao"></div>
+</section>
+
+<section class="problema">
+  <div class="wrap">
+    <h2>Sem apontamento, você só descobre o problema no fim do dia.</h2>
+    <p class="lead">Na maioria das confecções a produção é conferida quando já não dá mais tempo de reagir.</p>
+    <div class="grade">
+      <div class="dor"><h3>A meta é igual para todos</h3><p>Quem está aprendendo e quem domina a operação recebem a mesma cobrança. Um se frustra, o outro se acomoda.</p></div>
+      <div class="dor"><h3>O gargalo aparece tarde</h3><p>Quando a peça não sai no final da linha, a operação que travou já acumulou horas de atraso.</p></div>
+      <div class="dor"><h3>A equipe não vê o resultado</h3><p>Sem números à vista, o esforço de cada pessoa fica invisível, e a bonificação vira discussão.</p></div>
+    </div>
+  </div>
+</section>
+
+<section class="video" id="video">
+  <div class="wrap">
+    <div>
+      <h2>Veja o FacSim em 60 segundos.</h2>
+      <p class="lead">Do apontamento no celular do operador até o painel na TV, em tempo real.</p>
+      <ul class="lista-check">
+        <li>Tempo padrão e metas individualizadas por nível de cada operador</li>
+        <li>Meta calculada automaticamente, inclusive em horários fracionados</li>
+        <li>Faltas, intercorrências, qualidade e bonificação no mesmo sistema</li>
+        <li>Seis painéis de gestão à vista que se alternam na TV</li>
+      </ul>
+    </div>
+    <div class="celular"><video controls playsinline preload="none" poster="assets/video-poster.jpg"><source src="assets/comercial-facsim.mp4" type="video/mp4">Seu navegador não reproduz vídeo.</video></div>
+  </div>
+</section>
+
+<section id="como-funciona">
+  <div class="wrap">
+    <h2>Como funciona</h2>
+    <p class="lead">Quatro passos entre o cadastro e a TV ligada no chão de fábrica.</p>
+    <div class="passos">
+      <div class="passo">
+        <div class="txt"><div class="num"><b>1</b>Cadastro</div><h3>Cadastre o tempo padrão de cada operação</h3><p>Monte o roteiro de cada produto, do corte à embalagem, com o tempo de cada etapa. Já tem isso numa planilha? Dá para importar.</p></div>
+        <div class="print"><img src="assets/tempos.jpg" width="1920" height="1080" loading="lazy" alt="Tela de tempos por produto com as operações e o tempo padrão em segundos"></div>
+      </div>
+      <div class="passo">
+        <div class="txt"><div class="num"><b>2</b>Metas</div><h3>Defina o nível de cada operador</h3><p>Cada pessoa tem o próprio tempo por operação, de acordo com o nível de domínio. A meta respeita quem está aprendendo e desafia quem já domina.</p></div>
+        <div class="print"><img src="assets/niveis.jpg" width="1920" height="1080" loading="lazy" alt="Tela de níveis e tempos por funcionário"></div>
+      </div>
+      <div class="passo">
+        <div class="txt"><div class="num"><b>3</b>Apontamento</div><h3>Aponte a produção hora a hora pelo celular</h3><p>Escolha o operador, a operação e o horário, e digite as peças. O FacSim calcula a meta do período na hora, mesmo que sejam só 30 minutos.</p></div>
+        <div class="cel"><img src="assets/celular-apontar.jpg" width="585" height="1120" loading="lazy" alt="Tela de apontamento no celular mostrando meta de 60 peças e eficiência calculada"></div>
+      </div>
+      <div class="passo">
+        <div class="txt"><div class="num"><b>4</b>Gestão à vista</div><h3>Acompanhe tudo na TV da fábrica</h3><p>Os painéis mostram meta e realizado, eficiência, ranking de operadores e gargalos. Eles se atualizam sozinhos e alternam entre si.</p></div>
+        <div class="print escuro"><img src="assets/tv-gargalos.jpg" width="1920" height="1080" loading="lazy" alt="Painel de gargalos destacando a operação Fechar laterais abaixo da média"></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="metas">
+  <div class="wrap">
+    <div>
+      <h2>Metas diferentes, mesma régua de eficiência.</h2>
+      <p class="lead">Comparar peças produzidas é injusto quando as pessoas estão em níveis diferentes. O FacSim compara cada operador com a própria meta.</p>
+      <p class="lead">Assim o ranking e a bonificação premiam o desempenho, não só a experiência.</p>
+    </div>
+    <div>
+      <div class="comparativo" role="img" aria-label="Exemplo: operador A com meta de 100 peças produziu 80; operador B com meta de 125 produziu 100. Os dois têm 80% de eficiência.">
+        <div class="op"><h3>Operador A</h3><div class="nivel">Nível inicial</div>
+          <div class="barras"><div class="b-meta" style="height:64%"><span>100</span></div><div class="b-real" style="height:51%"><span>80</span></div></div>
+          <div class="leg"><span>Meta</span><span>Produção</span></div><div class="efi">80%<small>de eficiência</small></div></div>
+        <div class="op"><h3>Operador B</h3><div class="nivel">Nível avançado</div>
+          <div class="barras"><div class="b-meta" style="height:80%"><span>125</span></div><div class="b-real" style="height:64%"><span>100</span></div></div>
+          <div class="leg"><span>Meta</span><span>Produção</span></div><div class="efi">80%<small>de eficiência</small></div></div>
+      </div>
+      <p class="ilustrativo">Exemplo ilustrativo.</p>
+    </div>
+  </div>
+</section>
+
+<section id="recursos">
+  <div class="wrap">
+    <h2>Tudo o que a gestão da produção precisa</h2>
+    <div class="abas" role="tablist" aria-label="Recursos do FacSim">
+      <button class="aba" role="tab" aria-selected="true" aria-controls="r1" id="t1">Qualidade</button>
+      <button class="aba" role="tab" aria-selected="false" aria-controls="r2" id="t2" tabindex="-1">Faltas e intercorrências</button>
+      <button class="aba" role="tab" aria-selected="false" aria-controls="r3" id="t3" tabindex="-1">Bonificação</button>
+      <button class="aba" role="tab" aria-selected="false" aria-controls="r4" id="t4" tabindex="-1">Importação de planilhas</button>
+    </div>
+    <div class="painel-aba" role="tabpanel" id="r1" aria-labelledby="t1">
+      <div><h3>Controle de qualidade</h3><p>Registre inspeções por apontamento, com peças inspecionadas, defeituosas, retrabalho e refugo. O Pareto de defeitos mostra onde agir primeiro e o painel de qualidade vai para a TV junto com os outros.</p></div>
+      <div class="print escuro"><img src="assets/tv-qualidade.jpg" width="1920" height="1080" loading="lazy" alt="Painel de qualidade com Pareto de defeitos e índice de defeito"></div>
+    </div>
+    <div class="painel-aba" role="tabpanel" id="r2" aria-labelledby="t2" hidden>
+      <div><h3>Faltas e intercorrências</h3><p>Lance faltas, saídas antecipadas e paradas coletivas, como reuniões e ginástica laboral. O tempo perdido entra no cálculo, então a eficiência mostra a realidade da produção.</p></div>
+      <div class="print"><img src="assets/ausencias.jpg" width="1920" height="1080" loading="lazy" alt="Lista de ausências do mês com faltas e ausências parciais"></div>
+    </div>
+    <div class="painel-aba" role="tabpanel" id="r3" aria-labelledby="t3" hidden>
+      <div><h3>Programas de bonificação</h3><p>Monte a tabela de bonificação por faixa de eficiência, individual e coletiva, com regras de desconto por faltas. No fechamento do mês o FacSim calcula o valor de cada pessoa.</p></div>
+      <div class="print"><img src="assets/regras.jpg" width="1920" height="1080" loading="lazy" alt="Tabela de bonificação progressiva por faixa de eficiência"></div>
+    </div>
+    <div class="painel-aba" role="tabpanel" id="r4" aria-labelledby="t4" hidden>
+      <div><h3>Comece com o que você já tem</h3><p>Funcionários, produtos, operações e tempos podem vir de planilhas. A implantação fica mais rápida e você não precisa redigitar nada.</p></div>
+      <div class="print"><img src="assets/importar.jpg" width="1920" height="1080" loading="lazy" alt="Tela de importação de planilhas"></div>
+    </div>
+  </div>
+</section>
+
+<section class="metodo" id="metodo">
+  <div class="wrap">
+    <div>
+      <h2>Um método de consultoria transformado em tecnologia.</h2>
+      <p class="lead">O FacSim nasceu da parceria entre a GUT Consultoria e Treinamentos e o consultor Cristiano Cardoso. A lógica que ele aplica em confecções de todo o país agora funciona todos os dias, em tempo real, dentro da sua fábrica.</p>
+      <div class="assinatura" style="margin-top:36px"><strong>Cristiano Cardoso</strong><span>Consultor em produtividade para confecções</span></div>
+    </div>
+    <div class="pilares">
+      <div class="pilar"><h3>Ganho de produtividade</h3><p>Tempo padrão, metas claras e acompanhamento hora a hora.</p></div>
+      <div class="pilar"><h3>Respeito às individualidades</h3><p>Cada operador é medido pelo próprio nível, não por uma média da fábrica.</p></div>
+      <div class="pilar"><h3>Gestão da qualidade</h3><p>Produzir mais sem perder o padrão das peças.</p></div>
+    </div>
+  </div>
+</section>
+
+<section class="quem">
+  <div class="wrap">
+    <h2>Feito para quem produz roupa</h2>
+    <div class="grade">
+      <div class="item"><h3>Confecções</h3><p>Que querem enxergar a produção de cada setor, do corte à expedição.</p></div>
+      <div class="item"><h3>Facções</h3><p>Que trabalham por peça e precisam de eficiência para manter a margem.</p></div>
+      <div class="item"><h3>Consultores e gestores</h3><p>Que acompanham várias empresas e precisam de números confiáveis.</p></div>
+    </div>
+  </div>
+</section>
+
+<section class="faq" id="duvidas">
+  <div class="wrap">
+    <h2>Dúvidas frequentes</h2>
+    <div style="margin-top:36px">
+      <details><summary>Preciso instalar algum programa?</summary><p>Não. O FacSim funciona no navegador do celular, do computador e da TV. Basta ter internet.</p></details>
+      <details><summary>Que TV eu preciso para os painéis?</summary><p>Qualquer TV com navegador de internet, ou uma TV comum ligada a um computador ou a um aparelho com navegador. O modo TV ocupa a tela inteira e alterna os painéis sozinho.</p></details>
+      <details><summary>Quem faz o apontamento?</summary><p>Um apontador, o líder de setor ou o próprio operador, pelo celular. Cada usuário tem um perfil de acesso: administrador, editor ou somente leitura.</p></details>
+      <details><summary>Funciona para facção?</summary><p>Sim. O FacSim foi desenhado para a realidade da confecção e da facção, com operações, roteiros por produto e metas por operador.</p></details>
+      <details><summary>Quanto custa?</summary><p>O valor depende do tamanho da sua equipe e do tipo de implantação. Fale com a gente pelo WhatsApp para receber uma proposta.</p></details>
+    </div>
+  </div>
+</section>
+
+<section class="contato" id="contato">
+  <div class="wrap">
+    <div>
+      <h2>Veja o FacSim funcionando com a sua produção.</h2>
+      <p class="lead">Preencha os dados e fale direto com a nossa equipe pelo WhatsApp. Mostramos o sistema e como seria a implantação na sua fábrica.</p>
+    </div>
+    <form id="form" novalidate>
+      <label>Seu nome<input name="nome" autocomplete="name" required></label>
+      <label>Empresa<input name="empresa" autocomplete="organization" required></label>
+      <label>Cidade<input name="cidade" autocomplete="address-level2"></label>
+      <label>Quantas pessoas na produção?<select name="equipe"><option value="">Selecione</option><option>Até 20</option><option>21 a 50</option><option>51 a 100</option><option>Mais de 100</option></select></label>
+      <p class="erro" id="erro" role="alert"></p>
+      <a class="btn btn-wa" id="enviar" href="#" target="_blank" rel="noopener"><svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M12 2a10 10 0 0 0-8.6 15.1L2 22l5-1.3A10 10 0 1 0 12 2Zm4.5 12.1c-.2-.1-1.5-.7-1.7-.8s-.4-.1-.6.1-.7.8-.8 1-.3.2-.5.1a6.7 6.7 0 0 1-3.3-2.9c-.3-.4.3-.4.7-1.3.1-.2 0-.3 0-.4l-.8-1.8c-.2-.5-.4-.4-.6-.4h-.5a1 1 0 0 0-.7.3 3 3 0 0 0-.9 2.2 5.2 5.2 0 0 0 1.1 2.7 11.8 11.8 0 0 0 4.5 4c1.7.7 2.3.8 3.2.6a2.7 2.7 0 0 0 1.8-1.2 2.2 2.2 0 0 0 .1-1.3c0-.1-.2-.2-.5-.3Z"/></svg>Enviar pelo WhatsApp</a>
+      <small>Você será levado ao WhatsApp com a mensagem pronta.</small>
+    </form>
+  </div>
+</section>
+</main>
+
+<footer>
+  <div class="wrap">
+    <a class="marca" href="#inicio"><img src="assets/logo.svg" alt="">FacSim</a>
+    <span>Uma solução GUT Consultoria e Treinamentos, com o método Cristiano Cardoso.</span>
+  </div>
+</footer>
+<a class="wa-flutuante js-wa" href="#contato" aria-label="Falar no WhatsApp"><svg viewBox="0 0 24 24" aria-hidden="true"><path fill="#fff" d="M12 2a10 10 0 0 0-8.6 15.1L2 22l5-1.3A10 10 0 1 0 12 2Zm0 18.2a8.2 8.2 0 0 1-4.2-1.2l-.3-.2-3 .8.8-2.9-.2-.3A8.2 8.2 0 1 1 12 20.2Zm4.5-6.1c-.2-.1-1.5-.7-1.7-.8s-.4-.1-.6.1-.7.8-.8 1-.3.2-.5.1a6.7 6.7 0 0 1-3.3-2.9c-.3-.4.3-.4.7-1.3.1-.2 0-.3 0-.4l-.8-1.8c-.2-.5-.4-.4-.6-.4h-.5a1 1 0 0 0-.7.3 3 3 0 0 0-.9 2.2 5.2 5.2 0 0 0 1.1 2.7 11.8 11.8 0 0 0 4.5 4c1.7.7 2.3.8 3.2.6a2.7 2.7 0 0 0 1.8-1.2 2.2 2.2 0 0 0 .1-1.3c0-.1-.2-.2-.5-.3Z"/></svg></a>
+
+<script>
+/* ===== Configuração: troque pelo número de WhatsApp de vendas (DDI + DDD + número, só dígitos) ===== */
+const WHATSAPP = '5500000000000';
+const MSG_PADRAO = 'Olá! Vi o FacSim e quero agendar uma demonstração.';
+
+const wa = msg => `https://wa.me/${WHATSAPP}?text=${encodeURIComponent(msg)}`;
+document.querySelectorAll('.js-wa').forEach(a => { a.href = wa(MSG_PADRAO); a.target = '_blank'; a.rel = 'noopener'; });
+
+/* formulário -> WhatsApp com a mensagem pronta */
+const form = document.getElementById('form'), enviar = document.getElementById('enviar'), erro = document.getElementById('erro');
+function montar() {
+  const d = Object.fromEntries(new FormData(form));
+  const linhas = ['Olá! Quero agendar uma demonstração do FacSim.', `Nome: ${d.nome || ''}`, `Empresa: ${d.empresa || ''}`];
+  if (d.cidade) linhas.push(`Cidade: ${d.cidade}`);
+  if (d.equipe) linhas.push(`Pessoas na produção: ${d.equipe}`);
+  enviar.href = wa(linhas.join('\n'));
+  return d;
+}
+form.addEventListener('input', () => { montar(); erro.textContent = ''; });
+enviar.addEventListener('click', e => {
+  const d = montar();
+  if (!d.nome || !d.empresa) { e.preventDefault(); erro.textContent = 'Preencha seu nome e a empresa para continuar.'; (d.nome ? form.empresa : form.nome).focus(); }
+});
+form.addEventListener('submit', e => { e.preventDefault(); enviar.click(); });
+montar();
+
+/* abas de recursos */
+const abas = [...document.querySelectorAll('.aba')];
+function abrir(aba, foco) {
+  abas.forEach(a => { const on = a === aba; a.setAttribute('aria-selected', on); a.tabIndex = on ? 0 : -1; document.getElementById(a.getAttribute('aria-controls')).hidden = !on; });
+  if (foco) aba.focus();
+}
+abas.forEach((a, i) => {
+  a.addEventListener('click', () => abrir(a));
+  a.addEventListener('keydown', e => { const d = e.key === 'ArrowRight' ? 1 : e.key === 'ArrowLeft' ? -1 : 0; if (d) { e.preventDefault(); abrir(abas[(i + d + abas.length) % abas.length], true); } });
+});
+</script>
+</body>
+</html>
