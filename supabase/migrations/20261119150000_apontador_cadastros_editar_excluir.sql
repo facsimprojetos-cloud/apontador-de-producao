@@ -63,6 +63,15 @@ USING (empresa_id = (SELECT public.apontador_empresa_atual()) AND EXISTS (
 WITH CHECK (empresa_id = (SELECT public.apontador_empresa_atual()) AND EXISTS (
   SELECT 1 FROM public.apontador_acessos a WHERE a.email=lower((SELECT auth.jwt()->>'email'))
   AND a.ativo AND a.perfil IN ('admin','editor')));
+GRANT UPDATE ON TABLE "APONTADOR DE PRODUÇÃO".horarios_padrao TO authenticated;
+DROP POLICY IF EXISTS apontador_cadastro_editar ON "APONTADOR DE PRODUÇÃO".horarios_padrao;
+CREATE POLICY apontador_cadastro_editar ON "APONTADOR DE PRODUÇÃO".horarios_padrao FOR UPDATE TO authenticated
+USING (empresa_id = (SELECT public.apontador_empresa_atual()) AND EXISTS (
+SELECT 1 FROM public.apontador_acessos a WHERE a.email=lower((SELECT auth.jwt()->>'email'))
+AND a.ativo AND a.perfil IN ('admin','editor')))
+WITH CHECK (empresa_id = (SELECT public.apontador_empresa_atual()) AND EXISTS (
+SELECT 1 FROM public.apontador_acessos a WHERE a.email=lower((SELECT auth.jwt()->>'email'))
+AND a.ativo AND a.perfil IN ('admin','editor')));
 GRANT UPDATE ON TABLE "APONTADOR DE PRODUÇÃO".funcionarios TO authenticated;
 DROP POLICY IF EXISTS apontador_cadastro_editar ON "APONTADOR DE PRODUÇÃO".funcionarios;
 CREATE POLICY apontador_cadastro_editar ON "APONTADOR DE PRODUÇÃO".funcionarios FOR UPDATE TO authenticated
@@ -89,16 +98,26 @@ BEGIN
    WHEN 'sector' THEN 'setores' WHEN 'group' THEN 'grupos'
    WHEN 'machine' THEN 'maquinas' WHEN 'function' THEN 'funcoes'
    WHEN 'product' THEN 'produtos' WHEN 'process' THEN 'processos'
-   WHEN 'employee' THEN 'funcionarios' WHEN 'route' THEN 'produto_processos'
+   WHEN 'employee' THEN 'funcionarios' WHEN 'route' THEN 'produto_processos' WHEN 'slot' THEN 'horarios_padrao'
    ELSE NULL END;
  IF v_tabela IS NULL THEN RAISE EXCEPTION 'Tipo nao permitido.'; END IF;
  IF p_acao IN ('excluir','reativar') THEN
    EXECUTE format('UPDATE "APONTADOR DE PRODUÇÃO".%I SET ativo=$1 WHERE id=$2 AND empresa_id=$3',v_tabela)
    USING (p_acao='reativar'),v_id,v_empresa;
  ELSIF p_acao='editar' THEN
-   IF nullif(btrim(p_dados->>'nome'),'') IS NULL THEN
+   IF p_tipo <> 'slot' AND nullif(btrim(p_dados->>'nome'),'') IS NULL THEN
      RAISE EXCEPTION 'Nome obrigatorio.'; END IF;
-   CASE p_tipo
+   IF p_tipo IN ('group','machine') AND nullif(p_dados->>'setor','') IS NOT NULL AND NOT EXISTS
+ (SELECT 1 FROM "APONTADOR DE PRODUÇÃO".setores WHERE id=(p_dados->>'setor')::bigint AND empresa_id=v_empresa AND ativo)
+ THEN RAISE EXCEPTION 'Setor nao pertence a empresa ou esta inativo.'; END IF;
+IF p_tipo='process' AND nullif(p_dados->>'funcao','') IS NOT NULL AND NOT EXISTS
+ (SELECT 1 FROM "APONTADOR DE PRODUÇÃO".funcoes WHERE id=(p_dados->>'funcao')::bigint AND empresa_id=v_empresa AND ativo)
+ THEN RAISE EXCEPTION 'Funcao nao pertence a empresa ou esta inativa.'; END IF;
+CASE p_tipo
+WHEN 'slot' THEN
+ IF (p_dados->>'inicio')::time = (p_dados->>'fim')::time THEN RAISE EXCEPTION 'Horario inicial e final nao podem ser iguais.'; END IF;
+ UPDATE "APONTADOR DE PRODUÇÃO".horarios_padrao SET inicio=(p_dados->>'inicio')::time, fim=(p_dados->>'fim')::time
+ WHERE id=v_id AND empresa_id=v_empresa;
 WHEN 'sector' THEN
  UPDATE "APONTADOR DE PRODUÇÃO".setores SET nome=CASE WHEN p_dados ? 'nome' THEN nullif(btrim(p_dados->>'nome'),'') ELSE nome END, descricao=CASE WHEN p_dados ? 'descricao' THEN nullif(btrim(p_dados->>'descricao'),'') ELSE descricao END
  WHERE id=v_id AND empresa_id=v_empresa;
