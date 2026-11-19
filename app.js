@@ -613,7 +613,7 @@ function apontar(){
   body=`<div class="entry-grid">${dataField}
   <div class="field"><label for="colInicio">Início</label><input class="input" type="time" id="colInicio" value="${esc(entry.colInicio)}" required></div>
   <div class="field"><label for="colFim">Fim</label><input class="input" type="time" id="colFim" value="${esc(entry.colFim)}" required></div>
-  <div class="field"><label for="colSetor">Para quem</label><select class="select" id="colSetor"><option value="">Todos os funcionários</option>${data.setores.map(s=>`<option value="${esc(s.id)}" ${s.id===entry.colSetor?'selected':''}>Setor ${esc(s.nome)}</option>`).join('')}</select></div></div>
+  <div class="field"><label for="colSetor">Para quem</label><select class="select" id="colSetor"><option value="">Todos os funcionários</option>${cadAtivos(data.setores).map(s=>`<option value="${esc(s.id)}" ${s.id===entry.colSetor?'selected':''}>Setor ${esc(s.nome)}</option>`).join('')}</select></div></div>
  <div class="entry-bottom aus-bottom"><div class="field"><label for="ausMotivo">Motivo</label><input class="input" id="ausMotivo" value="${esc(entry.motivo)}" placeholder="Ex.: café, reunião, falta de energia"></div>
  <button type="submit" class="btn btn-primary entry-submit" id="colSubmit">Lançar para ${alvo} funcionário(s)</button></div>
  <p class="muted-small aus-nota" id="colInfo">${min?hhmm(min)+' para cada um. ':''}Não altera a eficiência de ninguém; entra só na eficiência da empresa. Quem tem falta no dia fica de fora.</p>`;
@@ -748,7 +748,7 @@ function horariosJornada(){
   <span class="jornada-int"><input class="input" type="time" data-jd="${j.dia}" data-k="intervaloInicio" value="${esc(j.intervaloInicio)}"><i>–</i><input class="input" type="time" data-jd="${j.dia}" data-k="intervaloFim" value="${esc(j.intervaloFim)}"></span>
   <b id="jt-${j.dia}">${j.ativo?hhmm(jornadaMin(j)):'folga'}</b></div>`).join('')}</div></section>
  <section class="card"><div class="section-head"><div><h3 class="section-title">Horários fixos de apontamento</h3><p class="section-sub">Aparecem como atalhos na aba Apontar. Inative os que não usa.</p></div></div>
- <div class="slot-admin">${list.length?list.map(h=>`<div class="slot-row${h.ativo===false?' off':''}"><b>${hourLabel(h.inicio,h.fim)}</b><span class="pill ${h.ativo===false?'grey':'green'}">${h.ativo===false?'Inativo':'Ativo'}</span><button class="text-btn" data-edit data-action="toggle-slot" data-id="${esc(h.id)}" data-ativo="${h.ativo===false?'true':'false'}">${h.ativo===false?'Ativar':'Inativar'}</button></div>`).join(''):'<p class="muted-small">Nenhum horário cadastrado.</p>'}</div>
+ <div class="slot-admin">${list.length?list.map(h=>`<div class="slot-row${h.ativo===false?' off':''}"><b>${hourLabel(h.inicio,h.fim)}</b><span class="pill ${h.ativo===false?'grey':'green'}">${h.ativo===false?'Inativo':'Ativo'}</span>${cadBtn('slot',h)}</div>`).join(''):'<p class="muted-small">Nenhum horário cadastrado.</p>'}</div>
  <form id="slotForm" class="slot-form" data-edit><label class="inline-date">Início <input class="input" type="time" name="inicio" required></label><label class="inline-date">Fim <input class="input" type="time" name="fim" required></label><button class="btn btn-primary" type="submit">＋ Adicionar horário</button></form></section>`;
 }
 function jornadaInput(t){
@@ -849,7 +849,7 @@ function temposPorProduto(){
  if(!byId('produtos',rotProd))rotProd=data.produtos[0].id;
  const p=byId('produtos',rotProd),rot=routeOf(p.id),used=new Set(rot.map(r=>r.processo)),free=cadAtivos(data.processos).filter(o=>!used.has(o.id));
  const total=rot.reduce((n,r)=>n+Number(r.tempo||0),0);
- return '<div class="card controls-panel"><label class="inline-date rot-pick">Produto <select class="select" id="rotProduto">'+data.produtos.map(x=>'<option value="'+esc(x.id)+'" '+(x.id===p.id?'selected':'')+'>'+esc(x.nome)+'</option>').join('')+'</select></label>'+
+ return '<div class="card controls-panel"><label class="inline-date rot-pick">Produto <select class="select" id="rotProduto">'+cadAtivos(data.produtos).map(x=>'<option value="'+esc(x.id)+'" '+(x.id===p.id?'selected':'')+'>'+esc(x.nome)+'</option>').join('')+'</select></label>'+
  '<div class="stats-row"><span><b>'+rot.length+'</b> operações</span><span><b>'+fNum(total,1)+' s</b> por peça ('+fNum(total/60,1)+' min)</span></div></div>'+
  '<section class="card"><div class="section-head"><div><h3 class="section-title">'+esc(p.nome)+' — operações e tempo padrão</h3><p class="section-sub">O tempo padrão vale para todos os funcionários até você definir um tempo individual em Níveis e tempos.</p></div><button class="btn btn-sm" data-edit data-action="marcar-final" data-id="'+esc(p.id)+'">✓ Operação final</button></div>'+
  linkFormHtml(p,free)+
@@ -1282,6 +1282,7 @@ const CAD_MAP={sector:['setores','Setor'],group:['grupos','Grupo'],machine:['maq
 function cadastroEditar(tipo,id){
  if(tipo==='employee'){newEmployee(id);return;}
  if(tipo==='route'){editRouteTime(id);return;}
+ if(tipo==='slot'){const h=byId('horarios',id);if(!h)return;showModal('Editar horário','Altere a faixa de horário sem apagar lançamentos.', '<input type="hidden" name="id" value="'+esc(id)+'"><input type="hidden" name="cad_tipo" value="slot"><div class="form-grid">'+inputField('inicio','Início','time',h.inicio)+inputField('fim','Fim','time',h.fim)+'</div>','Salvar alterações','cadastro_edit');return;}
  const conf=CAD_MAP[tipo],r=conf?byId(conf[0],id):null;
  if(!r){toast('Cadastro não encontrado.');return;}
  const f=[inputField('nome','Nome','text',r.nome)];
@@ -1293,7 +1294,7 @@ function cadastroEditar(tipo,id){
  showModal('Editar '+conf[1].toLowerCase(),'Corrija o cadastro sem alterar seu identificador.','<input type="hidden" name="id" value="'+esc(id)+'"><input type="hidden" name="cad_tipo" value="'+esc(tipo)+'"><div class="form-grid">'+f.join('')+'</div>','Salvar alterações','cadastro_edit');
 }
 async function cadastroGerenciar(tipo,id,acao){
- const conf=CAD_MAP[tipo]||({employee:['funcionarios','Funcionário'],route:['roteiro','Operação do roteiro']}[tipo]);
+ const conf=CAD_MAP[tipo]||({employee:['funcionarios','Funcionário'],route:['roteiro','Operação do roteiro'],slot:['horarios','Horário']}[tipo]);
  const r=conf?byId(conf[0],id):null;if(!r){toast('Cadastro não encontrado.');return;}
  if(acao==='excluir'&&!confirm('Desativar '+(r.nome||'este vínculo')+'? Os apontamentos anteriores serão preservados.'))return;
  try{await window.GUT_API.cadastro(tipo,acao,{id});await loadData();toast(acao==='excluir'?'Cadastro desativado; histórico preservado.':'Cadastro reativado.');}
@@ -1323,6 +1324,7 @@ async function handleSubmit(ev){
  }
  if(formType==='cadastro_edit'){
    const tipo=v('cad_tipo'),payload={id:v('id'),nome:v('nome')};
+   if(tipo==='slot'){payload.inicio=v('inicio');payload.fim=v('fim');delete payload.nome;}
    for(const k of ['codigo','descricao','tipo','setor','funcao'])if(fd.has(k))payload[k]=v(k);
    if(button){button.disabled=true;button.textContent='Gravando...';}
    try{await window.GUT_API.cadastro(tipo,'editar',payload);await loadData();closeModal();toast('Cadastro atualizado.');}
