@@ -124,7 +124,7 @@ ELSE RAISE EXCEPTION 'Tipo nao editavel por esta funcao.';
  GET DIAGNOSTICS v_rows=ROW_COUNT;
  IF v_rows=0 THEN RAISE EXCEPTION 'Cadastro nao encontrado nesta empresa.'; END IF;
  RETURN jsonb_build_object('ok',true,'id',v_id::text,'acao',p_acao);
-END $fn$;
+END; $fn$;
 REVOKE ALL ON FUNCTION public.apontador_cadastro_gerenciar(text,text,jsonb) FROM PUBLIC;
 GRANT EXECUTE ON FUNCTION public.apontador_cadastro_gerenciar(text,text,jsonb) TO authenticated;
 
@@ -181,6 +181,6 @@ BEGIN
       FROM "APONTADOR DE PRODUÇÃO"."Lançamentos" l LEFT JOIN "APONTADOR DE PRODUÇÃO".produto_processos pp ON pp.id=l.produto_processo_id)
   );
 END;
-$function$
+$function$;
 
 COMMIT;
