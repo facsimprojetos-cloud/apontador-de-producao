@@ -847,8 +847,8 @@ function operacoesLista(){
 function temposPorProduto(){
  if(!data.produtos.length)return '<div class="card placeholder"><h3>Cadastre um produto primeiro</h3><p>Depois volte aqui para vincular as operações e os tempos.</p></div>';
  if(!byId('produtos',rotProd))rotProd=data.produtos[0].id;
- const p=byId('produtos',rotProd),rot=routeOf(p.id),used=new Set(rot.map(r=>r.processo)),free=cadAtivos(data.processos).filter(o=>!used.has(o.id));
- const total=rot.reduce((n,r)=>n+Number(r.tempo||0),0);
+ const p=byId('produtos',rotProd),rot=(data.roteiro||[]).filter(r=>r.produto===p.id).sort((a,b)=>(a.etapa||0)-(b.etapa||0)),used=new Set(rot.map(r=>r.processo)),free=cadAtivos(data.processos).filter(o=>!used.has(o.id));
+ const total=rot.filter(r=>r.ativo!==false).reduce((n,r)=>n+Number(r.tempo||0),0);
  return '<div class="card controls-panel"><label class="inline-date rot-pick">Produto <select class="select" id="rotProduto">'+cadAtivos(data.produtos).map(x=>'<option value="'+esc(x.id)+'" '+(x.id===p.id?'selected':'')+'>'+esc(x.nome)+'</option>').join('')+'</select></label>'+
  '<div class="stats-row"><span><b>'+rot.length+'</b> operações</span><span><b>'+fNum(total,1)+' s</b> por peça ('+fNum(total/60,1)+' min)</span></div></div>'+
  '<section class="card"><div class="section-head"><div><h3 class="section-title">'+esc(p.nome)+' — operações e tempo padrão</h3><p class="section-sub">O tempo padrão vale para todos os funcionários até você definir um tempo individual em Níveis e tempos.</p></div><button class="btn btn-sm" data-edit data-action="marcar-final" data-id="'+esc(p.id)+'">✓ Operação final</button></div>'+
@@ -1220,10 +1220,10 @@ function newEmployee(id){
  inputField('nome','Nome do funcionário','text',f?.nome||'','autocomplete="off"')+
  optionalInput('matricula','Matrícula (opcional)',f?.matricula||'')+
  '<details class="opt-box"><summary>Estrutura da fábrica <small>(opcional'+(f?.setor?' · '+esc(byId('setores',f.setor)?.nome||''):'')+')</small></summary>'+
- '<div class="field"><label for="setor">Setor</label><select class="select" id="setor" name="setor"><option value="">Sem setor</option>'+data.setores.map(x=>'<option value="'+esc(x.id)+'" '+(x.id===setor?'selected':'')+'>'+esc(x.nome)+'</option>').join('')+'</select></div>'+
+ '<div class="field"><label for="setor">Setor</label><select class="select" id="setor" name="setor"><option value="">Sem setor</option>'+cadAtivos(data.setores).map(x=>'<option value="'+esc(x.id)+'" '+(x.id===setor?'selected':'')+'>'+esc(x.nome)+'</option>').join('')+'</select></div>'+
  '<div class="field"><label for="employeeGrupo">Grupo</label><select id="employeeGrupo" name="grupo" class="select">'+employeeGroupOptions(setor,f?.grupo||'')+'</select></div>'+
- '<div class="field"><label>Máquinas</label><div class="checkbox-grid">'+(data.maquinas.length?data.maquinas.map(m=>'<label class="checkbox-line"><input type="checkbox" name="maquinas" value="'+esc(m.id)+'" '+((f?.maquinas||[]).includes(m.id)?'checked':'')+'> '+esc(m.nome)+'</label>').join(''):'<p class="muted-small">Nenhuma máquina cadastrada.</p>')+'</div></div>'+
- '<div class="field"><label>Funções</label><div class="checkbox-grid">'+(data.funcoes.length?data.funcoes.map(fn=>'<label class="checkbox-line"><input type="checkbox" name="funcoes" value="'+esc(fn.id)+'" '+((f?.funcoes||[]).includes(fn.id)?'checked':'')+'> '+esc(fn.nome)+'</label>').join(''):'<p class="muted-small">Nenhuma função cadastrada.</p>')+'</div></div>'+
+ '<div class="field"><label>Máquinas</label><div class="checkbox-grid">'+(data.maquinas.length?cadAtivos(data.maquinas).map(m=>'<label class="checkbox-line"><input type="checkbox" name="maquinas" value="'+esc(m.id)+'" '+((f?.maquinas||[]).includes(m.id)?'checked':'')+'> '+esc(m.nome)+'</label>').join(''):'<p class="muted-small">Nenhuma máquina cadastrada.</p>')+'</div></div>'+
+ '<div class="field"><label>Funções</label><div class="checkbox-grid">'+(data.funcoes.length?cadAtivos(data.funcoes).map(fn=>'<label class="checkbox-line"><input type="checkbox" name="funcoes" value="'+esc(fn.id)+'" '+((f?.funcoes||[]).includes(fn.id)?'checked':'')+'> '+esc(fn.nome)+'</label>').join(''):'<p class="muted-small">Nenhuma função cadastrada.</p>')+'</div></div>'+
  '</details></div>'+
  '<div class="emp-ops"><div class="emp-ops-head"><div><b>Operações que executa</b><small id="opsCount">'+has.size+' selecionada(s)</small></div><input class="input" id="opsSearch" placeholder="⌕ Filtrar produto ou operação" autocomplete="off"></div>'+
  (prods.length?'<div class="op-check">'+prods.map(p=>{const rot=routeOf(p.id),sel=rot.filter(r=>has.has(r.id)).length;
@@ -1246,7 +1246,7 @@ function newSector(){
 }
 function newGroup(sectorId){
  if(!data.setores.length){newSector();return}
- const body='<div class="form-grid">'+selectField('setor','Setor do grupo',data.setores,sectorId||data.setores[0]?.id)+
+ const body='<div class="form-grid">'+selectField('setor','Setor do grupo',cadAtivos(data.setores),sectorId||data.setores[0]?.id)+
  inputField('nome','Nome do grupo')+optionalInput('codigo','Código (opcional)','', 'Ex.: MONT-01')+
  optionalInput('descricao','Descrição (opcional)')+'</div>';
  showModal('Cadastrar grupo de produção','Ex.: Setor Montagem → Grupo Montagem 1.',body,'Salvar grupo','group');
@@ -1255,7 +1255,7 @@ function newMachine(){
  const body='<div class="form-grid">'+inputField('nome','Nome da máquina')+
  optionalInput('codigo','Código da máquina (opcional)','', 'Ex.: RET-01')+
  optionalInput('tipo','Tipo da máquina (opcional)','', 'Ex.: Reta, Overloque, Galoneira')+
- selectField('setor','Setor de referência (opcional)',data.setores,'',false)+
+ selectField('setor','Setor de referência (opcional)',cadAtivos(data.setores),'',false)+
  optionalInput('descricao','Observações (opcional)')+'</div>';
  showModal('Cadastrar máquina','Depois você poderá selecionar esta máquina nos cadastros de funcionários.',body,'Salvar máquina','machine');
 }
@@ -1276,7 +1276,7 @@ function setFinalOperation(productId){
  showModal('Definir operação final',esc(prod.nome)+' · Escolha qual operação conclui a peça.',body,'Salvar operação final','final_operation');
 }
 function newProduct(){showModal('Novo produto','Depois, em Tempos por produto, vincule as operações e o tempo de cada uma.',`<div class="form-grid">${inputField('nome','Nome do produto')}${optionalInput('codigo','Código (opcional)')}<div class="field full"><label for="descricao">Descrição</label><textarea class="input" name="descricao" id="descricao" rows="3" style="min-height:80px"></textarea></div></div>`,'Salvar produto','product')}
-function newProcess(){showModal('Nova operação','A operação pode ser usada em vários produtos, cada um com seu tempo.',`<div class="form-grid">${inputField('nome','Nome da operação')}${optionalInput('codigo','Código (opcional)')}${data.funcoes.length?selectField('funcao','Função relacionada (opcional)',data.funcoes,'',false):''}</div>`,'Salvar operação','process')}
+function newProcess(){showModal('Nova operação','A operação pode ser usada em vários produtos, cada um com seu tempo.',`<div class="form-grid">${inputField('nome','Nome da operação')}${optionalInput('codigo','Código (opcional)')}${data.funcoes.length?selectField('funcao','Função relacionada (opcional)',cadAtivos(data.funcoes),'',false):''}</div>`,'Salvar operação','process')}
 
 const CAD_MAP={sector:['setores','Setor'],group:['grupos','Grupo'],machine:['maquinas','Máquina'],function:['funcoes','Função'],product:['produtos','Produto'],process:['processos','Operação']};
 function cadastroEditar(tipo,id){
@@ -1302,7 +1302,7 @@ async function cadastroGerenciar(tipo,id,acao){
 }
 
 function editRouteTime(id){const r=byId('roteiro',id);if(!r){toast('Operação não encontrada.');return;}showModal('Alterar tempo padrão',esc(opLabel(r)),`<div class="form-grid"><input type="hidden" name="id" value="${esc(id)}">${inputField('tempo','Tempo padrão (segundos/peça)','number',r.tempo,'min="0.001" step="0.001"')}</div><p class="modal-tip" style="margin-top:14px">Vale para os próximos apontamentos de quem não tem tempo individual. Apontamentos já registrados mantêm o tempo que usaram.</p>`,'Salvar tempo','route_update')}
-function linkProcess(id){const p=byId('produtos',id);showModal('Vincular operação',`Produto: ${esc(p?.nome||id)}`,`<div class="form-grid"><input type="hidden" name="produto" value="${esc(id)}">${selectField('processo','Operação',data.processos,data.processos[0]?.id)}${inputField('tempo','Tempo padrão (segundos/peça)','number',60,'min="0.001" step="0.001"')}</div>`,'Vincular operação','linkprocess')}
+function linkProcess(id){const p=byId('produtos',id);showModal('Vincular operação',`Produto: ${esc(p?.nome||id)}`,`<div class="form-grid"><input type="hidden" name="produto" value="${esc(id)}">${selectField('processo','Operação',cadAtivos(data.processos),data.processos[0]?.id)}${inputField('tempo','Tempo padrão (segundos/peça)','number',60,'min="0.001" step="0.001"')}</div>`,'Vincular operação','linkprocess')}
 async function handleSubmit(ev){
  ev.preventDefault();
  if(!authenticated){renderLogin();return}
