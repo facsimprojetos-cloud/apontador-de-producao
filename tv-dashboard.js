@@ -57,11 +57,47 @@ function nivelMaxFunc(funcId){
  return best;
 }
 const gdBadge=n=>n?' <span class="tv-gd" title="Grau de dificuldade: '+escapeHtml(n.nome||'')+' — meta individualizada">GD '+escapeHtml(String(n.ordem??n.nome))+'</span>':'';
+/* ===== Visualização do painel 1: como identificar pessoas e como agrupar ===== */
+const PESSOA_OPTS=[['nome','Nome'],['matricula','Matrícula (código)'],['ambos','Matrícula e nome'],['oculto','Não mostrar']];
+const TABELA_OPTS=[['apontamentos','Cada apontamento'],['operacao','Por operação'],['produto','Por produto'],['funcionario','Por funcionário'],['setor','Por setor'],['grupo','Por grupo / célula']];
+const LATERAL_OPTS=[['funcionario','Funcionários'],['setor','Setores'],['grupo','Grupos / células'],['operacao','Operações'],['produto','Produtos'],['oculto','Ocultar lista']];
+const semPessoa=()=>cfg.p1.pessoa==='oculto';
+const tabelaModo=()=>semPessoa()&&cfg.p1.tabela==='funcionario'?'operacao':cfg.p1.tabela;
+const lateralModo=()=>semPessoa()&&cfg.p1.lateral==='funcionario'?'setor':cfg.p1.lateral;
+function pessoa(id){
+ const f=byId('funcionarios',id);if(!f)return '—';
+ const mat=f.matricula?String(f.matricula):'Cód. '+f.id;
+ switch(cfg.p1.pessoa){case 'matricula':case 'oculto':return mat;case 'ambos':return f.matricula?mat+' · '+f.nome:f.nome;default:return f.nome||mat;}
+}
+const DIM={
+ funcionario:{titulo:'FUNCIONÁRIOS',col:'FUNCIONÁRIO',chave:l=>l.funcionario||'',nome:l=>pessoa(l.funcionario)},
+ setor:{titulo:'SETORES',col:'SETOR',chave:l=>l.setor||'',nome:l=>l.setorNomeHistorico||byId('setores',l.setor)?.nome||'Sem setor'},
+ grupo:{titulo:'GRUPOS / CÉLULAS',col:'GRUPO / CÉLULA',chave:l=>l.grupo||'',nome:l=>l.grupoNomeHistorico||byId('grupos',l.grupo)?.nome||'Sem grupo'},
+ produto:{titulo:'PRODUTOS',col:'PRODUTO',chave:l=>l.produto||'',nome:l=>byId('produtos',l.produto)?.nome||'—'},
+ operacao:{titulo:'OPERAÇÕES',col:'OPERAÇÃO',chave:l=>l.produto+'|'+(l.roteiro||l.processo),nome:l=>byId('processos',l.processo)?.nome||'—',sub:l=>byId('produtos',l.produto)?.nome||''}
+};
+function agregar(rows,dim){
+ const d=DIM[dim],m=new Map();
+ for(const l of rows){const k=d.chave(l);let g=m.get(k);
+  if(!g){const r=byId('roteiro',l.roteiro);g={id:k,func:l.funcionario,nome:d.nome(l),sub:d.sub?d.sub(l):'',produto:l.produto,processo:l.processo,etapa:r?.etapa||0,final:isFinished(l),qt:0,pessoas:new Set(),meta:0,feito:0};m.set(k,g);}
+  g.qt++;if(l.funcionario)g.pessoas.add(l.funcionario);g.meta+=Number(l.metaSnapshot||0);g.feito+=Number(l.realizado||0);}
+ return [...m.values()].map(g=>({...g,eff:g.meta?100*g.feito/g.meta:null}));
+}
+const tituloTabela=()=>tabelaModo()==='apontamentos'?'LANÇAMENTOS DE PRODUÇÃO':'PRODUÇÃO '+({operacao:'POR OPERAÇÃO',produto:'POR PRODUTO',funcionario:'POR FUNCIONÁRIO',setor:'POR SETOR',grupo:'POR GRUPO / CÉLULA'}[tabelaModo()]);
+const subTabela=()=>tabelaModo()==='apontamentos'?'Indicadores por apontamento no intervalo selecionado':'Eficiência coletiva ponderada pelos lançamentos';
 function headHtml(){
- return cfg.p1.agrupar?'<tr><th>PRODUTO</th><th>OPERAÇÃO</th><th>APONTAMENTOS</th><th>PESSOAS</th><th>META</th><th>REALIZADO</th><th>EFICIÊNCIA</th></tr>'
-  :'<tr><th>DATA</th><th>HORA</th><th>PRODUTO</th><th>FUNCIONÁRIO</th><th>PROCESSO</th><th>INÍCIO</th><th>FIM</th><th>META</th><th>REALIZADO</th><th>EFICIÊNCIA</th></tr>';
+ const t=tabelaModo();
+ if(t==='operacao')return '<tr><th>PRODUTO</th><th>OPERAÇÃO</th><th>APONTAMENTOS</th><th>PESSOAS</th><th>META</th><th>REALIZADO</th><th>EFICIÊNCIA</th></tr>';
+ if(t!=='apontamentos')return '<tr><th>'+DIM[t].col+'</th><th>APONTAMENTOS</th>'+(t==='funcionario'?'':'<th>PESSOAS</th>')+'<th>META</th><th>REALIZADO</th><th>EFICIÊNCIA</th></tr>';
+ return '<tr><th>DATA</th><th>HORA</th><th>PRODUTO</th>'+(semPessoa()?'':'<th>FUNCIONÁRIO</th>')+'<th>PROCESSO</th><th>INÍCIO</th><th>FIM</th><th>META</th><th>REALIZADO</th><th>EFICIÊNCIA</th></tr>';
 }
 /* visão agrupada: produto × operação, eficiência ponderada pelos lançamentos (soma realizado ÷ soma meta) */
+function dimHtml(rows,dim){
+ const cols=dim==='funcionario'?5:6;
+ if(!rows.length)return '<tr class="tv-empty"><td colspan="'+cols+'">Nenhum apontamento nesse período.</td></tr>';
+ return agregar(rows,dim).sort((a,b)=>(b.eff??-1)-(a.eff??-1)).map(g=>'<tr class="'+cls(g.eff)+' nx-row-'+tone(g.eff)+'"><td class="tv-product tv-text">'+escapeHtml(g.nome)+(dim==='funcionario'&&cfg.p1.nivel?gdBadge(nivelMaxFunc(g.id)):'')+'</td>'+
+  '<td class="tv-nw">'+fmt(g.qt)+'</td>'+(dim==='funcionario'?'':'<td class="tv-nw">'+fmt(g.pessoas.size)+'</td>')+'<td class="tv-nw">'+fmt(g.meta)+'</td><td class="tv-nw">'+fmt(g.feito)+'</td><td class="tv-eff-num">'+pill(g.eff)+'</td></tr>').join('');
+}
 function groupedHtml(rows){
  if(!rows.length)return '<tr class="tv-empty"><td colspan="7">Nenhum apontamento nesse período.</td></tr>';
  const m=new Map();
@@ -74,18 +110,19 @@ function groupedHtml(rows){
 }
 function optsHtml(){
  const b=(k,l,t)=>`<button type="button" class="tv-opt${cfg.p1[k]?' on':''}" data-tv-opt="${k}" aria-pressed="${!!cfg.p1[k]}" title="${t}">${cfg.p1[k]?'✓ ':''}${l}</button>`;
- return `<div class="tv-opts">${b('nivel','Mostrar nível (GD)','Mostra o grau de dificuldade (nível) de quem tem meta individualizada')}${b('agrupar','Agrupar por operação','Esconde os nomes e mostra a eficiência coletiva por produto e operação')}${b('semRanking','Ocultar funcionários','Esconde a lista de funcionários ao lado')}</div>`;
+ const sel=(k,rot,lista,bloq)=>`<label class="tv-vsel"><span>${rot}</span><select data-tv-cfg="${k}">${lista.filter(([v])=>!(bloq&&bloq(v))).map(([v,l])=>`<option value="${v}" ${(k==='tabela'?tabelaModo():k==='lateral'?lateralModo():cfg.p1[k])===v?'selected':''}>${l}</option>`).join('')}</select></label>`;
+ return `<div class="tv-opts">${sel('pessoa','FUNCIONÁRIO COMO',PESSOA_OPTS)}${sel('tabela','TABELA',TABELA_OPTS,v=>semPessoa()&&v==='funcionario')}${sel('lateral','LISTA AO LADO',LATERAL_OPTS,v=>semPessoa()&&v==='funcionario')}${semPessoa()?'':b('nivel','Mostrar nível (GD)','Mostra o grau de dificuldade (nível) de quem tem meta individualizada')}</div>`;
 }
 function rowsHtml(rows){
- if(cfg.p1.agrupar)return groupedHtml(rows);
- if(!rows.length)return '<tr class="tv-empty"><td colspan="10">Nenhum apontamento nesse período. Altere os filtros para visualizar os dados.</td></tr>';
+ const t=tabelaModo();if(t==='operacao')return groupedHtml(rows);if(t!=='apontamentos')return dimHtml(rows,t);
+ if(!rows.length)return '<tr class="tv-empty"><td colspan="'+(semPessoa()?9:10)+'">Nenhum apontamento nesse período. Altere os filtros para visualizar os dados.</td></tr>';
  return rows.map(l=>{
   const e=l.metaSnapshot?100*Number(l.realizado||0)/Number(l.metaSnapshot):null;
   const fin=isFinished(l);
   return '<tr class="'+cls(e)+' nx-row-'+tone(e)+'"><td class="tv-nw" title="'+escapeHtml(dateLabel(l.data))+'">'+escapeHtml(shortDate(l.data))+'</td>'+
   '<td class="tv-nw">'+escapeHtml(l.fim||'—')+'</td>'+
   '<td class="tv-product tv-text">'+escapeHtml(byId('produtos',l.produto)?.nome||'—')+'</td>'+
-  '<td class="tv-text">'+escapeHtml(byId('funcionarios',l.funcionario)?.nome||'—')+(cfg.p1.nivel?gdBadge(nivelDe(l.funcionario,l.roteiro)):'')+'</td>'+
+  (semPessoa()?'':'<td class="tv-text">'+escapeHtml(pessoa(l.funcionario))+(cfg.p1.nivel?gdBadge(nivelDe(l.funcionario,l.roteiro)):'')+'</td>')+
   '<td class="tv-text">'+escapeHtml(byId('processos',l.processo)?.nome||'—')+(fin?' <span class="tv-finish">FINAL</span>':'')+'</td>'+
   '<td class="tv-nw">'+escapeHtml(l.inicio||'—')+'</td><td class="tv-nw">'+escapeHtml(l.fim||'—')+'</td>'+
   '<td class="tv-nw">'+fmt(l.metaSnapshot)+'</td><td class="tv-nw">'+fmt(l.realizado)+'</td>'+
@@ -93,11 +130,18 @@ function rowsHtml(rows){
  }).join('');
 }
 function rankings(rows){
+ const dim=lateralModo();
+ if(dim!=='funcionario'&&dim!=='oculto'){
+  const lst=agregar(rows,dim).sort((a,b)=>(b.eff??-1)-(a.eff??-1));
+  if(!lst.length)return '<div class="tv-rank-empty">Sem registros no período.</div>';
+  return lst.map((v,i)=>{const e=v.eff,w=e==null?0:Math.max(2,Math.min(100,e/1.2));
+   return '<div class="tv-rank-row"><div class="tv-rank-index">'+(i+1)+'</div><div class="tv-rank-name"><b>'+escapeHtml(v.nome)+(v.sub?' <small class="tv-rank-sub">'+escapeHtml(v.sub)+'</small>':'')+'</b><span class="tv-rank-bar"><i class="'+cls(e)+'" style="width:'+w+'%"></i></span></div><div class="tv-rank-eff '+cls(e)+'">'+pct(e)+'</div></div>';}).join('');
+ }
  const map=new Map();
  for(const l of rows){
   const id=l.funcionario||'';
   let x=map.get(id);
-  if(!x){x={id,nome:byId('funcionarios',id)?.nome||'—',meta:0,feito:0,qt:0};map.set(id,x);}
+  if(!x){x={id,nome:pessoa(id),meta:0,feito:0,qt:0};map.set(id,x);}
   x.meta+=Number(l.metaSnapshot||0);x.feito+=Number(l.realizado||0);x.qt++;
  }
  const sorted=[...map.values()].sort((a,b)=>(b.meta?100*b.feito/b.meta:0)-(a.meta?100*a.feito/a.meta:0));
@@ -111,7 +155,7 @@ function rankings(rows){
 function filterSummary(){
  const d=s=>s?String(s).slice(8,10)+'/'+String(s).slice(5,7):'…';
  const parts=[d(filters.inicio)+' a '+d(filters.fim)];
- const add=(col,id)=>{if(id){const x=byId(col,id);if(x)parts.push(x.nome)}};
+ const add=(col,id)=>{if(id){const x=byId(col,id);if(x)parts.push(col==='funcionarios'?pessoa(id):x.nome)}};
  add('funcionarios',filters.funcionario);add('produtos',filters.produto);add('processos',filters.processo);add('setores',filters.setor);add('grupos',filters.grupo);
  return parts.join(' · ');
 }
@@ -123,12 +167,17 @@ function updateClock(){
 const PANELS=[[1,'PRODUÇÃO','bars'],[2,'PROCESSOS','gear'],[3,'GARGALOS','alert'],[4,'PEÇAS PRONTAS','box'],[5,'TENDÊNCIAS','trend'],[6,'QUALIDADE','meta']];
 const PANEL_FN={2:()=>panelProcessos(),3:()=>panelGargalos(),4:()=>panelProntas(),5:()=>panelTendencias(),6:()=>panelQualidade()};
 const CFG_KEY='gut_tv_cfg';
-const cfg={panel:1,rotate:false,secs:30,metric:'pecas',panels:[1,2,3,4,5,6],v:3,p1:{nivel:false,agrupar:false,semRanking:false},scroll:{1:true,2:true,3:true,4:true,5:true,6:true}};
+const cfg={panel:1,rotate:false,secs:30,metric:'pecas',panels:[1,2,3,4,5,6],v:3,p1:{nivel:false,pessoa:'nome',tabela:'apontamentos',lateral:'funcionario'},scroll:{1:true,2:true,3:true,4:true,5:true,6:true}};
 try{Object.assign(cfg,JSON.parse(localStorage.getItem(CFG_KEY)||'{}'))}catch(_){/* armazenamento indisponível */}
 if(cfg.v===2){cfg.v=3;if(Array.isArray(cfg.panels)&&!cfg.panels.includes(6))cfg.panels.push(6);if(cfg.scroll&&cfg.scroll[6]==null)cfg.scroll[6]=true;}
 if(cfg.v!==2&&cfg.v!==3){cfg.v=2;cfg.panels=[1,2,3,4,5,6];if(cfg.panel===3)cfg.panel=4;}
 if(!cfg.scroll||typeof cfg.scroll!=='object')cfg.scroll={1:true,2:true,3:true,4:true,5:true};
-if(!cfg.p1||typeof cfg.p1!=='object')cfg.p1={nivel:false,agrupar:false,semRanking:false};
+if(!cfg.p1||typeof cfg.p1!=='object')cfg.p1={nivel:false};
+/* opções antigas (botões) viram as novas listas */
+if(!cfg.p1.tabela)cfg.p1.tabela=cfg.p1.agrupar?'operacao':'apontamentos';
+if(!cfg.p1.lateral)cfg.p1.lateral=cfg.p1.semRanking?'oculto':'funcionario';
+if(!cfg.p1.pessoa)cfg.p1.pessoa='nome';
+delete cfg.p1.agrupar;delete cfg.p1.semRanking;
 if(!Array.isArray(cfg.panels)||!cfg.panels.length)cfg.panels=[1,2,3,4,5,6];
 if(!PANELS_OK(cfg.panel))cfg.panel=1;
 function PANELS_OK(n){return [1,2,3,4,5,6].includes(Number(n))}
@@ -189,9 +238,9 @@ function sugestoes(stats,rows){
  const nivel=id=>id?((data.niveis||[]).find(n=>String(n.id)===String(id))?.nome||'Nível '+id):'sem nível';
  let h=`<div class="tvg-alvo"><small>OPERAÇÃO GARGALO</small><b>${escapeHtml(g.nome)}</b><span>${fmtM(metricVal(g))} ${unit()} · ${fmtM(media-metricVal(g))} abaixo da média</span></div>`;
  if(!cand.length)return h+`<div class="tvg-empty">Ninguém tem <b>${escapeHtml(g.nome)}</b> marcado nas operações do cadastro. Marque em Funcionários → Operações que executa.</div>`;
- if(mover.length)h+=mover.map((c,i)=>`<div class="tvg-sug"><i>${i+1}</i><div><b>${escapeHtml(c.f.nome)}</b><span>de <em>${escapeHtml(c.src.nome)}</em> (+${fmtM(c.sobra)} acima da média) → <em>${escapeHtml(g.nome)}</em></span><small>Sabe fazer · ${c.t?fmt(c.t.seg,0)+' s/peça '+(c.t.ind?'('+escapeHtml(nivel(c.t.nivel))+')':'(tempo padrão)'):''}${c.ganho?' · rende ~'+fmt(c.ganho,0)+' pç/h':''}</small></div></div>`).join('');
+ if(mover.length)h+=mover.map((c,i)=>`<div class="tvg-sug"><i>${i+1}</i><div><b>${escapeHtml(pessoa(c.f.id))}</b><span>de <em>${escapeHtml(c.src.nome)}</em> (+${fmtM(c.sobra)} acima da média) → <em>${escapeHtml(g.nome)}</em></span><small>Sabe fazer · ${c.t?fmt(c.t.seg,0)+' s/peça '+(c.t.ind?'('+escapeHtml(nivel(c.t.nivel))+')':'(tempo padrão)'):''}${c.ganho?' · rende ~'+fmt(c.ganho,0)+' pç/h':''}</small></div></div>`).join('');
  else h+='<div class="tvg-empty">Nenhuma pessoa habilitada está em operação com sobra no período.</div>';
- if(outros.length)h+=`<div class="tvg-outros"><small>TAMBÉM SABEM FAZER</small>${outros.map(c=>`<span>${escapeHtml(c.f.nome.split(' ')[0])}${c.ganho?' · ~'+fmt(c.ganho,0)+' pç/h':''}</span>`).join('')}</div>`;
+ if(outros.length)h+=`<div class="tvg-outros"><small>TAMBÉM SABEM FAZER</small>${outros.map(c=>`<span>${escapeHtml(cfg.p1.pessoa==='nome'?c.f.nome.split(' ')[0]:pessoa(c.f.id))}${c.ganho?' · ~'+fmt(c.ganho,0)+' pç/h':''}</span>`).join('')}</div>`;
  return h;
 }
 function barChart(items,lines,opts={}){
@@ -456,13 +505,14 @@ function updateUi(){
  if(k)k.innerHTML=kpiHtml(rows);
  if(r)r.innerHTML=rowsHtml(rows);
  const hd=document.getElementById('tvHead');if(hd)hd.innerHTML=headHtml();
- const g1=document.getElementById('tvGrid1');if(g1)g1.classList.toggle('no-rank',!!cfg.p1.semRanking);
+ const g1=document.getElementById('tvGrid1');if(g1)g1.classList.toggle('no-rank',lateralModo()==='oculto');
  const op=document.getElementById('tvOpts');if(op)op.innerHTML=optsHtml();
- const tt=document.getElementById('tvTblTitle');if(tt)tt.textContent=cfg.p1.agrupar?'PRODUÇÃO POR OPERAÇÃO':'LANÇAMENTOS DE PRODUÇÃO';
- const ts=document.getElementById('tvTblSub');if(ts)ts.textContent=cfg.p1.agrupar?'Eficiência coletiva ponderada pelos lançamentos':'Indicadores por apontamento no intervalo selecionado';
+ const tt=document.getElementById('tvTblTitle');if(tt)tt.textContent=tituloTabela();
+ const ts=document.getElementById('tvTblSub');if(ts)ts.textContent=subTabela();
+ const rt=document.getElementById('tvRankTitle');if(rt)rt.textContent=(DIM[lateralModo()]||DIM.funcionario).titulo;
  if(rank)rank.innerHTML=rankings(rows);
  if(count)count.textContent=fmt(rows.length)+' apontamento(s)';
- const rc=document.getElementById('tvRankCount');if(rc)rc.textContent=new Set(rows.map(l=>l.funcionario)).size+' pessoa(s)';
+ const rc=document.getElementById('tvRankCount');if(rc){const d=lateralModo();rc.textContent=d==='funcionario'||d==='oculto'?new Set(rows.map(l=>l.funcionario)).size+' pessoa(s)':agregar(rows,d).length+' item(ns)';}
  const fs=document.getElementById('tvFilterSummary');if(fs)fs.textContent=filterSummary();
  if(sync)sync.textContent=lastError?lastError:lastUpdated?'Atualizado às '+lastUpdated.toLocaleTimeString('pt-BR'):'Sincronizando com o Supabase';
  guardarRolagem();
@@ -498,16 +548,16 @@ function template(incoming){
  '<section class="tv-filterbar">'+
  '<label><span>DATA INICIAL</span><input type="date" id="tvInicio" value="'+escapeHtml(filters.inicio)+'"></label>'+
  '<label><span>DATA FINAL</span><input type="date" id="tvFim" value="'+escapeHtml(filters.fim)+'"></label>'+
- '<label><span>FUNCIONÁRIO</span><select id="tvFuncionario">'+options(data.funcionarios,filters.funcionario,'Todos os funcionários')+'</select></label>'+
+ '<label><span>FUNCIONÁRIO</span><select id="tvFuncionario">'+options((data.funcionarios||[]).map(f=>({id:f.id,nome:pessoa(f.id)})),filters.funcionario,'Todos os funcionários')+'</select></label>'+
  '<label><span>PRODUTO</span><select id="tvProduto">'+options(data.produtos,filters.produto,'Todos os produtos')+'</select></label>'+
  '<label><span>PROCESSO</span><select id="tvProcesso">'+options(data.processos,filters.processo,'Todas as operações')+'</select></label>'+
  '<label><span>SETOR</span><select id="tvSetor">'+options(data.setores,filters.setor,'Todos os setores')+'</select></label>'+
  '<label><span>GRUPO</span><select id="tvGrupo">'+options(data.grupos.filter(g=>!filters.setor||g.setor===filters.setor),filters.grupo,'Todos os grupos')+'</select></label>'+
  '<button type="button" class="tv-reset" data-tv-action="reset">Limpar filtros</button></section>'+
  '<div class="tv-p tv-p1"><section class="tv-kpis" id="tvKpis">'+kpiHtml(rows)+'</section>'+
- '<div class="tv-content-grid'+(cfg.p1.semRanking?' no-rank':'')+'" id="tvGrid1"><section class="tv-table-box"><div class="tv-panel-header"><div><b id="tvTblTitle">'+(cfg.p1.agrupar?'PRODUÇÃO POR OPERAÇÃO':'LANÇAMENTOS DE PRODUÇÃO')+'</b><small id="tvTblSub">'+(cfg.p1.agrupar?'Eficiência coletiva ponderada pelos lançamentos':'Indicadores por apontamento no intervalo selecionado')+'</small></div><span id="tvRowCount">'+fmt(rows.length)+' apontamento(s)</span></div><div id="tvOpts">'+optsHtml()+'</div>'+
+ '<div class="tv-content-grid'+(lateralModo()==='oculto'?' no-rank':'')+'" id="tvGrid1"><section class="tv-table-box"><div class="tv-panel-header"><div><b id="tvTblTitle">'+tituloTabela()+'</b><small id="tvTblSub">'+subTabela()+'</small></div><span id="tvRowCount">'+fmt(rows.length)+' apontamento(s)</span></div><div id="tvOpts">'+optsHtml()+'</div>'+
  '<div class="tv-table-scroll"><table class="tv-data-table"><thead id="tvHead">'+headHtml()+'</thead><tbody id="tvRows">'+rowsHtml(rows)+'</tbody></table></div></section>'+
- '<aside class="tv-ranking-box"><div class="tv-panel-header"><div><b>FUNCIONÁRIOS</b><small>Eficiência acumulada no período</small></div><span id="tvRankCount"></span></div><div id="tvRanking" class="tv-ranking-scroll">'+rankings(rows)+'</div></aside></div></div>'+
+ '<aside class="tv-ranking-box"><div class="tv-panel-header"><div><b id="tvRankTitle">'+(DIM[lateralModo()]||DIM.funcionario).titulo+'</b><small>Eficiência acumulada no período</small></div><span id="tvRankCount"></span></div><div id="tvRanking" class="tv-ranking-scroll">'+rankings(rows)+'</div></aside></div></div>'+
  [2,3,4,5,6].map(n=>'<div class="tv-p tv-p'+n+'" id="tvP'+n+'">'+(cfg.panel===n?PANEL_FN[n]():'')+'</div>').join('')+
  '<footer class="tv-bottom"><span>FACSIM • GESTÃO INDUSTRIAL</span><span>Peça pronta = apontamento da operação final · Processos, Gargalos e Peças prontas usam o fluxo inteiro (ignoram filtro de funcionário e processo)</span><span id="tvLastSync">Sincronizando com o Supabase</span></footer></section>';
 }
@@ -587,6 +637,7 @@ function setFilter(target){
  updateUi();
 }
 document.addEventListener('change',ev=>{
+ if(ev.target?.dataset?.tvCfg&&active){cfg.p1[ev.target.dataset.tvCfg]=ev.target.value;saveCfg();updateUi();const fs=document.getElementById('tvFuncionario');if(fs){const v=fs.value;fs.innerHTML=options((data.funcionarios||[]).map(f=>({id:f.id,nome:pessoa(f.id)})),v,'Todos os funcionários');}return;}
  if(!active)return;
  if(ev.target?.dataset?.rotPanel){const n=Number(ev.target.dataset.rotPanel);cfg.panels=ev.target.checked?[...new Set([...cfg.panels,n])].sort():cfg.panels.filter(x=>x!==n);if(!cfg.panels.length){cfg.panels=[n];ev.target.checked=true;}saveCfg();document.querySelectorAll('[data-tv-panel]').forEach(b=>b.classList.toggle('off-rot',!cfg.panels.includes(Number(b.dataset.tvPanel))));applyPanel();return;}
  if(ev.target?.id==='tvRotOn'){cfg.rotate=ev.target.checked;saveCfg();setRotation();return;}

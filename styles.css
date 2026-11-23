@@ -1121,3 +1121,13 @@ section .inativos-bar{margin:12px 20px 18px}
 .card-pad .inativos-bar{margin:14px 0 0}
 body.read-only .cad-actions [data-action^="cad-"]{display:none}
 .product-actions .btn-primary{flex-basis:100%}
+/* TV: listas de visualização do painel de produção */
+.tv-opts{align-items:flex-end}
+.tv-vsel{display:flex;align-items:center;gap:7px}
+.tv-vsel span{font-size:clamp(8px,.6vw,10px);letter-spacing:1.2px;color:#9fb4d4;font-weight:900;white-space:nowrap}
+.tv-vsel select{background:#08090b;border:1.5px solid #30353f;color:#f4f6fa;border-radius:20px;height:32px;padding:0 12px;font:inherit;font-size:clamp(10px,.72vw,13px);font-weight:800;color-scheme:dark;outline:none;cursor:pointer}
+.tv-vsel select:focus{border-color:#f5d33f}
+.tv-vsel select option{background:#22252d;color:#fff}
+.tv-rank-sub{display:block;font-weight:600;font-size:.78em;color:#8d97a6;margin-top:1px}
+.tv-full .tv-vsel{opacity:.6}
+.tv-full .tv-vsel:hover{opacity:1}
