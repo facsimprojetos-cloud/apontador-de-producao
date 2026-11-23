@@ -1105,3 +1105,19 @@ body:not(.is-admin) .admin-only{display:none!important}
 .q-defs-check{grid-template-columns:repeat(auto-fill,minmax(200px,1fr))}
 .q-defs-check .q-ponto{padding:8px 12px}
 .q-status small{display:block;font-size:11px;color:#6b4fc9;margin-top:2px}
+/* cadastros: editar / excluir / desativados */
+.cad-actions{display:inline-flex;align-items:center;gap:14px;flex-wrap:wrap}
+.cad-actions .text-btn{font-size:11px;white-space:nowrap}
+.structure-card>.cad-actions{margin:2px 0 4px}
+.group-line>.cad-actions{margin-left:auto}
+.product-card .cad-foot{margin-top:14px;padding-top:12px;border-top:1px solid #eff2f5}
+.employee-bottom .card-actions{align-items:center}
+.is-off{opacity:.62}
+.is-off:hover{opacity:1}
+.card.is-off{background:#fafbfc;border-style:dashed}
+tr.is-off td{background:#fafbfc}
+.inativos-bar{display:flex;align-items:center;justify-content:space-between;gap:12px;margin:14px 0;padding:10px 14px;border:1px dashed #d6dee6;border-radius:10px;font-size:11px;color:#7b8a99;background:#fff}
+section .inativos-bar{margin:12px 20px 18px}
+.card-pad .inativos-bar{margin:14px 0 0}
+body.read-only .cad-actions [data-action^="cad-"]{display:none}
+.product-actions .btn-primary{flex-basis:100%}
