@@ -123,7 +123,7 @@ function rowsHtml(rows){
   '<td class="tv-nw">'+escapeHtml(l.fim||'—')+'</td>'+
   '<td class="tv-product tv-text">'+escapeHtml(byId('produtos',l.produto)?.nome||'—')+'</td>'+
   (semPessoa()?'':'<td class="tv-text">'+escapeHtml(pessoa(l.funcionario))+(cfg.p1.nivel?gdBadge(nivelDe(l.funcionario,l.roteiro)):'')+'</td>')+
-  '<td class="tv-text">'+escapeHtml(byId('processos',l.processo)?.nome||'—')+(fin?' <span class="tv-finish">FINAL</span>':'')+'</td>'+
+  '<td class="tv-text">'+escapeHtml(byId('processos',l.processo)?.nome||'—')+(fin?' <span class="tv-finish">FINAL</span>':'')+(l.tipo==='conserto_proprio'?' <span class="tv-cons">CONSERTO</span>':l.tipo==='conserto_outro'?' <span class="tv-cons outro">CONSERTO P/ OUTRO</span>':'')+'</td>'+
   '<td class="tv-nw">'+escapeHtml(l.inicio||'—')+'</td><td class="tv-nw">'+escapeHtml(l.fim||'—')+'</td>'+
   '<td class="tv-nw">'+fmt(l.metaSnapshot)+'</td><td class="tv-nw">'+fmt(l.realizado)+'</td>'+
   '<td class="tv-eff-num">'+pill(e)+'</td></tr>';
@@ -186,7 +186,8 @@ let rotTimer=null,rotElapsed=0;
 const toMin=t=>{const [h,m]=String(t||'0:0').split(':').map(Number);return (h||0)*60+(m||0)};
 const durMin=l=>{let m=toMin(l.fim)-toMin(l.inicio);if(m<=0)m+=1440;return m};
 // Gargalos e prontas ignoram filtro de funcionário/processo (precisam do fluxo inteiro do produto)
-const rowsFlow=()=>data.lancamentos.filter(l=>
+// consertos ficam fora do fluxo (não são produção da operação)
+const rowsFlow=()=>data.lancamentos.filter(l=>(!l.tipo||l.tipo==='producao')&&
  (!filters.inicio||l.data>=filters.inicio)&&(!filters.fim||l.data<=filters.fim)&&(!filters.produto||l.produto===filters.produto)&&
  (!filters.setor||l.setor===filters.setor)&&(!filters.grupo||l.grupo===filters.grupo));
 function opStats(rows){

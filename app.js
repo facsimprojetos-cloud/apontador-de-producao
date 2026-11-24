@@ -378,7 +378,13 @@ const defsProduto=pid=>(data.defeitosProduto||[]).filter(x=>String(x.produto)===
 const ehInspecao=l=>!!byId('roteiro',l?.roteiro)?.qualidade;
 const qualDe=id=>(data.qualidade||[]).find(q=>String(q.lancamento)===String(id));
 const qualDefTot=q=>q?((q.defeitos||[]).reduce((n,d)=>n+Number(d.quantidade||0),0)||Number(q.defeituosas||0)):0;
+const ehConserto=l=>l&&(l.tipo==='conserto_proprio'||l.tipo==='conserto_outro');
+function consBadge(l){
+ if(l.tipo==='conserto_outro'){const d=byId('funcionarios',l.consertoDe);return `<span class="c-badge outro" title="Tempo fora da eficiência de quem consertou">🔧 Conserto de ${esc(first(d?.nome)||'outra pessoa')}${l.pecasConsertadas!=null?' · '+fNum(l.pecasConsertadas)+' pç':''}</span>`;}
+ return `<span class="c-badge" title="Tempo com meta e 0 peças: entra na eficiência">🔧 Conserto próprio${l.pecasConsertadas!=null?' · '+fNum(l.pecasConsertadas)+' pç':''}</span>`;
+}
 function qualBadge(l){
+ if(ehConserto(l))return consBadge(l);
  if(!ehInspecao(l))return '';
  const q=qualDe(l.id);
  if(q){const d=Number(q.defeituosas??qualDefTot(q))||0;return `<button type="button" class="q-badge ${d?'warn':'ok'}" data-action="qual-abrir" data-id="${esc(l.id)}" title="Ver ou editar a inspeção de qualidade">✓ Qualidade${d?' · '+fNum(d)+' c/ defeito':' · sem defeito'}</button>`;}
@@ -497,7 +503,8 @@ function historico(){
 
 /* --- Apontamento: produção, ausência e ausência coletiva --- */
 const novoEntry=(d)=>({modo:'producao',data:d||todayLocal(),funcionario:'',produto:'',roteiro:'',slot:'',inicio:'',fim:'',custom:false,realizado:'',
- ausTipo:'falta',ausInicio:'',ausFim:'',motivo:'',colSetor:'',colInicio:'',colFim:''});
+ ausTipo:'falta',ausInicio:'',ausFim:'',motivo:'',colSetor:'',colInicio:'',colFim:'',consTipo:'proprio',consDe:'',consPecas:''});
+const modoProd=m=>m==='producao'||m==='conserto';
 let entry=novoEntry();
 function resetEntry(){entry=novoEntry(entry.data);lastPreview=null;}
 let lastPreview=null,previewSeq=0,previewTimer=null;
@@ -581,11 +588,33 @@ function apontar(){
  if(!activeEmployees().length)return '<div class="notice">Cadastre funcionários antes de apontar.</div>';
  ensureEntryDefaults();
  const modo=entry.modo;
- const tabs=`<div class="modo-tabs" role="tablist">${[['producao','▤ Produção'],['ausencia','⏸ Ausência'],['coletiva','👥 Ausência coletiva']].map(([k,l])=>`<button type="button" role="tab" class="modo-tab${modo===k?' active':''}" data-modo="${k}" aria-selected="${modo===k}">${l}</button>`).join('')}</div>`;
+ const tabs=`<div class="modo-tabs" role="tablist">${[['producao','▤ Produção'],['conserto','🔧 Conserto'],['ausencia','⏸ Ausência'],['coletiva','👥 Ausência coletiva']].map(([k,l])=>`<button type="button" role="tab" class="modo-tab${modo===k?' active':''}" data-modo="${k}" aria-selected="${modo===k}">${l}</button>`).join('')}</div>`;
  const dataField=`<div class="field"><label for="entryData">Data</label><input class="input" type="date" id="entryData" value="${esc(entry.data)}" required></div>`;
  const funcField=`<div class="field"><label for="entryFuncionario">Funcionário</label><select class="select" id="entryFuncionario" required>${funcOptions()}</select></div>`;
  let body='';
- if(modo==='producao'){
+ if(modo==='conserto'){
+  const outros=activeEmployees().filter(f=>f.id!==entry.funcionario);
+  if(!data.produtos.length)body='<div class="notice">Cadastre produtos com operações antes de apontar conserto.</div>';
+  else body=`<div class="entry-grid">${dataField}${funcField.replace('>Funcionário<','>Quem está consertando<')}
+  <div class="field"><label for="entryProduto">Produto</label><select class="select" id="entryProduto" required><option value="">Selecione o produto</option>${cadAtivos(data.produtos).map(p=>`<option value="${esc(p.id)}" ${p.id===entry.produto?'selected':''}>${esc(p.nome)}</option>`).join('')}</select></div>
+  <div class="field"><label for="entryRoteiro">Operação consertada</label><select class="select" id="entryRoteiro" required ${entry.produto?'':'disabled'}>${routeOptions()}</select></div>
+ </div>
+ <div class="field"><label>De quem é a peça?</label><div class="aus-tipos">
+  <button type="button" class="aus-tipo${entry.consTipo==='proprio'?' active':''}" data-constipo="proprio"><b>Dele mesmo</b><small>o tempo conta com 0 peças e baixa a eficiência dele</small></button>
+  <button type="button" class="aus-tipo${entry.consTipo==='outro'?' active':''}" data-constipo="outro"><b>De outra pessoa</b><small>o tempo sai da conta dele e o ritmo fica preservado</small></button></div></div>
+ ${entry.consTipo==='outro'?`<div class="field cons-de"><label for="consDe">Peça de quem</label><select class="select" id="consDe" required><option value="">Selecione quem fez a peça</option>${outros.map(f=>`<option value="${esc(f.id)}" ${f.id===entry.consDe?'selected':''}>${esc(f.nome)}</option>`).join('')}</select></div>`:''}
+ <div class="field"><label>Horário do conserto</label><div class="slot-chips" id="slotChips">${slotChips()}</div>
+  <div class="custom-time${entry.custom?'':' hidden'}" id="customTime">
+   <label class="inline-date">Início <input class="input" type="time" id="entryInicio" value="${esc(entry.inicio)}"></label>
+   <label class="inline-date">Fim <input class="input" type="time" id="entryFim" value="${esc(entry.fim)}"></label>
+   <small class="muted-small">Informe exatamente o tempo gasto no conserto.</small>
+  </div></div>
+ <div class="entry-bottom">
+  <div class="field qty-field"><label for="consPecas">Peças consertadas <span class="muted-small">(opcional)</span></label><input class="input qty-input" type="number" inputmode="numeric" min="0" step="1" id="consPecas" value="${esc(entry.consPecas)}" placeholder="—"></div>
+  <div class="entry-preview" id="entryPreview"></div>
+  <button type="submit" class="btn btn-primary entry-submit">Registrar conserto</button>
+ </div>`;
+ }else if(modo==='producao'){
   if(!data.produtos.length)body='<div class="notice">Cadastre produtos com operações antes de apontar produção.</div>';
   else body=`<div class="entry-grid">${dataField}${funcField}
   <div class="field"><label for="entryProduto">Produto</label><select class="select" id="entryProduto" required><option value="">Selecione o produto</option>${cadAtivos(data.produtos).map(p=>`<option value="${esc(p.id)}" ${p.id===entry.produto?'selected':''}>${esc(p.nome)}</option>`).join('')}</select></div>
@@ -629,11 +658,11 @@ function apontar(){
 function refreshEntry(opts={}){
  ensureEntryDefaults();
  const chips=$('#slotChips');if(chips)chips.innerHTML=slotChips();
- const ct=$('#customTime');if(ct&&entry.modo==='producao')ct.classList.toggle('hidden',!entry.custom);
+ const ct=$('#customTime');if(ct&&modoProd(entry.modo))ct.classList.toggle('hidden',!entry.custom);
  if(opts.route){const r=$('#entryRoteiro');if(r){r.innerHTML=routeOptions();r.disabled=!entry.produto;}}
  if(opts.times||!entry.custom){const i=$('#entryInicio'),f=$('#entryFim');if(i)i.value=entry.inicio;if(f)f.value=entry.fim;}
  const day=$('#entryDay');if(day)day.innerHTML=dayList();
- if(entry.modo==='producao')schedulePreview();
+ if(modoProd(entry.modo))schedulePreview();
 }
 function localPreview(){
  const r=byId('roteiro',entry.roteiro);if(!r)return null;
@@ -643,7 +672,15 @@ function localPreview(){
 }
 function paintPreview(){
  const el=$('#entryPreview');if(!el)return;
- const p=lastPreview,raw=String($('#entryRealizado')?.value??'').trim(),done=Number(raw);
+ const p=lastPreview;
+ if(entry.modo==='conserto'){
+  const min=p?.minutos,outro=entry.consTipo==='outro';
+  el.innerHTML=`<div><strong>Tempo do conserto</strong><b>${min?hhmm(min):'—'}</b><small>${min?fNum(min)+' min':'Verifique o horário'}</small></div>`+
+  (outro?`<div><strong>Meta</strong><b>0</b><small>tempo fora da conta</small></div><div><strong>Eficiência dele</strong><b class="ok">Mantida</b><small>como se trabalhasse ${min?hhmm(min):''} a menos</small></div>`
+        :`<div><strong>Meta</strong><b>${p?.meta!=null?fNum(p.meta):'—'}</b><small>peças que deixou de fazer</small></div><div><strong>Eficiência</strong><b class="low">0%</b><small>neste período</small></div>`);
+  return;
+ }
+ const raw=String($('#entryRealizado')?.value??'').trim(),done=Number(raw);
  const meta=p?.meta,eff=meta&&raw!==''?done*100/meta:null;
  el.innerHTML=`<div><strong>Tempo</strong><b>${p?.segundos?fNum(p.segundos,1)+' s':'—'}</b><small>${p?.fonte?(p.fonte==='individual'?'Individual':'Padrão')+(p.nivel?' · nível '+esc(p.nivel):''):'Escolha a operação'}</small></div>`+
  `<div><strong>Meta</strong><b>${meta!=null?fNum(meta):'—'}</b><small>${p?.minutos?fNum(p.minutos)+' min':'Verifique o horário'}</small></div>`+
@@ -659,7 +696,7 @@ function schedulePreview(){
    if(seq===previewSeq&&r?.ok){lastPreview=r;paintPreview();}}catch(_){/* mantém a estimativa local */}
  },250);
 }
-function afterEntryRender(){if(entry.modo==='producao')schedulePreview()}
+function afterEntryRender(){if(modoProd(entry.modo))schedulePreview()}
 async function submitEntry(ev){
  ev.preventDefault();
  const form=ev.target,button=form.querySelector('[type="submit"]');
@@ -681,6 +718,25 @@ async function submitEntry(ev){
    const resEntry=await window.GUT_API.save('entry',{data:entry.data,funcionario:entry.funcionario,produto:entry.produto,processo:route.processo,roteiro:route.id,inicio:entry.inicio,fim:entry.fim,realizado:total});
    if(route.qualidade&&resEntry?.id)abrirQualidadeDepois=resEntry.id;
    msg=`Apontamento registrado: ${first(byId('funcionarios',entry.funcionario)?.nome)} · ${hourLabel(entry.inicio,entry.fim)} · ${fNum(total)} peças.`;
+  }else if(entry.modo==='conserto'){
+   const route=byId('roteiro',entry.roteiro);
+   entry.consPecas=String($('#consPecas')?.value||'').trim();
+   if(!entry.funcionario)throw Error('Escolha quem está consertando.');
+   if(!entry.produto)throw Error('Escolha o produto.');
+   if(!route)throw Error('Escolha a operação consertada.');
+   if(entry.consTipo==='outro'&&!entry.consDe)throw Error('Escolha de quem é a peça.');
+   if(!entry.inicio||!entry.fim)throw Error('Escolha um horário ou informe início e fim.');
+   const min=minutesBetween(entry.inicio,entry.fim);
+   if(min<=0||min>720)throw Error('O período deve ser maior que zero e não superar 12 horas.');
+   const pc=entry.consPecas===''?'':Number(entry.consPecas);
+   if(pc!==''&&(!Number.isInteger(pc)||pc<0))throw Error('Peças consertadas devem ser um número inteiro.');
+   if(button){button.disabled=true;button.textContent='Gravando...'}
+   await window.GUT_API.save('entry',{data:entry.data,funcionario:entry.funcionario,produto:entry.produto,processo:route.processo,roteiro:route.id,inicio:entry.inicio,fim:entry.fim,realizado:0,
+    tipo:entry.consTipo==='outro'?'conserto_outro':'conserto_proprio',consertoDe:entry.consTipo==='outro'?entry.consDe:'',pecasConsertadas:pc});
+   const quem=first(byId('funcionarios',entry.funcionario)?.nome);
+   msg=entry.consTipo==='outro'?`Conserto registrado: ${quem} consertou peça de ${first(byId('funcionarios',entry.consDe)?.nome)} (${hhmm(min)}). Esse tempo não conta contra ${quem}.`
+     :`Conserto próprio registrado: ${quem} · ${hhmm(min)} com 0 peças.`;
+   const keep={modo:'conserto',consTipo:entry.consTipo};resetEntry();Object.assign(entry,keep);
   }else if(entry.modo==='ausencia'){
    entry.motivo=String($('#ausMotivo')?.value||'').trim();
    if(!entry.funcionario)throw Error('Escolha o funcionário.');
@@ -703,7 +759,7 @@ async function submitEntry(ev){
    const r=await window.GUT_API.ausencia('coletiva',{data:entry.data,inicio:entry.colInicio,fim:entry.colFim,motivo:entry.motivo,setor:entry.colSetor});
    msg=`Ausência coletiva lançada para ${fNum(r?.afetados||0)} funcionário(s): ${hourLabel(entry.colInicio,entry.colFim)}.`;
   }
-  resetEntry();
+  if(entry.modo!=='conserto')resetEntry();
   await loadData();
   toast(msg);
   if(abrirQualidadeDepois){const lid=abrirQualidadeDepois;abrirQualidadeDepois=null;qualAbrir(lid,true);}
@@ -1459,6 +1515,8 @@ document.addEventListener('click',ev=>{
  if(modoBtn){const keep=entry.data;resetEntry();entry.data=keep;entry.modo=modoBtn.dataset.modo;render();return}
  const tipoBtn=ev.target.closest('[data-austipo]');
  if(tipoBtn){entry.ausTipo=tipoBtn.dataset.austipo;entry.motivo=String($('#ausMotivo')?.value||entry.motivo);render();return}
+ const ctBtn=ev.target.closest('[data-constipo]');
+ if(ctBtn){entry.consTipo=ctBtn.dataset.constipo;entry.consPecas=String($('#consPecas')?.value??entry.consPecas);render();return}
  const opall=ev.target.closest('[data-opall]');
  if(opall){const g=opall.closest('.op-group'),boxes=[...g.querySelectorAll('input[name=operacoes]')],all=boxes.every(b=>b.checked);boxes.forEach(b=>b.checked=!all);updateOpsCounters();return}
  if(slot){
@@ -1484,8 +1542,9 @@ document.addEventListener('change',ev=>{const t=ev.target;
  if(t.id==='filterProcesso')filters.processo=t.value,render();
  if(t.id==='filterSetor'){filters.setor=t.value;filters.grupo='';render();}
  if(t.id==='filterGrupo')filters.grupo=t.value,render();
- if(t.id==='entryData'){entry.data=t.value||todayLocal();if(!entry.custom)entry.slot='';if(entry.modo==='producao')refreshEntry();else render();}
- if(t.id==='entryFuncionario'){entry.funcionario=t.value;if(!entry.custom)entry.slot='';entry.roteiro='';if(entry.modo==='producao')refreshEntry({route:true});else render();}
+ if(t.id==='entryData'){entry.data=t.value||todayLocal();if(!entry.custom)entry.slot='';if(modoProd(entry.modo))refreshEntry();else render();}
+ if(t.id==='consDe'){entry.consDe=t.value;}
+ if(t.id==='entryFuncionario'){entry.funcionario=t.value;if(!entry.custom)entry.slot='';entry.roteiro='';if(entry.consDe===t.value)entry.consDe='';if(entry.modo==='producao')refreshEntry({route:true});else{entry.consPecas=String($('#consPecas')?.value??entry.consPecas);render();}}
  if(t.id==='colSetor'){entry.colSetor=t.value;render();}
  if(t.id==='ausMes'&&t.value){ausMes=t.value;render();}
  if(jornadaInput(t))return;
@@ -1503,6 +1562,7 @@ document.addEventListener('change',ev=>{const t=ev.target;
 document.addEventListener('input',ev=>{
  if(ev.target.id==='employeeSearch'){search=ev.target.value;const pos=ev.target.selectionStart;render();const el=$('#employeeSearch');el.focus();el.setSelectionRange(pos,pos)}
  if(ev.target.id==='entryRealizado'){entry.realizado=ev.target.value;paintPreview();}
+ if(ev.target.id==='consPecas')entry.consPecas=ev.target.value;
  if(['ausInicio','ausFim','colInicio','colFim'].includes(ev.target.id)){entry[ev.target.id]=ev.target.value;
    const m=$('#ausMin');if(m){const n=minutosAusencia(entry.ausInicio,entry.ausFim,entry.data);m.textContent=n?hhmm(n)+' de ausência (sem contar o intervalo)':'Informe o horário em que a pessoa não trabalhou.';}
    const c=$('#colInfo');if(c){const n=minutosAusencia(entry.colInicio,entry.colFim,entry.data);c.textContent=(n?hhmm(n)+' para cada um. ':'')+'Não altera a eficiência de ninguém; entra só na eficiência da empresa. Quem tem falta no dia fica de fora.';}}

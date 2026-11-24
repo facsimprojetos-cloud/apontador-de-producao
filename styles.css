@@ -1131,3 +1131,9 @@ body.read-only .cad-actions [data-action^="cad-"]{display:none}
 .tv-rank-sub{display:block;font-weight:600;font-size:.78em;color:#8d97a6;margin-top:1px}
 .tv-full .tv-vsel{opacity:.6}
 .tv-full .tv-vsel:hover{opacity:1}
+/* conserto */
+.c-badge{display:flex;width:max-content;align-items:center;gap:4px;margin-top:6px;padding:3px 10px;border-radius:20px;border:1.5px solid #e08a3c;background:#fff1e4;color:#9a4b0c;font-size:11px;font-weight:800;white-space:nowrap}
+.c-badge.outro{border-color:#6c8fc7;background:#eaf1fc;color:#2c4f87}
+.cons-de{max-width:420px}
+.tv-cons{display:inline-block;margin-left:4px;padding:1px 6px;border-radius:4px;background:#3a2410;color:#ffb36b;font-size:.62em;font-weight:900;letter-spacing:.5px;vertical-align:middle}
+.tv-cons.outro{background:#152640;color:#8fb8ff}
