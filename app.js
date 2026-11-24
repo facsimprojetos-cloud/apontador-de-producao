@@ -628,7 +628,7 @@ function apontar(){
  <div class="field"><label>De quem é a peça?</label><div class="aus-tipos">
   <button type="button" class="aus-tipo${entry.consTipo==='proprio'?' active':''}" data-constipo="proprio"><b>Dele mesmo</b><small>o tempo conta com 0 peças e baixa a eficiência dele</small></button>
   <button type="button" class="aus-tipo${entry.consTipo==='outro'?' active':''}" data-constipo="outro"><b>De outra pessoa</b><small>o tempo sai da conta dele e o ritmo fica preservado</small></button></div></div>
- ${entry.consTipo==='outro'?`<div class="field cons-de"><label for="consDe">Peça de quem</label><select class="select" id="consDe" required><option value="">Selecione quem fez a peça</option>${outros.map(f=>`<option value="${esc(f.id)}" ${f.id===entry.consDe?'selected':''}>${esc(f.nome)}</option>`).join('')}</select></div>`:''}
+ ${entry.consTipo==='outro'?`<div class="field cons-de"><label for="consDe">Peça de quem <span class="muted-small">(opcional)</span></label><select class="select" id="consDe"><option value="">Não sei / não informar</option>${outros.map(f=>`<option value="${esc(f.id)}" ${f.id===entry.consDe?'selected':''}>${esc(f.nome)}</option>`).join('')}</select></div>`:''}
  <div class="field"><label>Horário do conserto</label><div class="slot-chips" id="slotChips">${slotChips()}</div>
   <div class="custom-time${entry.custom?'':' hidden'}" id="customTime">
    <label class="inline-date">Início <input class="input" type="time" id="entryInicio" value="${esc(entry.inicio)}"></label>
@@ -750,7 +750,6 @@ async function submitEntry(ev){
    if(!entry.funcionario)throw Error('Escolha quem está consertando.');
    if(!entry.produto)throw Error('Escolha o produto.');
    if(!route)throw Error('Escolha a operação consertada.');
-   if(entry.consTipo==='outro'&&!entry.consDe)throw Error('Escolha de quem é a peça.');
    if(!entry.inicio||!entry.fim)throw Error('Escolha um horário ou informe início e fim.');
    const min=minutesBetween(entry.inicio,entry.fim);
    if(min<=0||min>720)throw Error('O período deve ser maior que zero e não superar 12 horas.');
@@ -760,7 +759,7 @@ async function submitEntry(ev){
    await window.GUT_API.save('entry',{data:entry.data,funcionario:entry.funcionario,produto:entry.produto,processo:route.processo,roteiro:route.id,inicio:entry.inicio,fim:entry.fim,realizado:0,
     tipo:entry.consTipo==='outro'?'conserto_outro':'conserto_proprio',consertoDe:entry.consTipo==='outro'?entry.consDe:'',pecasConsertadas:pc});
    const quem=first(byId('funcionarios',entry.funcionario)?.nome);
-   msg=entry.consTipo==='outro'?`Conserto registrado: ${quem} consertou peça de ${first(byId('funcionarios',entry.consDe)?.nome)} (${hhmm(min)}). Esse tempo não conta contra ${quem}.`
+   msg=entry.consTipo==='outro'?`Conserto registrado: ${quem} consertou peça ${entry.consDe?'de '+first(byId('funcionarios',entry.consDe)?.nome):'de outra pessoa'} (${hhmm(min)}). Esse tempo não conta contra ${quem}.`
      :`Conserto próprio registrado: ${quem} · ${hhmm(min)} com 0 peças.`;
    const keep={modo:'conserto',consTipo:entry.consTipo};resetEntry();Object.assign(entry,keep);
   }else if(entry.modo==='ausencia'){
