@@ -34,6 +34,7 @@
     async sessaoPing() { return unwrap(await client.rpc('apontador_sessao_ping',{})); },
     async sessaoEncerrar() { return unwrap(await client.rpc('apontador_sessao_encerrar',{})); },
     async acessos() { return unwrap(await client.rpc('apontador_acessos_listar',{})); },
+    async visitarEmpresa(id) { return unwrap(await client.rpc('apontador_visitar_empresa',{p_empresa:id?Number(id):null})); },
     async empresaSave(payload) { return unwrap(await client.rpc('apontador_empresa_salvar',{p_dados:payload})); },
     async acessoSave(payload) { return unwrap(await client.rpc('apontador_acesso_salvar',{p_dados:payload})); },
     async importar(payload) { return unwrap(await client.rpc('apontador_importar',{p_dados:payload})); },

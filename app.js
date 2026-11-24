@@ -174,6 +174,7 @@ function render(){
  $('#breadcrumb').textContent=NAMES[page]||'Apontamentos';
  const bc=$('#bcEmpresa');if(bc)bc.textContent=data.empresa?.nome||'FACSIM';
  document.body.classList.toggle('is-dono',!!data.donoPlataforma);
+ visitBar();
  document.querySelectorAll('[data-page]').forEach(btn=>btn.classList.toggle('active',btn.dataset.page===page));
  $('#footerDate').textContent='• '+new Date().getFullYear();
  if(page==='lancamentos'&&sub.lancamentos==='novo')afterEntryRender();
@@ -220,11 +221,25 @@ function accEmpresasView(emps){
   <div class="field"><label for="accEmpDoc">CNPJ (opcional)</label><input class="input" id="accEmpDoc" name="documento" maxlength="20" inputmode="numeric"></div>
   <div class="field"><label for="accEmpLim">Limite de acessos</label><input class="input" id="accEmpLim" name="limite" type="number" min="1" step="1" inputmode="numeric" placeholder="Sem limite"><small class="muted-small">Quantos logins ativos a empresa pode ter. Em branco = sem limite.</small></div>
   <button type="submit" class="btn btn-primary">Criar empresa</button></form></section>
-  <section class="acc-list">${emps.map(e=>`<article class="card acc-emp ${e.ativo?'':'is-off'}"><div class="acc-emp-top"><div><h3>${esc(e.nome)}${e.plataforma?' <span class="pill">plataforma</span>':''}${e.id===accData.minhaEmpresa?' <span class="pill">sua empresa</span>':''}</h3><small>${e.documento?esc(e.documento)+' · ':''}desde ${esc(fDate(e.criadaEm))}</small></div>
+  <section class="acc-list">${emps.map(e=>`<article class="card acc-emp ${e.ativo?'':'is-off'}"><div class="acc-emp-top"><div><h3>${e.id===accData.minhaEmpresa?esc(e.nome):`<button type="button" class="acc-emp-link" data-action="acc-entrar" data-id="${esc(e.id)}" title="Entrar nesta empresa">${esc(e.nome)}</button>`}${e.plataforma?' <span class="pill">plataforma</span>':''}${e.id===accData.minhaEmpresa?' <span class="pill">sua empresa</span>':''}</h3><small>${e.documento?esc(e.documento)+' · ':''}desde ${esc(fDate(e.criadaEm))}</small></div>
    <span class="acc-status ${e.ativo?'on':'off'}">${e.ativo?'Ativa':'Bloqueada'}</span></div>
    <div class="acc-nums"><span class="${accCheio(e)?'acc-cheio':''}"><b>${fNum(e.ativos??e.usuarios.filter(u=>u.ativo).length)}</b>${e.limite?' de <b>'+fNum(e.limite)+'</b>':''} acesso(s) ativo(s)${e.limite?'':' · sem limite'}</span><span><b>${fNum(e.funcionarios)}</b> funcionário(s)</span><span><b>${fNum(e.lancamentos)}</b> apontamento(s)</span></div>
-   <div class="acc-actions"><button class="btn btn-sm" data-action="acc-ver-usuarios" data-id="${esc(e.id)}">Usuários</button><button class="btn btn-sm" data-action="acc-renomear" data-id="${esc(e.id)}">Editar dados e limite</button>
+   <div class="acc-actions">${e.id===accData.minhaEmpresa?'':`<button class="btn btn-sm btn-primary" data-action="acc-entrar" data-id="${esc(e.id)}">Entrar na empresa</button>`}<button class="btn btn-sm" data-action="acc-ver-usuarios" data-id="${esc(e.id)}">Usuários</button><button class="btn btn-sm" data-action="acc-renomear" data-id="${esc(e.id)}">Editar dados e limite</button>
    ${e.plataforma||e.id===accData.minhaEmpresa?'':`<button class="btn btn-sm ${e.ativo?'btn-danger-soft':''}" data-action="acc-empresa-ativo" data-id="${esc(e.id)}" data-on="${e.ativo?'0':'1'}">${e.ativo?'Bloquear acesso':'Reativar'}</button>`}</div></article>`).join('')}</section></div>`;
+}
+/* ===== FACSIM dentro de uma empresa cliente ===== */
+function visitBar(){
+ let bar=$('#visitBar');const on=!!(data.visitando&&data.donoPlataforma);
+ document.body.classList.toggle('visitando',on);
+ if(!on){bar?.remove();return;}
+ if(!bar){bar=document.createElement('div');bar.id='visitBar';bar.className='visit-bar';bar.setAttribute('role','status');$('.topbar')?.after(bar);}
+ bar.innerHTML=`<span class="visit-dot" aria-hidden="true"></span><span>Você está dentro da empresa <b>${esc(data.empresa?.nome||'')}</b> com acesso completo. Tudo o que fizer aqui grava nesta empresa.</span><button type="button" class="btn btn-sm visit-back" data-action="voltar-empresa">↩ Voltar para ${esc(data.empresaPropria?.nome||'FACSIM')}</button>`;
+}
+async function trocarEmpresa(id,nome){
+ try{const r=await window.GUT_API.visitarEmpresa(id||null);accData=null;page='lancamentos';sub.acessos='usuarios';
+  await loadData();window.scrollTo?.(0,0);
+  toast(r?.visitando?'Agora você está dentro da '+(r.empresa||nome||'empresa')+'.':'De volta para '+(r?.empresa||'FACSIM')+'.');}
+ catch(e){toast('Não foi possível trocar de empresa: '+(e.message||String(e)));}
 }
 function accUsuariosView(emps,dono){
  const emp=emps.find(e=>e.id===accEmpresa)||emps[0];if(!emp)return '<div class="notice">Nenhuma empresa encontrada.</div>';
@@ -271,6 +286,8 @@ function accClick(action,el){
   case 'imp-gravar':impGravar();return true;
   case 'acc-recarregar':accData=null;accErr='';loadAcessos(true);render();return true;
   case 'acc-gerar-senha':{const i=$('#accSenha');if(i)i.value=senhaForte();return true;}
+  case 'voltar-empresa':trocarEmpresa(null);return true;
+  case 'acc-entrar':{const e=accData.empresas.find(x=>x.id===el.dataset.id);trocarEmpresa(el.dataset.id,e?.nome);return true;}
   case 'acc-ver-usuarios':accEmpresa=el.dataset.id;sub.acessos='usuarios';render();return true;
   case 'acc-empresa-ativo':{const on=el.dataset.on==='1',e=accData.empresas.find(x=>x.id===el.dataset.id);
    if(!on&&!confirmar(`Bloquear o acesso de ${e?.nome}? Os usuários dela deixam de entrar, mas nenhum dado é apagado.`))return true;
