@@ -59,6 +59,32 @@ let verInativos=false;
 const mostra=arr=>{const a=arr||[];return verInativos?[...a].sort((x,y)=>(x.ativo===false)-(y.ativo===false)):cadAtivos(a);};
 const offCls=r=>r&&r.ativo===false?' is-off':'';
 function inativosBar(arr,rotulo='cadastro(s) desativado(s)'){const n=(arr||[]).filter(r=>r.ativo===false).length;if(!n)return '';return '<div class="inativos-bar"><span>'+n+' '+rotulo+(verInativos?'':' escondido(s)')+'</span><button type="button" class="text-btn" data-action="toggle-inativos">'+(verInativos?'Esconder desativados':'Mostrar desativados')+'</button></div>';}
+/* Ordem dos funcionários nas listas: posição definida primeiro, o resto em ordem alfabética */
+const ordFunc=(a,b)=>(a.ordem??1e9)-(b.ordem??1e9)||String(a.nome||'').localeCompare(String(b.nome||''),'pt-BR');
+function ordenarFuncionarios(d){if(Array.isArray(d?.funcionarios))d.funcionarios.sort(ordFunc);}
+function ordemModal(){
+ const lst=activeEmployees();
+ const item=(f,i)=>`<li class="ord-item" draggable="true" data-id="${esc(f.id)}"><span class="ord-handle" aria-hidden="true">⠿</span><span class="ord-pos">${i+1}</span><span class="ord-nome"><b>${esc(f.nome)}</b><small>${esc([f.matricula,byId('setores',f.setor)?.nome,byId('grupos',f.grupo)?.nome].filter(Boolean).join(' · ')||'—')}</small></span><span class="ord-btns"><button type="button" class="icon-btn-sm" data-ord="up" aria-label="Subir ${esc(f.nome)}">▲</button><button type="button" class="icon-btn-sm" data-ord="down" aria-label="Descer ${esc(f.nome)}">▼</button></span></li>`;
+ showModal('Ordem dos funcionários','Arraste ou use as setas. É a ordem da lista de seleção no apontamento e nas demais telas.',
+  `<div class="ord-tools"><span class="muted-small">${lst.length} funcionário(s) ativo(s)</span><span><button type="button" class="text-btn" data-ord="az">Ordenar de A a Z</button><button type="button" class="text-btn" data-ord="setor">Agrupar por setor e grupo</button></span></div><ol class="ord-list" id="ordList">${lst.map(item).join('')}</ol>`,
+  'Salvar ordem','ordem_func');
+}
+function ordRenumerar(){document.querySelectorAll('#ordList .ord-item').forEach((li,i)=>{li.querySelector('.ord-pos').textContent=i+1})}
+function ordClick(btn){
+ const list=$('#ordList');if(!list)return;const k=btn.dataset.ord;
+ if(k==='up'||k==='down'){const li=btn.closest('.ord-item');
+  if(k==='up'&&li.previousElementSibling)list.insertBefore(li,li.previousElementSibling);
+  if(k==='down'&&li.nextElementSibling)list.insertBefore(li.nextElementSibling,li);
+  li.classList.add('ord-moved');setTimeout(()=>li.classList.remove('ord-moved'),400);btn.focus();}
+ else{const nome=li=>byId('funcionarios',li.dataset.id)?.nome||'',chave=li=>{const f=byId('funcionarios',li.dataset.id);return (byId('setores',f?.setor)?.nome||'~')+'|'+(byId('grupos',f?.grupo)?.nome||'~')};
+  [...list.children].sort((a,b)=>(k==='setor'?chave(a).localeCompare(chave(b),'pt-BR'):0)||nome(a).localeCompare(nome(b),'pt-BR')).forEach(li=>list.appendChild(li));}
+ ordRenumerar();
+}
+let ordDrag=null;
+document.addEventListener('dragstart',ev=>{const li=ev.target.closest?.('.ord-item');if(!li)return;ordDrag=li;li.classList.add('dragging');ev.dataTransfer.effectAllowed='move';try{ev.dataTransfer.setData('text/plain',li.dataset.id)}catch(_){}});
+document.addEventListener('dragover',ev=>{if(!ordDrag)return;const over=ev.target.closest?.('.ord-item');if(!over||over===ordDrag)return;ev.preventDefault();const r=over.getBoundingClientRect();over.parentNode.insertBefore(ordDrag,ev.clientY<r.top+r.height/2?over:over.nextSibling);});
+document.addEventListener('drop',ev=>{if(ordDrag)ev.preventDefault()});
+document.addEventListener('dragend',()=>{if(!ordDrag)return;ordDrag.classList.remove('dragging');ordDrag=null;ordRenumerar();});
 const btnNew=(what,label)=>`<button class="btn btn-primary" data-action="${what}" data-edit>＋ ${label}</button>`;
 const td=(label,content,cls='')=>`<td data-label="${esc(label)}"${cls?` class="${cls}"`:''}>${content}</td>`;
 function pageMarkup(){switch(page){case 'tv':return window.GUT_TV?window.GUT_TV.template(data):'<p>Painel de TV indisponível. Recarregue a página.</p>';case 'lancamentos':return lancamentos();case 'funcionarios':return funcionarios();case 'estrutura':return estrutura();case 'produtos':return produtos();case 'niveis':return niveis();case 'config':return config();case 'bonificacao':return bonificacao();case 'acessos':return acessos();case 'importar':return importar();default:return lancamentos()}}
@@ -101,7 +127,7 @@ async function loadData(){
  if(!window.GUT_API)throw Error(window.GUT_API_ERROR||'Não foi possível carregar a biblioteca de autenticação.');
  const response=await window.GUT_API.load();
  if(!response||!Array.isArray(response.lancamentos)||!Array.isArray(response.produtos))throw Error('O Supabase retornou dados incompletos.');
- data={...EMPTY(),...response};
+ data={...EMPTY(),...response};ordenarFuncionarios(data);
  authenticated=true;
  render();
 }
@@ -849,7 +875,7 @@ async function toggleSlot(id,ativo){
 /* ===================== FUNCIONÁRIOS ===================== */
 function funcionarios(){
  const items=mostra(data.funcionarios).filter(f=>!search||[f.nome,f.matricula,byId('setores',f.setor)?.nome,byId('grupos',f.grupo)?.nome].join(' ').toLowerCase().includes(search.toLowerCase()));
- return title('Funcionários','Cadastre o funcionário e marque as operações que ele executa.',btnNew('novo-funcionario','Cadastrar funcionário'))+
+ return title('Funcionários','Cadastre o funcionário e marque as operações que ele executa.','<button class="btn" data-action="ordem-funcionarios" data-edit>↕ Ordem na lista</button>'+btnNew('novo-funcionario','Cadastrar funcionário'))+
  '<div class="card controls-panel"><input id="employeeSearch" class="input search" placeholder="⌕ Buscar nome, matrícula, setor ou grupo..." aria-label="Buscar funcionário" value="'+esc(search)+'" /><div class="stats-row"><span><b>'+cadAtivos(data.funcionarios).length+'</b> funcionários</span><span><b>'+cadAtivos(data.setores).length+'</b> setores</span><span><b>'+cadAtivos(data.grupos).length+'</b> grupos</span></div></div>'+
  inativosBar(data.funcionarios,'funcionário(s) desativado(s)')+'<div class="data-grid">'+items.map(f=>
    '<article class="card employee-card'+offCls(f)+'"><div class="employee-top"><div class="employee-avatar">'+esc(initials(f.nome))+'</div><div style="flex:1"><div class="employee-name">'+esc(f.nome)+'</div><div class="employee-code">'+(f.matricula?'Matrícula '+esc(f.matricula):'Sem matrícula')+'</div></div>'+effPill(sums(data.lancamentos.filter(l=>l.funcionario===f.id)).eff)+'</div>'+
@@ -1383,6 +1409,13 @@ async function handleSubmit(ev){
   catch(e){toast('Não foi possível salvar: '+(e.message||String(e)));if(button){button.disabled=false;button.textContent=form.dataset.submitLabel||'Salvar'}}
   return;
  }
+ if(formType==='ordem_func'){
+   const ids=[...document.querySelectorAll('#ordList .ord-item')].map(li=>li.dataset.id);
+   if(button){button.disabled=true;button.textContent='Gravando...';}
+   try{await window.GUT_API.ordemFuncionarios(ids);await loadData();closeModal();toast('Ordem dos funcionários salva.');}
+   catch(e){toast('Não foi possível salvar a ordem: '+(e.message||String(e)));if(button){button.disabled=false;button.textContent='Salvar ordem';}}
+   return;
+ }
  if(formType==='cadastro_edit'){
    const tipo=v('cad_tipo'),payload={id:v('id'),nome:v('nome')};
    if(tipo==='slot'){payload.inicio=v('inicio');payload.fim=v('fim');delete payload.nome;}
@@ -1475,6 +1508,7 @@ function action(name,el){
   case 'cad-reativar':cadastroGerenciar(el.dataset.tipo,id,'reativar');break;
   case 'toggle-inativos':verInativos=!verInativos;render();break;
   case 'novo-funcionario':newEmployee();break;
+  case 'ordem-funcionarios':ordemModal();break;
  case 'editar-funcionario':newEmployee(id);break;
  case 'novo-setor':newSector();break;
  case 'novo-grupo':newGroup(id);break;
@@ -1515,6 +1549,8 @@ document.addEventListener('click',ev=>{
  if(modoBtn){const keep=entry.data;resetEntry();entry.data=keep;entry.modo=modoBtn.dataset.modo;render();return}
  const tipoBtn=ev.target.closest('[data-austipo]');
  if(tipoBtn){entry.ausTipo=tipoBtn.dataset.austipo;entry.motivo=String($('#ausMotivo')?.value||entry.motivo);render();return}
+ const ordBtn=ev.target.closest('[data-ord]');
+ if(ordBtn){ordClick(ordBtn);return}
  const ctBtn=ev.target.closest('[data-constipo]');
  if(ctBtn){entry.consTipo=ctBtn.dataset.constipo;entry.consPecas=String($('#consPecas')?.value??entry.consPecas);render();return}
  const opall=ev.target.closest('[data-opall]');

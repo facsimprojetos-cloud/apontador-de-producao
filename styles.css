@@ -1137,3 +1137,19 @@ body.read-only .cad-actions [data-action^="cad-"]{display:none}
 .cons-de{max-width:420px}
 .tv-cons{display:inline-block;margin-left:4px;padding:1px 6px;border-radius:4px;background:#3a2410;color:#ffb36b;font-size:.62em;font-weight:900;letter-spacing:.5px;vertical-align:middle}
 .tv-cons.outro{background:#152640;color:#8fb8ff}
+/* ordem dos funcionários */
+.ord-tools{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:10px}
+.ord-tools>span:last-child{display:inline-flex;gap:16px}
+.ord-list{list-style:none;margin:0;padding:0;max-height:min(58vh,560px);overflow:auto;border:1px solid #e3e9ef;border-radius:12px}
+.ord-item{display:grid;grid-template-columns:22px 30px minmax(0,1fr) auto;align-items:center;gap:10px;padding:9px 12px;border-top:1px solid #eff2f5;background:#fff;cursor:grab;user-select:none;transition:background .3s}
+.ord-item:first-child{border-top:0}
+.ord-item.dragging{opacity:.45;background:#f1f7f4}
+.ord-item.ord-moved{background:#e6f5ee}
+.ord-handle{color:#a7b4c1;font-size:16px;line-height:1}
+.ord-pos{font-weight:800;color:#0f7a59;font-size:12px;text-align:right}
+.ord-nome b{display:block;font-size:13px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.ord-nome small{display:block;color:#7b8a99;font-size:11px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.ord-btns{display:inline-flex;gap:4px}
+.icon-btn-sm{width:30px;height:30px;border-radius:8px;border:1px solid #d5dfe8;background:#fff;color:#4e6276;font-size:11px;cursor:pointer}
+.icon-btn-sm:hover{border-color:#0f7a59;color:#0f7a59}
+.icon-btn-sm:focus-visible{outline:2px solid #0f7a59;outline-offset:1px}
