@@ -188,7 +188,47 @@ function render(){
 }
 function goTo(p,s){page=p;if(s)sub[p]=s;if(window.location){if(p==='tv')window.location.hash='tv';else if(window.location.hash==='#tv')window.location.hash='';}render();window.scrollTo?.(0,0)}
 
-function tableApontamentos(rows){return `<div class="table-wrap"><table class="table table-cards"><thead><tr><th>Data</th><th>Funcionário</th><th>Setor / Grupo</th><th>Produto / Processo</th><th>Período</th><th>Meta</th><th>Realizado</th><th>Eficiência</th></tr></thead><tbody>${rows.length?rows.map(l=>{const person=byId('funcionarios',l.funcionario),product=byId('produtos',l.produto),proc=byId('processos',l.processo),eff=l.metaSnapshot?l.realizado*100/l.metaSnapshot:null;return `<tr>${td('Data',esc(fDate(l.data)))}${td('Funcionário',esc(person?.nome||l.funcionario),'strong card-title')}${td('Setor / Grupo',`<strong>${esc(l.setorNomeHistorico||byId('setores',l.setor)?.nome||'—')}</strong><small class="cell-sub">${esc(l.grupoNomeHistorico||byId('grupos',l.grupo)?.nome||'Sem grupo')}</small>`)}${td('Produto / Processo',`<b>${esc(product?.nome||l.produto)}</b><small class="cell-sub">${esc(proc?.nome||l.processo)}${isFinished(l)?' · <span class="final-flag">FINAL</span>':''}</small>${qualBadge(l)}`,'card-wide')}${td('Período',`${esc(l.inicio)}–${esc(l.fim)}`,'num')}${td('Meta',fNum(l.metaSnapshot),'num')}${td('Realizado',fNum(l.realizado),'strong num')}${td('Eficiência',effPill(eff),'num')}</tr>`}).join(''):`<tr><td colspan="8" class="empty-row">Nenhum lançamento no filtro selecionado.</td></tr>`}</tbody></table></div>`}
+
+/* ===================== EDITAR / EXCLUIR APONTAMENTO ===================== */
+const btnLanc=id=>canEdit()?`<span class="lanc-actions"><button type="button" class="text-btn" data-action="lanc-editar" data-id="${esc(id)}">Editar</button><button type="button" class="text-btn danger-btn" data-action="lanc-excluir" data-id="${esc(id)}">Excluir</button></span>`:'';
+function lancRotOpts(prod,sel,atual){
+ const lst=routeOf(prod);const extra=atual&&!lst.some(r=>r.id===atual)&&byId('roteiro',atual)?.produto===prod?[byId('roteiro',atual)]:[];
+ return [...lst,...extra].map(r=>`<option value="${esc(r.id)}" ${String(r.id)===String(sel)?'selected':''}>${esc(r.etapa?r.etapa+'. ':'')}${esc(byId('processos',r.processo)?.nome||'Operação')}</option>`).join('')||'<option value="">Produto sem operações</option>';
+}
+function editarApontamento(id){
+ const l=(data.lancamentos||[]).find(x=>String(x.id)===String(id));if(!l){toast('Apontamento não encontrado. Atualize a página.');return;}
+ const tipo=l.tipo||'producao',cons=tipo!=='producao';
+ const funcs=activeEmployees().some(f=>f.id===l.funcionario)?activeEmployees():[byId('funcionarios',l.funcionario),...activeEmployees()].filter(Boolean);
+ const prods=cadAtivos(data.produtos).some(p=>p.id===l.produto)?cadAtivos(data.produtos):[byId('produtos',l.produto),...cadAtivos(data.produtos)].filter(Boolean);
+ const opt=(lst,sel)=>lst.map(x=>`<option value="${esc(x.id)}" ${x.id===sel?'selected':''}>${esc(x.nome)}</option>`).join('');
+ const body=`<div class="form-grid"><input type="hidden" name="id" value="${esc(l.id)}"><input type="hidden" name="roteiroAtual" value="${esc(l.roteiro)}">
+  <div class="field"><label for="leData">Data</label><input class="input" type="date" id="leData" name="data" value="${esc(String(l.data).slice(0,10))}" required></div>
+  <div class="field"><label for="leFunc">${cons?'Quem consertou':'Funcionário'}</label><select class="select" id="leFunc" name="funcionario" required>${opt(funcs,l.funcionario)}</select></div>
+  <div class="field"><label for="leProd">Produto</label><select class="select" id="leProd" required>${opt(prods,l.produto)}</select></div>
+  <div class="field"><label for="leRot">${cons?'Operação consertada':'Operação'}</label><select class="select" id="leRot" name="roteiro" required>${lancRotOpts(l.produto,l.roteiro,l.roteiro)}</select></div>
+  <div class="field"><label for="leIni">Início</label><input class="input" type="time" id="leIni" name="inicio" value="${esc(l.inicio)}" required></div>
+  <div class="field"><label for="leFim">Fim</label><input class="input" type="time" id="leFim" name="fim" value="${esc(l.fim)}" required></div>
+  ${cons?`<div class="field full"><label>De quem é a peça?</label><div class="aus-tipos">
+    <label class="aus-tipo lanc-radio"><input type="radio" name="tipo" value="conserto_proprio" ${tipo==='conserto_proprio'?'checked':''}><b>Dele mesmo</b><small>0 peças, baixa a eficiência dele</small></label>
+    <label class="aus-tipo lanc-radio"><input type="radio" name="tipo" value="conserto_outro" ${tipo==='conserto_outro'?'checked':''}><b>De outra pessoa</b><small>o tempo sai da conta dele</small></label></div></div>
+   <div class="field"><label for="leDe">Peça de quem <span class="muted-small">(opcional)</span></label><select class="select" id="leDe" name="consertoDe"><option value="">Não sei / não informar</option>${opt(activeEmployees(),l.consertoDe||'')}</select></div>
+   <div class="field"><label for="lePc">Peças consertadas <span class="muted-small">(opcional)</span></label><input class="input" type="number" min="0" step="1" inputmode="numeric" id="lePc" name="pecasConsertadas" value="${l.pecasConsertadas??''}"></div>`
+  :`<input type="hidden" name="tipo" value="producao"><div class="field"><label for="leReal">Peças realizadas</label><input class="input" type="number" min="0" step="1" inputmode="numeric" id="leReal" name="realizado" value="${esc(l.realizado)}" required></div>`}
+  <p class="muted-small full lanc-nota">Ao salvar, o tempo padrão, a meta e a eficiência são recalculados para os novos dados.${ehInspecao(l)?' A inspeção de qualidade deste apontamento é mantida.':''}</p></div>`;
+ showModal(cons?'Editar conserto':'Editar apontamento',`${esc(byId('funcionarios',l.funcionario)?.nome||'')} · ${esc(fDate(l.data))} · ${esc(l.inicio)}–${esc(l.fim)}`,body,'Salvar alterações','edit_lanc');
+}
+let lancBusy=false;
+async function excluirApontamento(id){
+ const l=(data.lancamentos||[]).find(x=>String(x.id)===String(id));if(!l||lancBusy)return;
+ const quem=byId('funcionarios',l.funcionario)?.nome||'funcionário',op=byId('processos',l.processo)?.nome||'',cons=ehConserto(l);
+ const msg=`Excluir ${cons?'o conserto':'o apontamento'} de ${quem}?\n\n${fDate(l.data)} · ${l.inicio}–${l.fim} · ${op}${cons?'':' · '+fNum(l.realizado)+' peças'}`+(ehInspecao(l)?'\n\nA inspeção de qualidade ligada a ele também será apagada.':'')+'\n\nNão dá para desfazer.';
+ if(!confirmar(msg))return;
+ lancBusy=true;
+ try{await window.GUT_API.lancamento('excluir',{id:String(id)});await loadData();toast('Apontamento excluído.');}
+ catch(e){toast('Não foi possível excluir: '+(e.message||String(e)));}
+ finally{lancBusy=false;}
+}
+function tableApontamentos(rows){return `<div class="table-wrap"><table class="table table-cards"><thead><tr><th>Data</th><th>Funcionário</th><th>Setor / Grupo</th><th>Produto / Processo</th><th>Período</th><th>Meta</th><th>Realizado</th><th>Eficiência</th>${canEdit()?'<th></th>':''}</tr></thead><tbody>${rows.length?rows.map(l=>{const person=byId('funcionarios',l.funcionario),product=byId('produtos',l.produto),proc=byId('processos',l.processo),eff=l.metaSnapshot?l.realizado*100/l.metaSnapshot:null;return `<tr>${td('Data',esc(fDate(l.data)))}${td('Funcionário',esc(person?.nome||l.funcionario),'strong card-title')}${td('Setor / Grupo',`<strong>${esc(l.setorNomeHistorico||byId('setores',l.setor)?.nome||'—')}</strong><small class="cell-sub">${esc(l.grupoNomeHistorico||byId('grupos',l.grupo)?.nome||'Sem grupo')}</small>`)}${td('Produto / Processo',`<b>${esc(product?.nome||l.produto)}</b><small class="cell-sub">${esc(proc?.nome||l.processo)}${isFinished(l)?' · <span class="final-flag">FINAL</span>':''}</small>${qualBadge(l)}`,'card-wide')}${td('Período',`${esc(l.inicio)}–${esc(l.fim)}`,'num')}${td('Meta',fNum(l.metaSnapshot),'num')}${td('Realizado',fNum(l.realizado),'strong num')}${td('Eficiência',effPill(eff),'num')}${canEdit()?td('Ações',btnLanc(l.id),'lanc-cell'):''}</tr>`}).join(''):`<tr><td colspan="9" class="empty-row">Nenhum lançamento no filtro selecionado.</td></tr>`}</tbody></table></div>`}
 function selectOpts(collection,sel='',all=false,label='Todos'){const ar=data[collection]||[];return `${all?`<option value="">${label}</option>`:''}${ar.map(o=>`<option value="${esc(o.id)}" ${String(o.id)===String(sel)?'selected':''}>${esc(o.nome)}</option>`).join('')}`}
 
 /* ===================== GESTÃO DE ACESSOS ===================== */
@@ -617,7 +657,7 @@ function dayList(){
  return `<div class="section-head"><div><h3 class="section-title">${esc(first(person?.nome)||'Funcionário')} · ${esc(fDate(entry.data))}</h3><p class="section-sub">${rows.length} apontamento(s) · ${fNum(t.realizado)} peças · ${pct(t.eff)}${minAus?' · ausente '+hhmm(minAus):''}</p></div></div>`+
  (itens.length?`<div class="day-list">${itens.map(it=>{
   if(it.k==='a'){const a=it.a;return `<div class="day-row aus-row"><span class="day-hour">${esc(a.inicio)}–${esc(a.fim)}</span><span class="day-op">${esc(AUS_LABEL[a.tipo]||'Ausência')}${a.motivo&&a.motivo!==AUS_LABEL[a.tipo]?' · '+esc(a.motivo):''}<small>${hhmm(a.minutos)} sem produção${a.tipo==='falta'?' · entrou nas faltas da bonificação':''}</small></span><span></span>${a.tipo==='coletiva'?'<span class="pill grey">coletiva</span>':`<button type="button" class="text-btn danger-btn" data-edit data-action="aus-excluir" data-id="${esc(a.id)}">Excluir</button>`}</div>`}
-  const l=it.l,eff=l.metaSnapshot?l.realizado*100/l.metaSnapshot:null;return `<div class="day-row"><span class="day-hour">${esc(l.inicio)}–${esc(l.fim)}</span><span class="day-op">${esc(byId('processos',l.processo)?.nome||'—')}<small>${esc(byId('produtos',l.produto)?.nome||'')}</small>${qualBadge(l)}</span><span class="day-qty">${fNum(l.realizado)}<small>/ ${fNum(l.metaSnapshot)}</small></span>${effPill(eff)}</div>`}).join('')}</div>`
+  const l=it.l,eff=l.metaSnapshot?l.realizado*100/l.metaSnapshot:null;return `<div class="day-row"><span class="day-hour">${esc(l.inicio)}–${esc(l.fim)}</span><span class="day-op">${esc(byId('processos',l.processo)?.nome||'—')}<small>${esc(byId('produtos',l.produto)?.nome||'')}</small>${qualBadge(l)}</span><span class="day-qty">${fNum(l.realizado)}<small>/ ${fNum(l.metaSnapshot)}</small></span>${effPill(eff)}${btnLanc(l.id)}</div>`}).join('')}</div>`
  :'<p class="muted-small day-empty">Nenhum apontamento deste funcionário nesta data.</p>');
 }
 function funcOptions(){return '<option value="">Selecione o funcionário</option>'+activeEmployees().map(f=>`<option value="${esc(f.id)}" ${f.id===entry.funcionario?'selected':''}>${esc(f.nome)}</option>`).join('')}
@@ -1425,6 +1465,20 @@ async function handleSubmit(ev){
   catch(e){toast('Não foi possível salvar: '+(e.message||String(e)));if(button){button.disabled=false;button.textContent=form.dataset.submitLabel||'Salvar'}}
   return;
  }
+ if(formType==='edit_lanc'){
+   const fd=new FormData(form),payload={};fd.forEach((v,k)=>{payload[k]=String(v).trim()});
+   try{
+    if(!payload.roteiro)throw Error('Escolha a operação.');
+    const min=minutesBetween(payload.inicio,payload.fim);if(!(min>0&&min<=720))throw Error('O período deve ser maior que zero e de no máximo 12 horas.');
+    if(payload.tipo==='producao'&&!/^\d+$/.test(payload.realizado||''))throw Error('Informe as peças realizadas (número inteiro).');
+    if(payload.consertoDe&&payload.consertoDe===payload.funcionario)throw Error('A peça não pode ser de quem consertou.');
+    delete payload.roteiroAtual;
+    if(button){button.disabled=true;button.textContent='Gravando...';}
+    const r=await window.GUT_API.lancamento('editar',payload);closeModal();await loadData();
+    toast(payload.tipo==='producao'?`Apontamento atualizado: ${fNum(r?.realizado)} de ${fNum(r?.meta)} peças${r?.eficiencia!=null?' · '+fNum(Number(r.eficiencia))+'%':''}.`:'Conserto atualizado.');
+   }catch(e){toast('Não foi possível salvar: '+(e.message||String(e)));if(button){button.disabled=false;button.textContent='Salvar alterações';}}
+   return;
+ }
  if(formType==='ordem_func'){
    const ids=[...document.querySelectorAll('#ordList .ord-item')].map(li=>li.dataset.id);
    if(button){button.disabled=true;button.textContent='Gravando...';}
@@ -1525,6 +1579,8 @@ function action(name,el){
   case 'toggle-inativos':verInativos=!verInativos;render();break;
   case 'novo-funcionario':newEmployee();break;
   case 'ordem-funcionarios':ordemModal();break;
+  case 'lanc-editar':editarApontamento(id);break;
+  case 'lanc-excluir':excluirApontamento(id);break;
  case 'editar-funcionario':newEmployee(id);break;
  case 'novo-setor':newSector();break;
  case 'novo-grupo':newGroup(id);break;
@@ -1596,6 +1652,7 @@ document.addEventListener('change',ev=>{const t=ev.target;
  if(t.id==='filterGrupo')filters.grupo=t.value,render();
  if(t.id==='entryData'){entry.data=t.value||todayLocal();if(!entry.custom)entry.slot='';if(modoProd(entry.modo))refreshEntry();else render();}
  if(t.id==='consDe'){entry.consDe=t.value;}
+ if(t.id==='leProd'){const r=$('#leRot'),atual=$('#modalForm [name=roteiroAtual]')?.value;if(r)r.innerHTML=lancRotOpts(t.value,'',atual);}
  if(t.id==='entryFuncionario'){entry.funcionario=t.value;if(!entry.custom)entry.slot='';entry.roteiro='';if(entry.consDe===t.value)entry.consDe='';if(entry.modo==='producao')refreshEntry({route:true});else{entry.consPecas=String($('#consPecas')?.value??entry.consPecas);render();}}
  if(t.id==='colSetor'){entry.colSetor=t.value;render();}
  if(t.id==='ausMes'&&t.value){ausMes=t.value;render();}

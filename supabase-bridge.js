@@ -22,6 +22,7 @@
     async logout() { return unwrap(await client.auth.signOut()); },
     async load() { return unwrap(await client.rpc('apontador_carregar',{})); },
     async save(type, payload) { return unwrap(await client.rpc('apontador_salvar',{p_tipo:type,p_dados:payload})); },
+    async lancamento(acao, dados) { return unwrap(await client.rpc('apontador_lancamento',{p_acao:acao,p_dados:dados})); },
     async ordemFuncionarios(ids) { return unwrap(await client.rpc('apontador_funcionarios_ordem',{p_ids:ids})); },
     async cadastro(type, action, payload) { return unwrap(await client.rpc('apontador_cadastro_gerenciar',{p_tipo:type,p_acao:action,p_dados:payload})); },
     async preview(payload) { return unwrap(await client.rpc('apontador_previa',{p_dados:payload})); },
